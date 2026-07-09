@@ -1,17 +1,31 @@
 'use client'
 
-import { BadgeCheck, Copy, Gift, Lock, ShieldCheck, User } from 'lucide-react'
+import { BadgeCheck, Copy, Gift, Lock, LogOut, ShieldCheck, User } from 'lucide-react'
 import { usePulse } from '../store'
 import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 
 export function ProfileView() {
-  const { state, currentTier, openModal, setView, toast } = usePulse()
-  const referralCode = 'PULSE-T9K2'
+  const { state, currentTier, openModal, setView, toast, signOut, api } = usePulse()
+  const referralCode = state.referralCode
 
   const copyRef = () => {
     navigator.clipboard?.writeText(`https://pulse.africa/join?ref=${referralCode}`)
     toast({ title: 'Referral link copied', variant: 'info' })
+  }
+
+  const openAdmin = async () => {
+    if (state.isAdmin) {
+      setView('admin')
+      return
+    }
+    const res = await api.claimAdmin()
+    if (res.ok) {
+      toast({ title: 'Admin access granted', description: 'You are now a platform administrator.', variant: 'success' })
+      setView('admin')
+    } else {
+      toast({ title: 'Admin access unavailable', description: res.error, variant: 'error' })
+    }
   }
 
   return (
