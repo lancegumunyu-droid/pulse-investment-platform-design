@@ -15,7 +15,7 @@ const PROPOSALS = [
 ]
 
 export function StakeView() {
-  const { state, dispatch, toast } = usePulse()
+  const { state, api, busy, toast } = usePulse()
   const [mode, setMode] = useState<'stake' | 'unstake'>('stake')
   const [amount, setAmount] = useState('')
   const [voted, setVoted] = useState<Record<string, 'for' | 'against'>>({})
@@ -24,12 +24,16 @@ export function StakeView() {
   const max = mode === 'stake' ? state.pulse : state.staked
   const estYearly = (state.staked * TOKEN.salePrice * TOKEN.stakingApy) / 100
 
-  const act = () => {
+  const act = async () => {
     if (value <= 0 || value > max) {
       toast({ title: 'Invalid amount', description: `Max ${money(max, 0)} PULSE.`, variant: 'error' })
       return
     }
-    dispatch({ type: mode === 'stake' ? 'STAKE' : 'UNSTAKE', amount: value })
+    const res = mode === 'stake' ? await api.stake(value) : await api.unstake(value)
+    if (!res.ok) {
+      toast({ title: 'Action failed', description: res.error, variant: 'error' })
+      return
+    }
     toast({
       title: mode === 'stake' ? 'Staked successfully' : 'Unstaked successfully',
       description: `${money(value, 0)} PULSE ${mode === 'stake' ? 'is now earning rewards' : 'returned to balance'}.`,
@@ -38,9 +42,14 @@ export function StakeView() {
     setAmount('')
   }
 
-  const vote = (id: string, dir: 'for' | 'against') => {
+  const vote = async (id: string, dir: 'for' | 'against') => {
     if (state.staked <= 0) {
       toast({ title: 'Stake to vote', description: 'You need staked PULSE to participate in governance.', variant: 'error' })
+      return
+    }
+    const res = await api.vote(id, dir)
+    if (!res.ok) {
+      toast({ title: 'Vote failed', description: res.error, variant: 'error' })
       return
     }
     setVoted((v) => ({ ...v, [id]: dir }))
@@ -105,6 +114,7 @@ export function StakeView() {
           size="lg"
           className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 capitalize"
           onClick={act}
+          disabled={busy}
         >
           {mode} PULSE
         </Button>

@@ -1,5 +1,6 @@
 'use client'
 
+import type { Snapshot } from '@/lib/pulse/types'
 import { PulseProvider, usePulse } from './store'
 import { TopBar } from './top-bar'
 import { BottomNav } from './bottom-nav'
@@ -30,9 +31,9 @@ function Screen() {
   )
 }
 
-export function PulseApp() {
+export function PulseApp({ initial }: { initial: Snapshot }) {
   return (
-    <PulseProvider>
+    <PulseProvider initial={initial}>
       <div className="mx-auto flex min-h-screen max-w-md flex-col">
         <TopBar />
         <main className="flex-1 px-4 pb-28 pt-5">

@@ -101,6 +101,20 @@
     border: 1px solid rgba(245, 158, 11, 0.28);
     box-shadow: 0 24px 48px -24px rgba(245, 158, 11, 0.35);
   }
+  .pulse-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .pulse-input:focus {
+    border-color: rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
