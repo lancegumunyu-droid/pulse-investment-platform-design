@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { MailCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
 export default function SignUpSuccessPage() {
   return (
@@ -14,9 +13,12 @@ export default function SignUpSuccessPage() {
           We&apos;ve sent you a confirmation link. Confirm your email address, then sign in to access your Pulse
           portfolio.
         </p>
-        <Button asChild size="lg" className="mt-6 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90">
-          <Link href="/auth/login">Back to sign in</Link>
-        </Button>
+        <Link
+          href="/auth/login"
+          className="mt-6 flex h-11 w-full items-center justify-center rounded-xl bg-gold font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          Back to sign in
+        </Link>
       </div>
     </div>
   )

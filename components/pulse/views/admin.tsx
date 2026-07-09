@@ -339,7 +339,7 @@ export function AdminView() {
                     </div>
                     <div className="ml-2 flex shrink-0 items-center gap-1.5">
                       {u.role === 'admin' && <Pill tone="gold">admin</Pill>}
-                      <Pill tone={u.kycStatus === 'verified' ? 'green' : 'default'}>{u.kycStatus}</Pill>
+                      <Pill tone={u.kycStatus === 'verified' ? 'green' : 'muted'}>{u.kycStatus}</Pill>
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2 text-xs">

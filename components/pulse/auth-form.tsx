@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Activity, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
@@ -15,6 +15,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Redirect already-authenticated users away from auth pages.
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace('/app')
+    })
+  }, [router])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +54,24 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10 text-center">
+        <div className="glass rounded-3xl p-8">
+          <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
+            <Activity className="size-7 text-gold" />
+          </span>
+          <h1 className="text-lg font-semibold">Supabase not configured</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
+            Add <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in{' '}
+            <strong>Settings → Vars</strong> to enable authentication.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
