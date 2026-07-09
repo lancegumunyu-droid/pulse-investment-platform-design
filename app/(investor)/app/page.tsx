@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getSnapshot } from '@/lib/pulse/data-access'
 import { PulseApp } from '@/components/pulse/app'
 
-export default async function Page() {
+export default async function InvestorAppPage() {
   const supabase = await createClient()
   const {
     data: { user },
