@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Globe, ShieldCheck, TrendingUp, Zap } from 'lucide-react'
+import { createServerClient } from '@/lib/supabase/server'
 
 const STATS = [
   { label: 'Active projects', value: '12' },
@@ -7,6 +9,21 @@ const STATS = [
   { label: 'Target yield (p.a.)', value: '18–34%' },
   { label: 'Investors', value: '400+' },
 ]
+
+export default async function HomePage() {
+  // Check if user is already logged in
+  try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    // If logged in, go straight to app
+    if (user) {
+      redirect('/app')
+    }
+  } catch (err) {
+    // If Supabase isn't configured, just show the marketing page
+    console.log('[v0] Supabase auth check skipped:', (err as Error).message)
+  }
 
 const FEATURES = [
   {
@@ -65,7 +82,6 @@ const PROJECTS = [
   },
 ]
 
-export default function HomePage() {
   return (
     <>
       {/* Hero */}
