@@ -8,12 +8,14 @@ These emails are already in the admin allowlist. Sign up with any of these to be
 
 | Email | Role | Password | Notes |
 |-------|------|----------|-------|
-| `admin1@pulsetest.co.za` | Admin | You set it | Primary admin |
-| `admin2@pulsetest.co.za` | Admin | You set it | Secondary admin |
-| `support@pulsetest.co.za` | Admin | You set it | Support team |
-| `finance@pulsetest.co.za` | Admin | You set it | Finance team |
-| `lance@pulse.co.za` | Admin | You set it | Founder |
-| `you@pulse.co.za` | Admin | You set it | Your account |
+| `lancegumunyu@gmail.com` | Admin | Test123@ | **PRIMARY - Your account** |
+| `samkelisiwechiliza2@gmail.com` | Admin | Test123@@ | **SECONDARY - Samkelisiwe** |
+| `admin1@pulsetest.co.za` | Admin | You set it | Testing |
+| `admin2@pulsetest.co.za` | Admin | You set it | Testing |
+| `support@pulsetest.co.za` | Admin | You set it | Testing |
+| `finance@pulsetest.co.za` | Admin | You set it | Testing |
+| `lance@pulse.co.za` | Admin | You set it | Testing |
+| `you@pulse.co.za` | Admin | You set it | Testing |
 
 ### Investor Test Accounts
 
