@@ -295,6 +295,115 @@ END $$;
 ALTER TABLE public.staff_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff_logs ENABLE ROW LEVEL SECURITY;
 
+-- ──────────────────────────────────────
+-- 11. admin_float (admin virtual funds)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.admin_float (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_email     TEXT UNIQUE NOT NULL,
+  pulse_balance   NUMERIC(18,8) NOT NULL DEFAULT 50000.0,
+  usd_balance     NUMERIC(18,8) NOT NULL DEFAULT 10000.0,
+  pulse_used      NUMERIC(18,8) NOT NULL DEFAULT 0,
+  usd_used        NUMERIC(18,8) NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS admin_float_email_idx ON public.admin_float(admin_email);
+
+-- ──────────────────────────────────────
+-- 12. p2p_transfers (admin disburse/client transfers)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.p2p_transfers (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_admin      TEXT NOT NULL,
+  to_client_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  amount          NUMERIC(18,8) NOT NULL,
+  currency        TEXT NOT NULL,
+  transfer_type   TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'completed',
+  description     TEXT,
+  approved_by     UUID REFERENCES public.profiles(id),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS p2p_transfers_from_idx ON public.p2p_transfers(from_admin);
+CREATE INDEX IF NOT EXISTS p2p_transfers_to_idx ON public.p2p_transfers(to_client_id);
+CREATE INDEX IF NOT EXISTS p2p_transfers_status_idx ON public.p2p_transfers(status);
+
+-- ──────────────────────────────────────
+-- 13. kyc_audit_log (KYC compliance tracking)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.kyc_audit_log (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  kyc_id          UUID NOT NULL REFERENCES public.kyc_submissions(id) ON DELETE CASCADE,
+  user_id         UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  action          TEXT NOT NULL,
+  reviewed_by     UUID REFERENCES public.profiles(id),
+  notes           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS kyc_audit_user_idx ON public.kyc_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS kyc_audit_action_idx ON public.kyc_audit_log(action);
+
+-- ──────────────────────────────────────
+-- 14. transaction_details (complex transaction tracking)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.transaction_details (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  transaction_id  UUID NOT NULL REFERENCES public.transactions(id) ON DELETE CASCADE,
+  from_user       UUID REFERENCES public.profiles(id),
+  to_user         UUID REFERENCES public.profiles(id),
+  meta_json       JSONB NOT NULL DEFAULT '{}',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS transaction_details_txn_idx ON public.transaction_details(transaction_id);
+
+-- ──────────────────────────────────────
+-- 15. deposit_requests (deposit flow tracking)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.deposit_requests (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  amount          NUMERIC(18,8) NOT NULL,
+  currency        TEXT NOT NULL DEFAULT 'USD',
+  payment_method  TEXT,
+  reference       TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending',
+  approved_by     UUID REFERENCES public.profiles(id),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at    TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS deposits_user_idx ON public.deposit_requests(user_id);
+CREATE INDEX IF NOT EXISTS deposits_status_idx ON public.deposit_requests(status);
+
+-- ──────────────────────────────────────
+-- 16. withdrawal_requests (withdrawal flow with admin approval)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.withdrawal_requests (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  amount          NUMERIC(18,8) NOT NULL,
+  currency        TEXT NOT NULL DEFAULT 'USD',
+  wallet_address  TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending',
+  approved_by     UUID REFERENCES public.profiles(id),
+  approval_date   TIMESTAMPTZ,
+  completed_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS withdrawals_user_idx ON public.withdrawal_requests(user_id);
+CREATE INDEX IF NOT EXISTS withdrawals_status_idx ON public.withdrawal_requests(status);
+
+-- Additional transaction indexes for performance
+CREATE INDEX IF NOT EXISTS transactions_created_idx ON public.transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS transactions_user_type_idx ON public.transactions(user_id, type);
+CREATE INDEX IF NOT EXISTS transactions_type_status_idx ON public.transactions(type, status);
+
 -- ============================================================
 -- Done.
 -- ============================================================
