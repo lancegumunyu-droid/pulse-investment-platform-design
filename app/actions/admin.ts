@@ -186,3 +186,170 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
     return { ok: false, error: (e as Error).message }
   }
 }
+
+// ──────────────────────────────────────
+// Staff Management
+// ──────────────────────────────────────
+
+export async function addStaffMember(staffData: {
+  email: string
+  fullName: string
+  department: string
+  position: string
+  role: 'staff' | 'manager' | 'director'
+  phone?: string
+  country?: string
+  notes?: string
+}): Promise<{ ok: boolean; error?: string; staffId?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const db = serviceClient()
+    const clean = staffData.email.trim().toLowerCase()
+    
+    const { data, error } = await db
+      .from('staff_members')
+      .insert({
+        email: clean,
+        full_name: staffData.fullName,
+        department: staffData.department,
+        position: staffData.position,
+        role: staffData.role,
+        phone: staffData.phone || null,
+        country: staffData.country || null,
+        notes: staffData.notes || null,
+        created_by: admin.id,
+      })
+      .select('id')
+      .single()
+    
+    if (error) return { ok: false, error: error.message }
+    
+    // Log the action
+    await db.from('staff_logs').insert({
+      staff_id: data.id,
+      action: 'created',
+      performed_by: admin.id,
+      changes: { email: clean, department: staffData.department, position: staffData.position },
+    })
+    
+    return { ok: true, staffId: data.id }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function updateStaffMember(
+  staffId: string,
+  staffData: Partial<{
+    fullName: string
+    department: string
+    position: string
+    role: 'staff' | 'manager' | 'director'
+    status: 'active' | 'inactive' | 'suspended'
+    phone: string
+    country: string
+    notes: string
+  }>
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const db = serviceClient()
+    
+    const updateData: Record<string, any> = {}
+    if (staffData.fullName !== undefined) updateData.full_name = staffData.fullName
+    if (staffData.department !== undefined) updateData.department = staffData.department
+    if (staffData.position !== undefined) updateData.position = staffData.position
+    if (staffData.role !== undefined) updateData.role = staffData.role
+    if (staffData.status !== undefined) updateData.status = staffData.status
+    if (staffData.phone !== undefined) updateData.phone = staffData.phone || null
+    if (staffData.country !== undefined) updateData.country = staffData.country || null
+    if (staffData.notes !== undefined) updateData.notes = staffData.notes || null
+    
+    const { error } = await db
+      .from('staff_members')
+      .update(updateData)
+      .eq('id', staffId)
+    
+    if (error) return { ok: false, error: error.message }
+    
+    // Log the update
+    await db.from('staff_logs').insert({
+      staff_id: staffId,
+      action: 'updated',
+      performed_by: admin.id,
+      changes: staffData,
+    })
+    
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function suspendStaffMember(staffId: string, reason: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const db = serviceClient()
+    
+    const { error } = await db
+      .from('staff_members')
+      .update({ status: 'suspended' })
+      .eq('id', staffId)
+    
+    if (error) return { ok: false, error: error.message }
+    
+    await db.from('staff_logs').insert({
+      staff_id: staffId,
+      action: 'suspended',
+      performed_by: admin.id,
+      changes: { reason },
+    })
+    
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getStaffList(): Promise<{ ok: boolean; staff?: any[]; error?: string }> {
+  try {
+    await requireAdmin()
+    const db = serviceClient()
+    
+    const { data, error } = await db
+      .from('staff_members')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
+    if (error) return { ok: false, error: error.message }
+    
+    return {
+      ok: true,
+      staff: data || [],
+    }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getStaffLogs(staffId: string): Promise<{ ok: boolean; logs?: any[]; error?: string }> {
+  try {
+    await requireAdmin()
+    const db = serviceClient()
+    
+    const { data, error } = await db
+      .from('staff_logs')
+      .select('*')
+      .eq('staff_id', staffId)
+      .order('created_at', { ascending: false })
+    
+    if (error) return { ok: false, error: error.message }
+    
+    return {
+      ok: true,
+      logs: data || [],
+    }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}

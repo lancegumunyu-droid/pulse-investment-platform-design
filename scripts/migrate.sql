@@ -166,6 +166,46 @@ CREATE TABLE IF NOT EXISTS public.admin_allowlist (
   added_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ──────────────────────────────────────
+-- 9. staff_members (team management)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.staff_members (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
+  email           TEXT UNIQUE NOT NULL,
+  full_name       TEXT NOT NULL,
+  department      TEXT NOT NULL,              -- 'Operations' | 'Finance' | 'KYC' | 'Support' | 'Development'
+  position        TEXT NOT NULL,              -- Job title
+  role            TEXT NOT NULL DEFAULT 'staff',  -- 'staff' | 'manager' | 'director'
+  status          TEXT NOT NULL DEFAULT 'active',  -- 'active' | 'inactive' | 'suspended'
+  permissions     TEXT[] NOT NULL DEFAULT '{}',   -- Array of permission strings
+  date_hired      DATE,
+  phone           TEXT,
+  country         TEXT,
+  notes           TEXT,
+  created_by      UUID REFERENCES public.profiles(id),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS staff_email_idx ON public.staff_members(email);
+CREATE INDEX IF NOT EXISTS staff_department_idx ON public.staff_members(department);
+CREATE INDEX IF NOT EXISTS staff_status_idx ON public.staff_members(status);
+
+-- ──────────────────────────────────────
+-- 10. staff_logs (audit trail for staff)
+-- ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.staff_logs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id    UUID NOT NULL REFERENCES public.staff_members(id) ON DELETE CASCADE,
+  action      TEXT NOT NULL,              -- 'created' | 'updated' | 'suspended' | 'deleted'
+  changes     JSONB NOT NULL DEFAULT '{}', -- What changed
+  performed_by UUID REFERENCES public.profiles(id),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS staff_logs_staff_id_idx ON public.staff_logs(staff_id);
+
 -- ============================================================
 -- Row Level Security
 -- All mutation goes through service-role server actions only.
@@ -231,6 +271,29 @@ DO $$ BEGIN
 END $$;
 
 -- admin_allowlist: no direct client access (service role only)
+
+-- staff_members: only admins can read all staff, staff can read their own
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='staff_members' AND policyname='admins can read all staff') THEN
+    CREATE POLICY "admins can read all staff" ON public.staff_members FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+  END IF;
+END $$;
+
+-- staff_logs: only admins and affected staff can read
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='staff_logs' AND policyname='staff logs access') THEN
+    CREATE POLICY "staff logs access" ON public.staff_logs FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      OR
+      EXISTS (SELECT 1 FROM public.staff_members WHERE id = staff_id AND user_id = auth.uid())
+    );
+  END IF;
+END $$;
+
+ALTER TABLE public.staff_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff_logs ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- Done.
