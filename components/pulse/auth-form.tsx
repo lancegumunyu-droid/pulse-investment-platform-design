@@ -48,8 +48,6 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           email,
           password,
           options: {
-            emailRedirectTo:
-              process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
             data: { full_name: fullName },
           },
         })
@@ -57,17 +55,25 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           console.error('[v0] Signup error:', error.message)
           throw error
         }
-        console.log('[v0] Signup successful, user needs email confirmation')
-        router.push('/auth/sign-up-success')
+        console.log('[v0] Signup successful, auto-logging in...')
+        
+        // Auto-login immediately after signup
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
+        if (loginError) {
+          console.error('[v0] Auto-login after signup failed:', loginError.message)
+          // Even if auto-login fails, account is created - redirect to login
+          router.push('/auth/login')
+        } else {
+          console.log('[v0] Auto-login successful after signup')
+          router.push('/app')
+          router.refresh()
+        }
       } else {
         console.log('[v0] Attempting login for:', email)
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) {
           console.error('[v0] Login error:', error.message)
-          // Check if it's an unverified email error
-          if (error.message.includes('Email not confirmed')) {
-            throw new Error('Please confirm your email address first. Check your inbox for the confirmation link.')
-          }
+  
           throw error
         }
         console.log('[v0] Login successful')
