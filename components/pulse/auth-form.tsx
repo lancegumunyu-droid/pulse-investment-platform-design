@@ -43,7 +43,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       
       const supabase = createClient()
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        console.log('[v0] Attempting signup for:', email)
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -52,16 +53,31 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
             data: { full_name: fullName },
           },
         })
-        if (error) throw error
+        if (error) {
+          console.error('[v0] Signup error:', error.message)
+          throw error
+        }
+        console.log('[v0] Signup successful, user needs email confirmation')
         router.push('/auth/sign-up-success')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        console.log('[v0] Attempting login for:', email)
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) {
+          console.error('[v0] Login error:', error.message)
+          // Check if it's an unverified email error
+          if (error.message.includes('Email not confirmed')) {
+            throw new Error('Please confirm your email address first. Check your inbox for the confirmation link.')
+          }
+          throw error
+        }
+        console.log('[v0] Login successful')
         router.push('/app')
         router.refresh()
       }
     } catch (err) {
-      setError((err as Error).message)
+      const errorMsg = (err as Error).message
+      console.error('[v0] Auth error:', errorMsg)
+      setError(errorMsg)
       setLoading(false)
     }
   }
