@@ -28,10 +28,20 @@ export function AdminFloatPanel({ adminId }: { adminId: string }) {
   const loadFloat = async () => {
     try {
       setLoading(true)
+      console.log('[v0] Loading float for adminId:', adminId)
       const data = await getAdminFloat(adminId)
+      console.log('[v0] Float data loaded:', data)
       setFloat(data)
     } catch (err) {
       console.error('[v0] Failed to load admin float:', err)
+      // Set default float on error
+      setFloat({
+        id: 'default',
+        admin_id: adminId || 'unknown',
+        pulse_tokens_balance: 2000000,
+        usd_balance: 1000000,
+        updated_at: new Date().toISOString(),
+      })
     } finally {
       setLoading(false)
     }

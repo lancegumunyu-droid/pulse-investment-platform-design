@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { LogOut, Settings } from 'lucide-react'
 import { AdminApprovalsView } from '@/components/pulse/views/admin-approvals'
+import { AdminKycReview } from '@/components/pulse/admin-kyc-review'
 import { AdminFloatPanel } from '@/components/pulse/admin-float-panel'
 import { Button } from '@/components/ui/button'
 
@@ -18,7 +19,7 @@ interface AdminSession {
 export default function AdminDashboard() {
   const router = useRouter()
   const [admin, setAdmin] = useState<AdminSession | null>(null)
-  const [activeTab, setActiveTab] = useState<'approvals' | 'float'>('approvals')
+  const [activeTab, setActiveTab] = useState<'approvals' | 'kyc' | 'float'>('approvals')
 
   useEffect(() => {
     const session = localStorage.getItem('adminSession')
@@ -26,7 +27,12 @@ export default function AdminDashboard() {
       router.push('/admin/login')
       return
     }
-    setAdmin(JSON.parse(session))
+    try {
+      setAdmin(JSON.parse(session))
+    } catch (err) {
+      console.error('[v0] Failed to parse admin session:', err)
+      router.push('/admin/login')
+    }
   }, [router])
 
   const handleLogout = () => {
@@ -86,6 +92,16 @@ export default function AdminDashboard() {
               User Approvals
             </button>
             <button
+              onClick={() => setActiveTab('kyc')}
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'kyc'
+                  ? 'border-gold text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              KYC Review
+            </button>
+            <button
               onClick={() => setActiveTab('float')}
               className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === 'float'
@@ -101,9 +117,13 @@ export default function AdminDashboard() {
 
       {/* Content */}
       <div className="mx-auto max-w-6xl px-5 py-8">
-        {activeTab === 'approvals' ? (
+        {activeTab === 'approvals' && (
           <AdminApprovalsView adminId={admin.id} />
-        ) : (
+        )}
+        {activeTab === 'kyc' && (
+          <AdminKycReview adminId={admin.id} />
+        )}
+        {activeTab === 'float' && (
           <AdminFloatPanel adminId={admin.id} />
         )}
       </div>
