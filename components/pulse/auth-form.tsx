@@ -18,19 +18,30 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
 
   // Redirect already-authenticated users away from auth pages.
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace('/app')
-    })
+    try {
+      if (!isSupabaseConfigured()) return
+      const supabase = createClient()
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) router.replace('/app')
+      })
+    } catch (err) {
+      console.log('[v0] Supabase check skipped - not configured')
+    }
   }, [router])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const supabase = createClient()
+    
     try {
+      if (!isSupabaseConfigured()) {
+        setError('Supabase is not configured. Please check your environment variables.')
+        setLoading(false)
+        return
+      }
+      
+      const supabase = createClient()
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
@@ -51,28 +62,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       }
     } catch (err) {
       setError((err as Error).message)
-    } finally {
       setLoading(false)
     }
   }
 
-  if (!isSupabaseConfigured()) {
-    return (
-      <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10 text-center">
-        <div className="glass rounded-3xl p-8">
-          <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
-            <Activity className="size-7 text-gold" />
-          </span>
-          <h1 className="text-lg font-semibold">Supabase not configured</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
-            Add <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in{' '}
-            <strong>Settings → Vars</strong> to enable authentication.
-          </p>
-        </div>
-      </div>
-    )
-  }
+
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
