@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Activity, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { SecurityValidator } from '@/lib/security'
+import { validatePasswordStrength } from '@/lib/password-validator'
 
 export function ResetPasswordForm() {
   const router = useRouter()
@@ -40,7 +40,7 @@ export function ResetPasswordForm() {
 
   const handlePasswordChange = (value: string) => {
     setPassword(value)
-    const strength = SecurityValidator.validatePasswordStrength(value)
+    const strength = validatePasswordStrength(value)
     setPasswordStrength(strength)
   }
 
