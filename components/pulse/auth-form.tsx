@@ -59,18 +59,25 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
         
         // Create user profile with 50 USDT PULSE tokens promotion
         if (data.user) {
-          await supabase.from('profiles').insert({
-            id: data.user.id,
-            full_name: fullName,
-            email: email,
-            approval_status: 'pending',
-            email_confirmed: false,
-            pulse_tokens_balance: 50, // Promotion: 50 USDT worth of PULSE tokens
-            usd_balance: 0,
-            kyc_status: 'pending',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
+          try {
+            await supabase.from('profiles').insert({
+              id: data.user.id,
+              full_name: fullName,
+              email: email,
+              approval_status: 'pending_email_confirmation',
+              email_confirmed: false,
+              pulse_tokens_promotional: 50, // 50 USDT promotional (non-withdrawable until deposit)
+              pulse_tokens_withdrawable: 0,
+              usd_balance: 0,
+              kyc_status: 'not_started',
+              admin_approved: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            console.log('[v0] Profile created with 50 USDT PULSE promotional tokens')
+          } catch (err) {
+            console.warn('[v0] Profile creation error:', (err as Error).message)
+          }
         }
         
         console.log('[v0] Signup successful, confirmation email sent')
