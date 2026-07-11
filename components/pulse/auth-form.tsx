@@ -44,6 +44,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       const supabase = createClient()
       if (isSignUp) {
         console.log('[v0] Attempting signup for:', email)
+        console.log('[v0] Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -53,30 +54,39 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           },
         })
         if (error) {
-          console.error('[v0] Signup error:', error.message)
-          throw error
+          console.error('[v0] Signup error:', error.code, error.message)
+          // Common errors that shouldn't stop signup
+          if (error.message.includes('already registered')) {
+            throw new Error('This email is already registered. Try logging in instead.')
+          }
+          throw new Error(error.message || 'Signup failed. Please try again.')
         }
         
         // Create user profile with 50 USDT PULSE tokens promotion
         if (data.user) {
           try {
-            await supabase.from('profiles').insert({
+            const { error: profileError } = await supabase.from('profiles').upsert({
               id: data.user.id,
               full_name: fullName,
               email: email,
               approval_status: 'pending_email_confirmation',
               email_confirmed: false,
-              pulse_tokens_promotional: 50, // 50 USDT promotional (non-withdrawable until deposit)
+              pulse_tokens_promotional: 50,
               pulse_tokens_withdrawable: 0,
               usd_balance: 0,
               kyc_status: 'not_started',
               admin_approved: false,
-              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-            })
-            console.log('[v0] Profile created with 50 USDT PULSE promotional tokens')
+            }, { onConflict: 'id' })
+            if (profileError) {
+              console.warn('[v0] Profile creation warning:', profileError.message)
+              // Don't throw - proceed with signup even if profile creation fails
+            } else {
+              console.log('[v0] Profile created with 50 USDT PULSE promotional tokens')
+            }
           } catch (err) {
-            console.warn('[v0] Profile creation error:', (err as Error).message)
+            console.warn('[v0] Profile creation error (non-fatal):', (err as Error).message)
+            // Don't throw - user signup is still successful
           }
         }
         
