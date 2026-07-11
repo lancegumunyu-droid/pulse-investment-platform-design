@@ -167,6 +167,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           />
         </Field>
 
+        {!isSignUp && (
+          <div className="flex justify-end mb-3">
+            <Link href="/auth/forgot-password" className="text-xs font-medium text-gold hover:text-gold/80">
+              Forgot password?
+            </Link>
+          </div>
+        )}
+
         {error ? (
           <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
