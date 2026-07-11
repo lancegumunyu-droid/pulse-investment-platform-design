@@ -48,6 +48,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           email,
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: { full_name: fullName },
           },
         })
@@ -55,19 +56,25 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           console.error('[v0] Signup error:', error.message)
           throw error
         }
-        console.log('[v0] Signup successful, auto-logging in...')
         
-        // Auto-login immediately after signup
-        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
-        if (loginError) {
-          console.error('[v0] Auto-login after signup failed:', loginError.message)
-          // Even if auto-login fails, account is created - redirect to login
-          router.push('/auth/login')
-        } else {
-          console.log('[v0] Auto-login successful after signup')
-          router.push('/app')
-          router.refresh()
+        // Create user profile with 50 USDT PULSE tokens promotion
+        if (data.user) {
+          await supabase.from('profiles').insert({
+            id: data.user.id,
+            full_name: fullName,
+            email: email,
+            approval_status: 'pending',
+            email_confirmed: false,
+            pulse_tokens_balance: 50, // Promotion: 50 USDT worth of PULSE tokens
+            usd_balance: 0,
+            kyc_status: 'pending',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
         }
+        
+        console.log('[v0] Signup successful, confirmation email sent')
+        router.push('/auth/sign-up-success')
       } else {
         console.log('[v0] Attempting login for:', email)
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
