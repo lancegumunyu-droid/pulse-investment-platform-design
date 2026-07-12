@@ -117,39 +117,52 @@ export function KycCameraCapture({ label, hint, value, onChange, accept = 'image
     return (
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">{label}</p>
-        <div className="relative rounded-xl overflow-hidden border border-border bg-black">
+        <div className="relative rounded-xl overflow-hidden border border-border bg-black aspect-video">
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
-            className="w-full max-h-52 object-contain"
+            className="w-full h-full object-cover"
           />
-          {/* overlay guide frame */}
+          {/* Document guide overlay */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-3/4 w-4/5 rounded-lg border-2 border-dashed border-white/50" />
+            {/* Corner marks for ID card framing */}
+            <div className="relative h-[68%] w-[85%]">
+              {/* Top-left */}
+              <div className="absolute top-0 left-0 h-6 w-6 border-t-2 border-l-2 border-gold rounded-tl-sm" />
+              {/* Top-right */}
+              <div className="absolute top-0 right-0 h-6 w-6 border-t-2 border-r-2 border-gold rounded-tr-sm" />
+              {/* Bottom-left */}
+              <div className="absolute bottom-0 left-0 h-6 w-6 border-b-2 border-l-2 border-gold rounded-bl-sm" />
+              {/* Bottom-right */}
+              <div className="absolute bottom-0 right-0 h-6 w-6 border-b-2 border-r-2 border-gold rounded-br-sm" />
+              <p className="absolute -bottom-6 inset-x-0 text-center text-[11px] text-white/70">
+                Align document inside the frame
+              </p>
+            </div>
           </div>
           <div className="absolute bottom-3 inset-x-0 flex items-center justify-center gap-3 px-4">
             <button
               type="button"
               onClick={() => { stopCamera(); setMode('idle') }}
-              className="flex items-center gap-1.5 rounded-xl bg-white/20 px-4 py-2 text-sm text-white backdrop-blur hover:bg-white/30 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-black/60 px-3 py-2 text-xs text-white backdrop-blur hover:bg-black/80 transition-colors border border-white/20"
             >
-              <X className="size-4" /> Cancel
+              <X className="size-3.5" /> Cancel
             </button>
             <button
               type="button"
               onClick={capture}
-              className="flex items-center gap-1.5 rounded-xl bg-gold px-6 py-2 text-sm font-semibold text-dark hover:bg-gold/90 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-gold px-5 py-2 text-sm font-semibold text-dark hover:bg-gold/90 transition-colors"
             >
               <Camera className="size-4" /> Capture
             </button>
             <button
               type="button"
               onClick={flipCamera}
-              className="flex items-center gap-1.5 rounded-xl bg-white/20 px-4 py-2 text-sm text-white backdrop-blur hover:bg-white/30 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-black/60 px-3 py-2 text-xs text-white backdrop-blur hover:bg-black/80 transition-colors border border-white/20"
             >
-              <RotateCcw className="size-4" /> Flip
+              <RotateCcw className="size-3.5" /> Flip
             </button>
           </div>
         </div>

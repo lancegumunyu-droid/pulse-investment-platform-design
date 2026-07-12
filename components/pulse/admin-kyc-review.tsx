@@ -29,6 +29,7 @@ export function AdminKycReview({ adminId }: { adminId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [processing, setProcessing] = useState<string | null>(null)
+  const [rejectMode, setRejectMode] = useState<string | null>(null)
 
   useEffect(() => {
     loadSubmissions()
@@ -219,64 +220,64 @@ export function AdminKycReview({ adminId }: { adminId: string }) {
               </div>
             </div>
 
-            {/* Rejection Reason (if rejecting) */}
-            {processing === selected.id && selectedId === 'reject-mode' && (
-              <div>
-                <label className="text-sm font-medium">Rejection Reason</label>
+            {/* Rejection Reason — shown when reject mode active */}
+            {rejectMode === selected.id && (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 space-y-3">
+                <label className="text-sm font-medium text-red-400">Rejection Reason (required)</label>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="Enter reason for rejection..."
-                  className="w-full mt-2 rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-sm outline-none focus:border-gold/50"
+                  placeholder="e.g. Document photo is blurry. Please resubmit a clear image."
+                  className="w-full rounded-lg border border-white/[0.08] bg-background p-3 text-sm outline-none focus:border-red-500/50 resize-none"
                   rows={3}
+                  autoFocus
                 />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleReject(selected.id)}
+                    disabled={!rejectReason.trim() || processing !== null}
+                    variant="destructive"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    {processing === selected.id ? <Loader2 className="size-4 animate-spin" /> : 'Confirm Reject'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setRejectMode(null); setRejectReason('') }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex gap-2 pt-4">
-              <Button
-                onClick={() => handleApprove(selected.id)}
-                disabled={processing !== null}
-                className="flex-1 bg-green-600 hover:bg-green-700"
-              >
-                {processing === selected.id ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Check className="mr-2 size-4" />
-                    Approve KYC
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={() => {
-                  if (rejectReason) {
-                    handleReject(selected.id)
-                  } else {
-                    setSelectedId('reject-mode')
-                  }
-                }}
-                disabled={processing !== null}
-                variant="outline"
-                className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10"
-              >
-                {processing === selected.id ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <X className="mr-2 size-4" />
-                    Reject KYC
-                  </>
-                )}
-              </Button>
-            </div>
+            {rejectMode !== selected.id && (
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={() => handleApprove(selected.id)}
+                  disabled={processing !== null}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  {processing === selected.id ? (
+                    <><Loader2 className="mr-2 size-4 animate-spin" />Processing...</>
+                  ) : (
+                    <><Check className="mr-2 size-4" />Approve KYC</>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => setRejectMode(selected.id)}
+                  disabled={processing !== null}
+                  variant="outline"
+                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10"
+                >
+                  <X className="mr-2 size-4" />Reject
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
