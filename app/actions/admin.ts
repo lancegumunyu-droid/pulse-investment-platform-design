@@ -112,14 +112,27 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
     const db = serviceClient()
     const { data: sub } = await db.from('kyc_submissions').select('*').eq('id', id).single()
     if (!sub) return { ok: false, error: 'Submission not found' }
+    
     await db
       .from('kyc_submissions')
       .update({ status: decision, reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
       .eq('id', id)
+    
+    const newStatus = decision === 'approved' ? 'verified' : 'rejected'
     await db
       .from('profiles')
-      .update({ kyc_status: decision === 'approved' ? 'verified' : 'rejected' })
+      .update({ kyc_status: newStatus })
       .eq('id', sub.user_id)
+    
+    // Send notification
+    if (decision === 'approved') {
+      const { notifyKycApproved } = await import('@/lib/pulse/notifications')
+      await notifyKycApproved(sub.user_id)
+    } else {
+      const { notifyKycRejected } = await import('@/lib/pulse/notifications')
+      await notifyKycRejected(sub.user_id, 'Documentation did not meet requirements')
+    }
+    
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -134,11 +147,15 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
     if (!txn || txn.type !== 'withdrawal' || txn.status !== 'pending') {
       return { ok: false, error: 'Withdrawal not found or already processed' }
     }
+    
     if (decision === 'approved') {
       await db
         .from('transactions')
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
+      
+      const { notifyWithdrawalApproved } = await import('@/lib/pulse/notifications')
+      await notifyWithdrawalApproved(txn.user_id, Number(txn.amount))
     } else {
       // Refund the held funds back to the user's balance.
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
@@ -146,7 +163,11 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
         .from('transactions')
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
+      
+      const { notifyWithdrawalRejected } = await import('@/lib/pulse/notifications')
+      await notifyWithdrawalRejected(txn.user_id, Number(txn.amount))
     }
+    
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
