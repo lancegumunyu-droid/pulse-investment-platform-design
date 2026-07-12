@@ -54,7 +54,7 @@ export function AdminLoginForm() {
       }))
 
       console.log('[v0] Admin logged in:', admin.email)
-      router.push('/admin/dashboard')
+      router.push('/admin/panel')
       router.refresh()
     } catch (err) {
       setError((err as Error).message)
