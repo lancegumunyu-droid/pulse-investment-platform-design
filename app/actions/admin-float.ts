@@ -1,61 +1,43 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { serviceClient } from '@/lib/pulse/service'
+import { adjustAccount } from '@/lib/pulse/data-access'
 import { revalidateTag } from 'next/cache'
 
 export async function getAdminFloat(adminId: string) {
   try {
-    if (!adminId) {
-      console.error('[v0] No adminId provided to getAdminFloat')
-      return {
-        id: 'default',
-        admin_id: 'default',
-        pulse_tokens_balance: 2000000,
-        usd_balance: 1000000,
-        updated_at: new Date().toISOString(),
-      }
-    }
-
-    const supabase = await createClient()
-    const { data, error } = await supabase
+    const db = serviceClient()
+    const { data, error } = await db
       .from('admin_float')
-      .select('id, admin_id, pulse_tokens_balance, usd_balance, updated_at')
+      .select('*')
       .eq('admin_id', adminId)
-      .single()
-
-    // If not found, return default float data (will be created on first topup)
-    if (error && error.code === 'PGRST116') {
-      console.log('[v0] Admin float not found for', adminId, 'returning defaults')
-      return {
-        id: `temp-${adminId}`,
-        admin_id: adminId,
-        pulse_tokens_balance: 2000000,
-        usd_balance: 1000000,
-        updated_at: new Date().toISOString(),
-      }
-    }
+      .maybeSingle()
 
     if (error) {
       console.error('[v0] Error fetching admin float:', error)
-      throw error
+      return null
+    }
+
+    if (!data) {
+      return await createAdminFloat(adminId)
     }
 
     return data
   } catch (err) {
     console.error('[v0] Exception in getAdminFloat:', err)
-    throw err
+    return null
   }
 }
 
 async function createAdminFloat(adminId: string) {
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase
+    const db = serviceClient()
+    const { data, error } = await db
       .from('admin_float')
       .insert({
         admin_id: adminId,
-        pulse_tokens_balance: 2000000, // Starting PULSE tokens
-        usd_balance: 1000000, // Starting USD balance
+        pulse_tokens_balance: 2000000,
+        usd_balance: 1000000,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -64,97 +46,113 @@ async function createAdminFloat(adminId: string) {
 
     if (error) {
       console.error('[v0] Error creating admin float:', error)
-      throw error
+      return null
     }
     return data
   } catch (err) {
     console.error('[v0] Exception in createAdminFloat:', err)
-    throw err
+    return null
   }
 }
 
-export async function depositToUserFromAdmin(
-  adminId: string,
-  userId: string,
-  amount: number,
-  currency: 'USD' | 'PULSE'
-) {
-  const supabase = await createClient()
+export async function topUpAdminFloat(adminId: string, usdAmount: number = 0, pulseAmount: number = 0) {
+  try {
+    const db = serviceClient()
+    const float = await getAdminFloat(adminId)
 
-  // Get admin float
-  const adminFloat = await getAdminFloat(adminId)
-  
-  if (currency === 'USD' && adminFloat.usd_balance < amount) {
-    throw new Error('Insufficient USD balance in admin float')
+    if (!float) {
+      return { ok: false, error: 'Admin float not found' }
+    }
+
+    const { data, error } = await db
+      .from('admin_float')
+      .update({
+        pulse_tokens_balance: float.pulse_tokens_balance + pulseAmount,
+        usd_balance: float.usd_balance + usdAmount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('admin_id', adminId)
+      .select()
+      .single()
+
+    if (error) {
+      return { ok: false, error: error.message }
+    }
+
+    revalidateTag(`admin-float-${adminId}`)
+    return { ok: true, data }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
   }
-  if (currency === 'PULSE' && adminFloat.pulse_tokens_balance < amount) {
-    throw new Error('Insufficient PULSE tokens in admin float')
-  }
-
-  // Deduct from admin float
-  const updateColumn = currency === 'USD' ? 'usd_balance' : 'pulse_tokens_balance'
-  await supabase.rpc('decrement_admin_float', {
-    admin_id: adminId,
-    column: updateColumn,
-    amount: amount,
-  })
-
-  // Add to user balance
-  await supabase.rpc('increment_user_balance', {
-    user_id: userId,
-    column: currency === 'USD' ? 'usd_balance' : 'pulse_tokens_balance',
-    amount: amount,
-  })
-
-  // Log transaction
-  await supabase.from('deposit_requests').insert({
-    user_id: userId,
-    amount: amount,
-    currency: currency,
-    status: 'completed',
-    processed_by: adminId,
-    processed_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-  })
-
-  revalidateTag(`user-${userId}`)
-  revalidateTag(`admin-${adminId}`)
 }
 
-export async function topUpAdminFloat(
-  adminId: string,
-  usdAmount?: number,
-  pulseAmount?: number,
-  notes?: string
-) {
-  const supabase = await createClient()
-  
-  const updates: any = { updated_at: new Date().toISOString() }
-  
-  if (usdAmount) {
-    updates.usd_balance = { increment: usdAmount }
+export async function allocateFloatToUser(adminId: string, userId: string, pulseAmount: number, usdAmount: number) {
+  try {
+    const db = serviceClient()
+
+    // Check admin float
+    const adminFloat = await getAdminFloat(adminId)
+    if (!adminFloat) {
+      return { ok: false, error: 'Admin float not found' }
+    }
+
+    if (adminFloat.pulse_tokens_balance < pulseAmount) {
+      return { ok: false, error: 'Insufficient PULSE tokens' }
+    }
+
+    if (adminFloat.usd_balance < usdAmount) {
+      return { ok: false, error: 'Insufficient USD balance' }
+    }
+
+    // Deduct from admin
+    await db
+      .from('admin_float')
+      .update({
+        pulse_tokens_balance: adminFloat.pulse_tokens_balance - pulseAmount,
+        usd_balance: adminFloat.usd_balance - usdAmount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('admin_id', adminId)
+
+    // Add to user account
+    await adjustAccount(userId, {
+      cash_balance: usdAmount,
+      token_balance: pulseAmount,
+    })
+
+    // Log allocation
+    await db.from('float_allocations').insert({
+      from_admin_id: adminId,
+      to_user_id: userId,
+      pulse_amount: pulseAmount,
+      usd_amount: usdAmount,
+      created_at: new Date().toISOString(),
+    }).catch(() => {})
+
+    revalidateTag(`admin-float-${adminId}`)
+    revalidateTag(`user-${userId}`)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
   }
-  if (pulseAmount) {
-    updates.pulse_tokens_balance = { increment: pulseAmount }
+}
+
+export async function getFloatHistory(adminId: string) {
+  try {
+    const db = serviceClient()
+    const { data, error } = await db
+      .from('float_allocations')
+      .select('*')
+      .eq('from_admin_id', adminId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) {
+      return { ok: false, error: error.message }
+    }
+
+    return { ok: true, data: data || [] }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
   }
-
-  const { data, error } = await supabase
-    .from('admin_float')
-    .update(updates)
-    .eq('admin_id', adminId)
-    .select()
-    .single()
-
-  if (error) throw error
-
-  // Log topup
-  await supabase.from('admin_approvals').insert({
-    admin_id: adminId,
-    action: 'float_topup',
-    reason: `USD: +${usdAmount || 0}, PULSE: +${pulseAmount || 0}. Notes: ${notes || ''}`,
-    created_at: new Date().toISOString(),
-  })
-
-  revalidateTag(`admin-${adminId}`)
-  return data
 }
