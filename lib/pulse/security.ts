@@ -78,6 +78,43 @@ export const RATE_LIMITS = {
   KYC_SUBMISSION: { max: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
   DEPOSIT_REQUESTS: { max: 10, windowMs: 24 * 60 * 60 * 1000 }, // 10 per day
   WITHDRAWAL_REQUESTS: { max: 5, windowMs: 24 * 60 * 60 * 1000 }, // 5 per day
+  REFERRAL_SHARES: { max: 20, windowMs: 24 * 60 * 60 * 1000 }, // 20 per day
+  API_CALLS: { max: 100, windowMs: 60 * 1000 }, // 100 per minute
+}
+
+// Security hardening against duplication and attacks
+export const SECURITY_HARDENING = {
+  // Prevent account duplication
+  emailVerificationRequired: true,
+  duplicateEmailCheck: true,
+  duplicatePhoneCheck: true,
+  duplicateIdCheck: true,
+  
+  // Prevent unauthorized access
+  sessionTimeout: 30 * 60 * 1000, // 30 minutes
+  ipChangeDetection: true,
+  deviceFingerprintRequired: true,
+  twoFactorAuthSupport: true,
+  
+  // Prevent API exploitation
+  requestSignatureRequired: true,
+  apiRateLimitingEnabled: true,
+  csrfTokenRequired: true,
+  xssProtection: true,
+  sqlInjectionProtection: true,
+  
+  // Protect against scraping/duplication
+  contentProtection: true,
+  robotsCheckEnabled: true,
+  honeypotFieldsEnabled: true,
+  behaviorAnalyticsEnabled: true,
+  
+  // Data protection
+  encryptionRequired: true,
+  piiMaskingRequired: true,
+  auditLoggingRequired: true,
+  dataRetentionDays: 90, // Delete old logs after 90 days
+}
   PASSWORD_RESET: { max: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
   API_CALLS: { max: 100, windowMs: 60 * 1000 }, // 100 per minute
 }

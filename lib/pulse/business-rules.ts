@@ -25,11 +25,20 @@ export interface UserAccessRules {
 
 // Welcome bonus configuration
 export const WELCOME_BONUS = {
-  amount: 50, // 50 USDT equivalent
+  amount: 35, // 35 USDT equivalent
   currency: 'USDT',
   isWithdrawable: false, // Must deposit first to unlock
   expiryDays: 30,
-  message: 'Your welcome bonus is credited! You can only withdraw it after making your first deposit.',
+  message: 'Your welcome bonus of $35 USDT is credited! You can only withdraw it after making your first deposit.',
+}
+
+// Admin approval requirements
+export const ADMIN_APPROVAL_REQUIRED = {
+  depositsRequireApproval: true, // All deposits need admin approval after KYC
+  withdrawalsRequireApproval: true, // All withdrawals need admin approval after KYC
+  kycApprovalRequired: true, // KYC requires admin approval
+  investmentApprovalRequired: false, // Investments do NOT require approval
+  message: 'Your request has been submitted to our admin team for approval. This typically takes 1-2 business hours.',
 }
 
 // Tier configurations - determines deposit/withdrawal limits

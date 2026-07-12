@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { CheckCircle, Clock, FileText, Lock } from 'lucide-react'
+import { CheckCircle, Clock, FileText, Lock, Share2, Copy } from 'lucide-react'
+import { ReferralDisplay } from '@/components/pulse/referral-display'
 
 export default function EmailConfirmedPage() {
   return (
@@ -55,14 +56,16 @@ export default function EmailConfirmedPage() {
             <div className="flex items-start gap-3">
               <FileText className="size-5 text-purple-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-sm">50 USDT PULSE Ready</p>
+                <p className="font-medium text-sm">$35 USDT Welcome Bonus</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Your promotional tokens are waiting in your wallet
+                  Your promotional welcome bonus is ready once you deposit
                 </p>
               </div>
             </div>
           </div>
         </div>
+
+        <ReferralDisplay />
 
         <Link
           href="/app"
