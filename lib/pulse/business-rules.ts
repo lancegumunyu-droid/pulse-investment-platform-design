@@ -41,6 +41,28 @@ export const ADMIN_APPROVAL_REQUIRED = {
   message: 'Your request has been submitted to our admin team for approval. This typically takes 1-2 business hours.',
 }
 
+// Integration configuration reference (see lib/pulse/integrations-config.ts for full details)
+export const INTEGRATIONS_REFERENCE = {
+  database: {
+    provider: 'neon',
+    type: 'PostgreSQL',
+    pooled: 'NEON_DATABASE_URL',
+    unpooled: 'NEON_DATABASE_URL_UNPOOLED',
+    prefix: 'NEON_',
+  },
+  auth: {
+    primary: 'clerk',
+    fallback: 'auth0',
+    prefixes: ['CLERK_', 'AUTH0_'],
+  },
+  email: {
+    provider: 'agentmail',
+    prefix: 'AGENTMAIL_',
+    apiKey: 'AGENTMAIL_API_KEY',
+  },
+  customPrefix: 'PULSE_',
+} as const
+
 // Tier configurations - determines deposit/withdrawal limits
 export const TIER_CONFIG = {
   tier1: {
