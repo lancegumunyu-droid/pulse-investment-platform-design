@@ -30,7 +30,18 @@ export function ForgotPasswordForm() {
       })
 
       if (resetError) {
-        setError(resetError.message || 'Failed to send reset link')
+        let errorMsg = resetError.message || 'Failed to send reset link'
+        
+        // Handle rate limiting
+        if (errorMsg.includes('For security purposes') || errorMsg.includes('after 15 seconds')) {
+          errorMsg = 'Too many password reset requests. Please wait 15 minutes before trying again.'
+        } else if (errorMsg.includes('not found') || errorMsg.includes('user not found')) {
+          errorMsg = 'No account found with this email address.'
+        } else if (errorMsg.includes('disabled')) {
+          errorMsg = 'Your account has been disabled. Please contact support.'
+        }
+        
+        setError(errorMsg)
         setLoading(false)
         return
       }

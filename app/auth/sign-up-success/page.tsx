@@ -37,7 +37,10 @@ export default function SignUpSuccessPage() {
         </div>
         
         <p className="mt-4 text-xs text-muted-foreground">
-          Didn&apos;t receive the email? Check your spam folder.
+          Didn&apos;t receive the email? Check your spam folder or{' '}
+          <Link href="/auth/resend-verification" className="text-gold hover:underline">
+            request another copy
+          </Link>
         </p>
         
         <Link

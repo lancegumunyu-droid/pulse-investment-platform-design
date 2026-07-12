@@ -105,8 +105,29 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
         router.refresh()
       }
     } catch (err) {
-      const errorMsg = (err as Error).message
+      let errorMsg = (err as Error).message
       console.error('[v0] Auth error:', errorMsg)
+      
+      // Handle Supabase rate limiting
+      if (errorMsg.includes('For security purposes') || errorMsg.includes('after 15 seconds')) {
+        errorMsg = 'Too many requests. Please wait a moment and try again.'
+      }
+      
+      // Handle already registered
+      if (errorMsg.includes('already registered')) {
+        errorMsg = 'This email is already registered. Please try logging in instead.'
+      }
+      
+      // Handle weak password
+      if (errorMsg.includes('password') && errorMsg.toLowerCase().includes('weak')) {
+        errorMsg = 'Password is too weak. Use at least 8 characters with uppercase, lowercase, numbers, and special characters.'
+      }
+      
+      // Handle invalid email
+      if (errorMsg.includes('Invalid email')) {
+        errorMsg = 'Please enter a valid email address.'
+      }
+      
       setError(errorMsg)
       setLoading(false)
     }
