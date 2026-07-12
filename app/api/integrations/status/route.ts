@@ -14,9 +14,8 @@ export async function GET(request: NextRequest) {
   try {
     // Check authorization (admin only)
     const authHeader = request.headers.get('authorization')
-    const adminKey = process.env.ADMIN_API_KEY || 'PULSE_ADMIN_SECRET'
-
-    if (authHeader !== `Bearer ${adminKey}`) {
+    const adminKey = process.env.ADMIN_API_KEY
+    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

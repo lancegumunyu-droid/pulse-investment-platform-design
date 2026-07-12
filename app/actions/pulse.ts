@@ -39,25 +39,13 @@ async function syncTier(userId: string) {
   await db.from('profiles').update({ tier: idx }).eq('id', userId)
 }
 
-// Sandbox deposit: credits the virtual balance directly (used when NOWPayments
-// keys are not configured, or for admin/testing). Real deposits arrive via the
-// NOWPayments IPN webhook.
-export async function simulateDeposit(amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    await adjustAccount(user.id, { cash_balance: amount })
-    await recordTxn(user.id, {
-      type: 'deposit',
-      amount,
-      currency: 'USD',
-      status: 'completed',
-      reference: 'sandbox',
-      meta: { label: 'Sandbox deposit (test)' },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
+// Sandbox deposit is DISABLED in production.
+// All deposits must be submitted and approved by an admin via the approval queue.
+// This function is intentionally blocked to prevent unauthorised balance credits.
+export async function simulateDeposit(_amount: number): Promise<Result> {
+  return {
+    ok: false,
+    error: 'Direct deposits are disabled. Please submit a deposit request for admin approval.',
   }
 }
 
