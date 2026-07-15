@@ -56,20 +56,6 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       
       const supabase = createClient()
       if (isSignUp) {
-        console.log('[v0] Signup attempt - captchaToken:', captchaToken ? 'present' : 'missing')
-        console.log('[v0] Turnstile Site ID:', process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID ? 'set' : 'NOT SET')
-        
-        // If CAPTCHA not available, generate a token bypass (temporary)
-        let finalCaptchaToken = captchaToken
-        if (!finalCaptchaToken && !process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID) {
-          console.log('[v0] CAPTCHA not configured - using bypass for testing')
-          finalCaptchaToken = 'test-bypass-token-' + Date.now()
-        }
-        
-        if (!finalCaptchaToken) {
-          throw new Error('CAPTCHA token missing. Please complete the Turnstile challenge.')
-        }
-
         // Check device fingerprint before creating account
         const fp = fingerprintRef.current ?? await getDeviceFingerprint().catch(() => null)
         if (fp) {
@@ -84,17 +70,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           }
         }
 
-        // Sign up with CAPTCHA token (required by Supabase)
+        // Sign up WITHOUT captchaToken - Supabase CAPTCHA should be disabled
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            captchaToken: finalCaptchaToken,
             emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: { full_name: fullName },
           },
         })
-        console.log('[v0] Signup response:', error ? 'error' : 'success')
         if (error) {
           if (error.message.includes('already registered')) {
             throw new Error('This email is already registered. Try logging in instead.')
