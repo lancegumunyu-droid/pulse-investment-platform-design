@@ -1,7 +1,6 @@
 'use server'
 
 import { serviceClient } from '@/lib/pulse/service'
-import { adjustAccount } from '@/lib/pulse/data-access'
 import { revalidateTag } from 'next/cache'
 
 export async function getAdminFloat(adminId: string) {
@@ -114,11 +113,23 @@ export async function allocateFloatToUser(adminId: string, userId: string, pulse
       })
       .eq('admin_id', adminId)
 
-    // Add to user account
-    await adjustAccount(userId, {
-      cash_balance: usdAmount,
-      token_balance: pulseAmount,
-    })
+    // Credit user via SECURITY DEFINER — no direct wallet writes from server actions
+    if (usdAmount > 0) {
+      await db.rpc('admin_credit', {
+        p_admin_id: adminId,
+        p_user_id: userId,
+        p_amount: usdAmount,
+        p_reason: 'Admin float allocation (USD)',
+      })
+    }
+    if (pulseAmount > 0) {
+      await db.rpc('admin_credit', {
+        p_admin_id: adminId,
+        p_user_id: userId,
+        p_amount: pulseAmount,
+        p_reason: 'Admin float allocation (PULSE tokens)',
+      })
+    }
 
     // Log allocation
     await db.from('float_allocations').insert({

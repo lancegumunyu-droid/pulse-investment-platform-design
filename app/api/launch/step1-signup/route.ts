@@ -11,12 +11,13 @@ interface SignupRequest {
   password: string
   fullName: string
   referralCode?: string
+  deviceFingerprint?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SignupRequest = await request.json()
-    const { email, password, fullName, referralCode } = body
+    const { email, password, fullName, referralCode, deviceFingerprint } = body
 
     // Validation
     if (!email || !password || !fullName) {
@@ -31,6 +32,28 @@ export async function POST(request: NextRequest) {
     const existingUser = await sql`SELECT id FROM users WHERE email = ${email}`
     if (existingUser.length > 0) {
       return NextResponse.json({ error: 'Email already registered' }, { status: 409 })
+    }
+
+    // Device fingerprint duplicate-signup guard
+    if (deviceFingerprint) {
+      const [existing] = await sql`
+        SELECT id, blocked FROM device_signups
+        WHERE fingerprint_hash = ${deviceFingerprint}
+        LIMIT 1
+      `
+      if (existing?.blocked) {
+        return NextResponse.json(
+          { error: 'This device has been restricted from creating new accounts. Contact support.' },
+          { status: 403 }
+        )
+      }
+      if (existing?.id) {
+        // Soft block — warn but allow (you may harden to a hard 409 later)
+        return NextResponse.json(
+          { error: 'An account already exists from this device. Please sign in.' },
+          { status: 409 }
+        )
+      }
     }
 
     // Hash password
@@ -75,6 +98,16 @@ export async function POST(request: NextRequest) {
       INSERT INTO wallets (user_id, welcome_bonus, currency)
       VALUES (${user.id}, 35.00, 'USDT')
     `
+
+    // Record device fingerprint (best-effort — never block signup if this fails)
+    if (deviceFingerprint) {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
+      await sql`
+        INSERT INTO device_signups (fingerprint_hash, user_id, ip_address)
+        VALUES (${deviceFingerprint}, ${user.id}, ${ip})
+        ON CONFLICT (fingerprint_hash) DO NOTHING
+      `.catch(() => null)
+    }
 
     // Create verification email
     const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://pulse-invest.vercel.app'}/auth/verify?token=${verificationToken}`

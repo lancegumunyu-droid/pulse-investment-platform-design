@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
-import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
+import { isUserAdmin } from '@/lib/pulse/data-access'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 
 async function requireAdmin() {
@@ -149,21 +149,24 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
     }
     
     if (decision === 'approved') {
-      await db
-        .from('transactions')
-        .update({ status: 'completed', processed_by: admin.id })
-        .eq('id', id)
-      
+      // Balance deduction is handled inside the SECURITY DEFINER function.
+      const { rows } = await db.rpc('approve_withdrawal', {
+        p_withdrawal_id: id,
+        p_admin_id: admin.id,
+      })
+      if (rows?.[0]?.ok === false) return { ok: false, error: rows[0].error }
+
       const { notifyWithdrawalApproved } = await import('@/lib/pulse/notifications')
       await notifyWithdrawalApproved(txn.user_id, Number(txn.amount))
     } else {
-      // Refund the held funds back to the user's balance.
-      await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
-      await db
-        .from('transactions')
-        .update({ status: 'cancelled', processed_by: admin.id })
-        .eq('id', id)
-      
+      // Balance restore is handled inside the SECURITY DEFINER function.
+      const { rows } = await db.rpc('reject_withdrawal', {
+        p_withdrawal_id: id,
+        p_admin_id: admin.id,
+        p_reason: 'Rejected by admin',
+      })
+      if (rows?.[0]?.ok === false) return { ok: false, error: rows[0].error }
+
       const { notifyWithdrawalRejected } = await import('@/lib/pulse/notifications')
       await notifyWithdrawalRejected(txn.user_id, Number(txn.amount))
     }
@@ -178,15 +181,15 @@ export async function disburseYield(userId: string, amount: number): Promise<Adm
   try {
     const admin = await requireAdmin()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    await adjustAccount(userId, { cash_balance: amount })
-    await recordTxn(userId, {
-      type: 'yield',
-      amount,
-      currency: 'USD',
-      status: 'completed',
-      processedBy: admin.id,
-      meta: { label: 'Yield disbursement (admin)' },
+    // All balance mutations go through SECURITY DEFINER — no direct table writes.
+    const db = serviceClient()
+    const { rows } = await db.rpc('admin_credit', {
+      p_admin_id: admin.id,
+      p_user_id: userId,
+      p_amount: amount,
+      p_reason: 'Yield disbursement (admin)',
     })
+    if (rows?.[0]?.ok === false) return { ok: false, error: rows[0].error }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }

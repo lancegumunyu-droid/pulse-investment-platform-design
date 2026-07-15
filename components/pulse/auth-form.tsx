@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Activity, Loader2 } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { getDeviceFingerprint } from '@/lib/pulse/device-fingerprint'
 
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   const router = useRouter()
@@ -15,6 +16,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const fingerprintRef = useRef<string | null>(null)
+
+  // Pre-compute fingerprint on mount (async, non-blocking)
+  useEffect(() => {
+    if (!isSignUp) return
+    getDeviceFingerprint().then((fp) => {
+      fingerprintRef.current = fp
+    }).catch(() => null)
+  }, [isSignUp])
 
   // Redirect already-authenticated users away from auth pages.
   useEffect(() => {
@@ -24,8 +34,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) router.replace('/app')
       })
-    } catch (err) {
-      console.log('[v0] Supabase check skipped - not configured')
+    } catch {
+      // Supabase not configured — skip redirect check
     }
   }, [router])
 
@@ -43,8 +53,19 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       
       const supabase = createClient()
       if (isSignUp) {
-        console.log('[v0] Attempting signup for:', email)
-        console.log('[v0] Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+        // Check device fingerprint before creating account
+        const fp = fingerprintRef.current ?? await getDeviceFingerprint().catch(() => null)
+        if (fp) {
+          const fpRes = await fetch(`/api/auth/check-device?fp=${encodeURIComponent(fp)}`)
+          if (fpRes.status === 409) {
+            const body = await fpRes.json()
+            throw new Error(body.error ?? 'An account already exists on this device.')
+          }
+          if (fpRes.status === 403) {
+            const body = await fpRes.json()
+            throw new Error(body.error ?? 'This device is restricted.')
+          }
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -54,8 +75,6 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           },
         })
         if (error) {
-          console.error('[v0] Signup error:', error.code, error.message)
-          // Common errors that shouldn't stop signup
           if (error.message.includes('already registered')) {
             throw new Error('This email is already registered. Try logging in instead.')
           }
@@ -78,29 +97,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
               admin_approved: false,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'id' })
-            if (profileError) {
-              console.warn('[v0] Profile creation warning:', profileError.message)
-              // Don't throw - proceed with signup even if profile creation fails
-            } else {
-              console.log('[v0] Profile created with 50 USDT PULSE promotional tokens')
-            }
-          } catch (err) {
-            console.warn('[v0] Profile creation error (non-fatal):', (err as Error).message)
-            // Don't throw - user signup is still successful
+            // Non-fatal — proceed even if profile creation fails
+          } catch {
+            // Non-fatal
           }
         }
-        
-        console.log('[v0] Signup successful, confirmation email sent')
         router.push('/auth/sign-up-success')
       } else {
-        console.log('[v0] Attempting login for:', email)
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) {
-          console.error('[v0] Login error:', error.message)
-  
-          throw error
-        }
-        console.log('[v0] Login successful')
+        if (error) throw error
         router.push('/app')
         router.refresh()
       }
@@ -132,8 +137,6 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       setLoading(false)
     }
   }
-
-
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
