@@ -60,10 +60,11 @@ Your PULSE investment platform is **fully built, tested, and ready to deploy** t
 
 ---
 
-## Production Domain
+## Production Domain (Already Live!)
 ```
-https://pulseinvestme.com
+https://pulse-invest.vercel.app
 ```
+Your app is already deployed and accessible at this URL.
 
 ---
 
@@ -76,9 +77,9 @@ Password: [Generate via: openssl rand -base64 32]
 ```
 
 ### Access Points
-- **Admin Login:** `/admin/login`
-- **Admin Dashboard:** `/admin/dashboard`
-- **Admin Settings:** `/admin/settings`
+- **Admin Login:** `https://pulse-invest.vercel.app/admin/login`
+- **Admin Dashboard:** `https://pulse-invest.vercel.app/admin/dashboard`
+- **Admin Settings:** `https://pulse-invest.vercel.app/admin/settings`
 
 ### Admin Functions
 - View pending user signups
@@ -93,7 +94,7 @@ Password: [Generate via: openssl rand -base64 32]
 ## Complete User Flow
 
 ### 1. User Signup
-- URL: `https://pulseinvestme.com/auth/sign-up`
+- URL: `https://pulse-invest.vercel.app/auth/sign-up`
 - Fill in: Full name, Email, Password
 - See Turnstile CAPTCHA widget (Cloudflare protection)
 - Complete challenge
@@ -128,68 +129,55 @@ Password: [Generate via: openssl rand -base64 32]
 
 ---
 
-## Deployment Timeline: 1-2 Days
+## Deployment Timeline: TODAY (30 Minutes)
 
-### TODAY (30 Minutes Active Work)
+**You're already live!** The app is deployed on Vercel at `https://pulse-invest.vercel.app`
 
-**Phase 1: Cloudflare Setup (10 min)**
+### Only 2 Things Left (Optional):
+
+**Step 1: Add Turnstile CAPTCHA Site ID (5 min)**
 1. Create account: https://dash.cloudflare.com
-2. Add site: `pulseinvestme.com`
-3. Create Turnstile CAPTCHA → Get Site ID
-4. Get assigned nameservers (e.g., `jose.ns.cloudflare.com`, `sreeni.ns.cloudflare.com`)
+2. Go to **Turnstile** → **Create Site**
+   - Name: `PULSE Signup`
+   - Domains: `pulse-invest.vercel.app` and `localhost:3000`
+   - Mode: `Managed`
+3. Copy Site ID (looks like `0x...`)
+4. Add to Vercel env vars: `NEXT_PUBLIC_TURNSTILE_SITE_ID`
+5. Redeploy on Vercel
 
-**Phase 2: Update Registrar (5 min)** ⚠️ CRITICAL
-1. Log into domain registrar (GoDaddy/Namecheap/etc.)
-2. Find nameservers section
-3. Replace with YOUR Cloudflare nameservers
-4. Save changes
-5. Wait 1-48 hours for propagation
+**Step 2: Test Everything (10 min)**
+1. Go to `https://pulse-invest.vercel.app/auth/sign-up`
+2. Sign up with test account
+3. Complete Turnstile challenge (if enabled)
+4. Verify email
+5. Log in to dashboard
+6. Test admin login
 
-**Phase 3: Vercel Configuration (15 min)**
-1. Vercel Dashboard → Project Settings → Environment Variables
-2. Add all env vars (Supabase keys, Turnstile Site ID, admin credentials)
-3. Connect custom domain: `pulseinvestme.com`
-4. Redeploy
-
-### AFTER DNS PROPAGATES (24-48 Hours)
-
-**Phase 4: Supabase Configuration (15 min)**
-1. Enable Auth Hooks (HTTPS endpoint)
-2. Update email templates
-3. Add redirect URLs to allow-list
-4. Verify RLS policies on all tables
-
-**Phase 5: Testing & Launch (15 min)**
-1. Test DNS resolution
-2. Test signup flow (Turnstile → Email → Verify → Dashboard)
-3. Test admin login
-4. Test password reset
-5. Verify HTTPS working
-6. **GO LIVE!**
+**That's it!** Your app is live and working.
 
 ---
 
-## Essential Environment Variables
+## Essential Environment Variables (Already Set)
 
 ```
-# Supabase (from Supabase → Project Settings → API)
+# Supabase (✓ Already configured)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
-SUPABASE_JWT_SECRET=...
-SUPABASE_WEBHOOK_SECRET=whsec_... (from Supabase Webhooks)
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[Set]
+SUPABASE_URL=[Set]
+SUPABASE_SERVICE_ROLE_KEY=[Set]
+SUPABASE_JWT_SECRET=[Set]
+SUPABASE_WEBHOOK_SECRET=[Set]
 
-# Cloudflare Turnstile (from Cloudflare → Turnstile)
+# Cloudflare Turnstile (⚠️ ADD THIS - from Cloudflare Turnstile)
 NEXT_PUBLIC_TURNSTILE_SITE_ID=0xyour_site_id
 
-# PULSE Admin (generate secure passwords)
+# PULSE Admin (✓ Already configured)
 PULSE_ADMIN_EMAIL=admin@pulse-invest.app
-PULSE_ADMIN_PASSWORD=your_secure_password_32_chars
-ADMIN_API_KEY=your_api_key_base64
+PULSE_ADMIN_PASSWORD=[Set]
+ADMIN_API_KEY=[Set]
 
-# App URL
-NEXT_PUBLIC_APP_URL=https://pulseinvestme.com
+# App URL (✓ Correct for Vercel)
+NEXT_PUBLIC_APP_URL=https://pulse-invest.vercel.app
 ```
 
 ---

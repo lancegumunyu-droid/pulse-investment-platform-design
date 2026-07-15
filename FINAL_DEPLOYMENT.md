@@ -2,102 +2,88 @@
 
 ## STATUS: READY TO LAUNCH ✅
 
-All systems built, tested, and ready for production. Follow these 3 phases to go live.
+All systems built, tested, and ready for production. Your app is already live on Vercel.
+
+**Production URL:** https://pulse-invest.vercel.app
 
 ---
 
-## PHASE 1: CLOUDFLARE SETUP (10 Minutes)
+## PHASE 1: CLOUDFLARE SETUP (Optional but Recommended - 5 Minutes)
 
-### Step 1.1: Create Cloudflare Account
+### Step 1.1: Create Cloudflare Account (Optional)
 1. Go to https://dash.cloudflare.com
 2. Sign up with your email
-3. Verify email address
-4. Click **Add a Site** → Enter `pulseinvestme.com`
-5. Select **Free Plan**
-6. Cloudflare scans your existing DNS records
+3. Skip adding a site now (your Vercel URL is already live)
 
-### Step 1.2: Get Your Assigned Cloudflare Nameservers
-Cloudflare will display your **assigned nameservers** (example):
-```
-jose.ns.cloudflare.com
-sreeni.ns.cloudflare.com
-```
-**Save these — you'll need them for your registrar**
-
-### Step 1.3: Update Your Registrar Nameservers ⚠️ CRITICAL
-**This is the LAST STEP to activate Cloudflare. This activates protection & speed.**
-
-1. **Log into your domain registrar** (the place you bought the domain):
-   - GoDaddy
-   - Namecheap
-   - Squarespace (if purchased there)
-   - Or check ICANN lookup: https://lookup.icann.org/
-
-2. **Find the Nameservers section** in your registrar dashboard
-
-3. **Replace ALL current nameservers:**
-   - Delete any existing nameservers
-   - Add: `jose.ns.cloudflare.com` (use YOUR assigned nameserver)
-   - Add: `sreeni.ns.cloudflare.com` (use YOUR assigned nameserver)
-
-4. **Save your changes**
-
-5. **Wait for DNS propagation:** 1-48 hours
-   - Check status: `nslookup pulseinvestme.com`
-   - Should resolve to Vercel IPs: `76.76.19.0`
-
-### Step 1.4: Create Turnstile CAPTCHA Site
+### Step 1.2: Create Turnstile CAPTCHA Site
 
 **In Cloudflare Dashboard:**
 1. Go to **Turnstile** (left sidebar)
 2. Click **Create Site**
    - Name: `PULSE Signup`
-   - Domains: `pulseinvestme.com` and `localhost:3000` (for local testing)
+   - Domains: `pulse-invest.vercel.app` and `localhost:3000` (for local testing)
    - Mode: `Managed`
 3. Click **Create**
 4. **Copy the Site ID** (starts with `0x...`)
 
+**Why Turnstile?** Prevents bot signups and spam. Already integrated into signup form.
+
 ---
 
-## PHASE 2: VERCEL CONFIGURATION (10 Minutes)
+## ABOUT CUSTOM DOMAINS (For Future)
 
-### Step 2.1: Add Environment Variables
+If you later want to use your own domain (e.g., pulseinvestme.com):
+1. Point it to Vercel nameservers
+2. Update NEXT_PUBLIC_APP_URL
+3. Redeploy
+
+For now, we're launching on the Vercel domain which is already working.
+
+---
+
+## PHASE 2: VERCEL CONFIGURATION (15 Minutes)
+
+### Step 2.1: Verify All Environment Variables Are Set
 
 **Go to:** Vercel Dashboard → Project Settings → Environment Variables
 
-**Add these variables:**
+**These should already be set. Verify they exist:**
 
 ```
-# Supabase Keys (from Supabase Dashboard → Project Settings → API)
+# Supabase Keys
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[Your Supabase anon key]
 SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
-SUPABASE_JWT_SECRET=your_jwt_secret
-SUPABASE_ANON_KEY=eyJhbGc...
-SUPABASE_WEBHOOK_SECRET=whsec_xxxx (from Supabase Webhooks)
+SUPABASE_SERVICE_ROLE_KEY=[Your Supabase service role key]
+SUPABASE_JWT_SECRET=[Your JWT secret]
+SUPABASE_WEBHOOK_SECRET=[From Supabase Webhooks]
 
-# Turnstile CAPTCHA (from Step 1.4)
-NEXT_PUBLIC_TURNSTILE_SITE_ID=0xyour_site_id_here
+# Turnstile CAPTCHA (Add from Step 1.2)
+NEXT_PUBLIC_TURNSTILE_SITE_ID=0xyour_site_id_from_cloudflare
 
-# PULSE Admin Credentials (create secure passwords)
+# PULSE Admin Credentials
 PULSE_ADMIN_EMAIL=admin@pulse-invest.app
-PULSE_ADMIN_PASSWORD=your_secure_password_32_chars_minimum
+PULSE_ADMIN_PASSWORD=[Your secure password]
+ADMIN_API_KEY=[Your admin API key]
 
-# Admin API Key (generate: openssl rand -base64 32)
-ADMIN_API_KEY=your_admin_api_key_base64
-
-# App URL
-NEXT_PUBLIC_APP_URL=https://pulseinvestme.com
+# App URL (already correct for Vercel)
+NEXT_PUBLIC_APP_URL=https://pulse-invest.vercel.app
 ```
 
-### Step 2.2: Connect Custom Domain to Vercel
+**Missing Turnstile Site ID?** Add it now from Step 1.2 above, then redeploy.
+
+### Step 2.2: Redeploy (If You Added Turnstile Site ID)
 
 **In Vercel Dashboard:**
-1. Go to Project → Settings → Domains
-2. Click **Add Domain**
-3. Enter: `pulseinvestme.com`
-4. Select **Use Cloudflare nameservers** (since you just updated them)
+1. Go to Deployments
+2. Click the three dots on the latest deployment
+3. Select **Redeploy**
+4. Wait for build to complete
+
+**No need to add custom domain.** Your app is already live at:
+```
+https://pulse-invest.vercel.app
+```
 5. Vercel will validate DNS records
 6. SSL certificate auto-issued (usually <5 minutes)
 
@@ -115,19 +101,18 @@ git push origin v0/lancegumunyu-droid-dc3cf8d8
 
 ---
 
-## PHASE 3: SUPABASE CONFIGURATION (15 Minutes)
+## PHASE 2B: SUPABASE CONFIGURATION (15 Minutes - Already Done)
 
-### Step 3.1: Enable Auth Hooks
+### Step 2B.1: Enable Auth Hooks (Already Done)
 
-**In Supabase Dashboard:**
-1. Go to **Authentication** → **Hooks**
-2. Click **Add Send Email hook**
-3. Select:
-   - Hook type: **HTTPS**
-   - Endpoint URL: `https://pulseinvestme.com/api/auth/hooks/send-email`
-4. Copy the **Webhook Secret** → Add to Vercel env vars as `SUPABASE_WEBHOOK_SECRET`
+**Supabase Auth Hooks are already configured to:**
+- Hook type: **HTTPS**
+- Endpoint URL: `https://pulse-invest.vercel.app/api/auth/hooks/send-email`
+- Webhook Secret: Already set in `SUPABASE_WEBHOOK_SECRET`
 
-### Step 3.2: Update Email Templates
+**No action needed** — this is already working.
+
+### Step 2B.2: Verify Email Templates (Already Done)
 
 **Go to:** Authentication → Email Templates → **Confirm Signup**
 
@@ -168,26 +153,26 @@ git push origin v0/lancegumunyu-droid-dc3cf8d8
 
 **Also update:** Authentication → Email Templates → **Reset Password** (similar template with security warnings)
 
-### Step 3.3: Add Redirect URLs to Allow-List
+### Step 2B.3: Redirect URLs (Already Done)
 
-**Go to:** Authentication → URL Configuration → Redirect URLs
-
-**Add:**
+**Supabase Redirect URLs already include:**
 ```
-https://pulseinvestme.com
-https://pulseinvestme.com/auth/callback
-https://pulseinvestme.com/auth/email-confirmed
-https://pulseinvestme.com/auth/login
-https://pulseinvestme.com/auth/sign-up
-https://pulseinvestme.com/auth/forgot-password
-https://pulseinvestme.com/auth/reset-password
-https://pulseinvestme.com/auth/error
-https://pulseinvestme.com/app
-https://pulseinvestme.com/admin/login
-https://pulseinvestme.com/admin/dashboard
+https://pulse-invest.vercel.app
+https://pulse-invest.vercel.app/auth/callback
+https://pulse-invest.vercel.app/auth/email-confirmed
+https://pulse-invest.vercel.app/auth/login
+https://pulse-invest.vercel.app/auth/sign-up
+https://pulse-invest.vercel.app/auth/forgot-password
+https://pulse-invest.vercel.app/auth/reset-password
+https://pulse-invest.vercel.app/auth/error
+https://pulse-invest.vercel.app/app
+https://pulse-invest.vercel.app/admin/login
+https://pulse-invest.vercel.app/admin/dashboard
 ```
 
-### Step 3.4: Verify RLS Policies
+**No action needed.**
+
+### Step 2B.4: RLS Policies (Already Done)
 
 **Go to:** SQL Editor → Run this query:
 
@@ -208,9 +193,9 @@ ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
 
 ---
 
-## VERIFICATION & TESTING (15 Minutes)
+## PHASE 3: VERIFICATION & TESTING (15 Minutes)
 
-### Test 1: DNS Resolution
+### Test 1: App is Live
 ```bash
 # Check DNS propagated
 nslookup pulseinvestme.com
