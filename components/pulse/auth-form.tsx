@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Activity, Loader2 } from 'lucide-react'
+import { Turnstile } from '@marsidev/react-turnstile'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { getDeviceFingerprint } from '@/lib/pulse/device-fingerprint'
@@ -16,7 +17,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const fingerprintRef = useRef<string | null>(null)
+  const turnstileRef = useRef<any>(null)
 
   // Pre-compute fingerprint on mount (async, non-blocking)
   useEffect(() => {
@@ -53,6 +56,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       
       const supabase = createClient()
       if (isSignUp) {
+        // Verify CAPTCHA token exists (prevent "no captcha_token" error)
+        if (!captchaToken) {
+          throw new Error('CAPTCHA token missing. Please complete the Turnstile challenge.')
+        }
+
         // Check device fingerprint before creating account
         const fp = fingerprintRef.current ?? await getDeviceFingerprint().catch(() => null)
         if (fp) {
@@ -66,10 +74,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
             throw new Error(body.error ?? 'This device is restricted.')
           }
         }
+
+        // Sign up with CAPTCHA token (required by Supabase)
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            captchaToken,
             emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: { full_name: fullName },
           },
@@ -135,6 +146,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
       
       setError(errorMsg)
       setLoading(false)
+      
+      // Reset Turnstile on error (allows user to retry)
+      if (turnstileRef.current?.reset) {
+        turnstileRef.current.reset()
+        setCaptchaToken(null)
+      }
     }
   }
 
@@ -199,6 +216,25 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
           </div>
         )}
 
+        {isSignUp && (
+          <div className="mt-4 mb-4 flex justify-center">
+            <Turnstile
+              ref={turnstileRef}
+              siteId={process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID || ''}
+              onSuccess={(token) => {
+                setCaptchaToken(token)
+              }}
+              onError={() => {
+                setCaptchaToken(null)
+                setError('CAPTCHA verification failed. Please try again.')
+              }}
+              onExpire={() => {
+                setCaptchaToken(null)
+              }}
+            />
+          </div>
+        )}
+
         {error ? (
           <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
@@ -208,7 +244,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
         <Button
           type="submit"
           size="lg"
-          disabled={loading}
+          disabled={loading || (isSignUp && !captchaToken)}
           className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
         >
           {loading ? <Loader2 className="size-4 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
