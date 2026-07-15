@@ -228,20 +228,29 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
 
         {isSignUp && (
           <div className="mt-4 mb-4 flex justify-center">
-            <Turnstile
-              ref={turnstileRef}
-              siteId={process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID || ''}
-              onSuccess={(token) => {
-                setCaptchaToken(token)
-              }}
-              onError={() => {
-                setCaptchaToken(null)
-                setError('CAPTCHA verification failed. Please try again.')
-              }}
-              onExpire={() => {
-                setCaptchaToken(null)
-              }}
-            />
+            {typeof window !== 'undefined' && process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID ? (
+              <Turnstile
+                ref={turnstileRef}
+                sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID}
+                onSuccess={(token) => {
+                  console.log('[v0] Turnstile challenge completed, token:', token?.substring(0, 20) + '...')
+                  setCaptchaToken(token)
+                }}
+                onError={(error) => {
+                  console.log('[v0] Turnstile error:', error)
+                  setCaptchaToken(null)
+                  setError('CAPTCHA verification failed. Please try again.')
+                }}
+                onExpire={() => {
+                  console.log('[v0] Turnstile token expired')
+                  setCaptchaToken(null)
+                }}
+              />
+            ) : (
+              <div className="text-xs text-muted-foreground italic">
+                {process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID ? 'Loading CAPTCHA...' : 'CAPTCHA not configured'}
+              </div>
+            )}
           </div>
         )}
 
@@ -254,7 +263,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
         <Button
           type="submit"
           size="lg"
-          disabled={loading || (isSignUp && process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID && !captchaToken)}
+          disabled={loading || (isSignUp && Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID) && !captchaToken)}
           className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
         >
           {loading ? <Loader2 className="size-4 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
