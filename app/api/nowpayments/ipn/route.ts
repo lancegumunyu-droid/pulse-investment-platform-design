@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { serviceClient } from '@/lib/pulse/service'
-import { adjustAccount } from '@/lib/pulse/data-access'
 
 // NOWPayments signs IPN callbacks with HMAC-SHA512 over the JSON body with keys
-// sorted alphabetically, using the IPN secret. We must verify before crediting.
+// sorted alphabetically, using the IPN secret. We must verify before doing
+// anything with the payload.
 function sortObject(obj: unknown): unknown {
   if (Array.isArray(obj)) return obj.map(sortObject)
   if (obj && typeof obj === 'object') {
@@ -59,15 +59,18 @@ export async function POST(req: Request) {
 
   if (!txn) return NextResponse.json({ ok: true, note: 'no matching transaction' })
 
-  // Only credit once, when the payment is fully settled.
-  if ((status === 'finished' || status === 'confirmed') && txn.status !== 'completed') {
-    await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
+  // CHANGED: even a fully settled payment no longer auto-credits the balance.
+  // We record that NOWPayments confirmed it (settled_status) and leave the
+  // transaction status as 'pending' so it appears in the admin deposit
+  // queue. adjustAccount only ever runs from reviewDeposit() in admin.ts,
+  // triggered by an admin clicking Approve.
+  if ((status === 'finished' || status === 'confirmed') && txn.status === 'pending') {
     await db
       .from('transactions')
-      .update({ status: 'completed', meta: { ...txn.meta, settled_status: status } })
+      .update({ meta: { ...txn.meta, settled_status: status } })
       .eq('id', txn.id)
   } else if (status === 'failed' || status === 'expired' || status === 'refunded') {
-    await db.from('transactions').update({ status: 'failed' }).eq('id', txn.id)
+    await db.from('transactions').update({ status: 'failed', meta: { ...txn.meta, settled_status: status } }).eq('id', txn.id)
   }
 
   return NextResponse.json({ ok: true })
