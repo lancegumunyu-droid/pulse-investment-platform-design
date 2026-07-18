@@ -50,6 +50,21 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     const totalInvested = (accounts ?? []).reduce((s, a) => s + Number(a.invested_balance), 0)
     const totalStaked = (accounts ?? []).reduce((s, a) => s + Number(a.staked_balance), 0)
 
+    const depositQueue = (txns ?? [])
+      .filter((t) => t.type === 'deposit' && t.status === 'pending')
+      .map((t) => ({
+        id: t.id,
+        userId: t.user_id,
+        email: emailMap.get(t.user_id) ?? null,
+        type: t.type,
+        amount: Number(t.amount),
+        currency: t.currency,
+        status: t.status,
+        reference: t.reference,
+        createdAt: new Date(t.created_at).getTime(),
+        settledStatus: (t.meta as Record<string, unknown> | null)?.settled_status as string | null ?? null,
+      }))
+
     const withdrawalQueue = (txns ?? [])
       .filter((t) => t.type === 'withdrawal' && t.status === 'pending')
       .map((t) => ({
@@ -93,11 +108,13 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       totalInvested,
       totalStaked,
       pendingWithdrawals: withdrawalQueue.length,
+      pendingDeposits: depositQueue.length,
       pendingKyc: kycQueue.length,
       userCount: users.length,
       users,
       kycQueue,
       withdrawalQueue,
+      depositQueue,
       recentTxns,
     }
     return { ok: true, snapshot }
@@ -120,6 +137,32 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .from('profiles')
       .update({ kyc_status: decision === 'approved' ? 'verified' : 'rejected' })
       .eq('id', sub.user_id)
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function reviewDeposit(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
+  try {
+    const admin = await requireAdmin()
+    const db = serviceClient()
+    const { data: txn } = await db.from('transactions').select('*').eq('id', id).single()
+    if (!txn || txn.type !== 'deposit' || txn.status !== 'pending') {
+      return { ok: false, error: 'Deposit not found or already processed' }
+    }
+    if (decision === 'approved') {
+      await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
+      await db
+        .from('transactions')
+        .update({ status: 'completed', processed_by: admin.id })
+        .eq('id', id)
+    } else {
+      await db
+        .from('transactions')
+        .update({ status: 'cancelled', processed_by: admin.id })
+        .eq('id', id)
+    }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
