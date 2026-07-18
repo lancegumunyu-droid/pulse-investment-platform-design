@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Globe, ShieldCheck, TrendingUp, Zap } from 'lucide-react'
-import { createServerClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 
 const STATS = [
   { label: 'Active projects', value: '12' },
@@ -13,7 +13,7 @@ const STATS = [
 export default async function HomePage() {
   // Check if user is already logged in
   try {
-    const supabase = await createServerClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     // If logged in, go straight to app
