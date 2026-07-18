@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
-import { isUserAdmin } from '@/lib/pulse/data-access'
+import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 
 async function requireAdmin() {
@@ -112,27 +112,14 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
     const db = serviceClient()
     const { data: sub } = await db.from('kyc_submissions').select('*').eq('id', id).single()
     if (!sub) return { ok: false, error: 'Submission not found' }
-    
     await db
       .from('kyc_submissions')
       .update({ status: decision, reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
       .eq('id', id)
-    
-    const newStatus = decision === 'approved' ? 'verified' : 'rejected'
     await db
       .from('profiles')
-      .update({ kyc_status: newStatus })
+      .update({ kyc_status: decision === 'approved' ? 'verified' : 'rejected' })
       .eq('id', sub.user_id)
-    
-    // Send notification
-    if (decision === 'approved') {
-      const { notifyKycApproved } = await import('@/lib/pulse/notifications')
-      await notifyKycApproved(sub.user_id)
-    } else {
-      const { notifyKycRejected } = await import('@/lib/pulse/notifications')
-      await notifyKycRejected(sub.user_id, 'Documentation did not meet requirements')
-    }
-    
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -147,30 +134,19 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
     if (!txn || txn.type !== 'withdrawal' || txn.status !== 'pending') {
       return { ok: false, error: 'Withdrawal not found or already processed' }
     }
-    
     if (decision === 'approved') {
-      // Balance deduction is handled inside the SECURITY DEFINER function.
-      const { rows } = await db.rpc('approve_withdrawal', {
-        p_withdrawal_id: id,
-        p_admin_id: admin.id,
-      })
-      if (rows?.[0]?.ok === false) return { ok: false, error: rows[0].error }
-
-      const { notifyWithdrawalApproved } = await import('@/lib/pulse/notifications')
-      await notifyWithdrawalApproved(txn.user_id, Number(txn.amount))
+      await db
+        .from('transactions')
+        .update({ status: 'completed', processed_by: admin.id })
+        .eq('id', id)
     } else {
-      // Balance restore is handled inside the SECURITY DEFINER function.
-      const { rows } = await db.rpc('reject_withdrawal', {
-        p_withdrawal_id: id,
-        p_admin_id: admin.id,
-        p_reason: 'Rejected by admin',
-      })
-      if (rows?.[0]?.ok === false) return { ok: false, error: rows[0].error }
-
-      const { notifyWithdrawalRejected } = await import('@/lib/pulse/notifications')
-      await notifyWithdrawalRejected(txn.user_id, Number(txn.amount))
+      // Refund the held funds back to the user's balance.
+      await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
+      await db
+        .from('transactions')
+        .update({ status: 'cancelled', processed_by: admin.id })
+        .eq('id', id)
     }
-    
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -181,15 +157,15 @@ export async function disburseYield(userId: string, amount: number): Promise<Adm
   try {
     const admin = await requireAdmin()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    // All balance mutations go through SECURITY DEFINER — no direct table writes.
-    const db = serviceClient()
-    const { rows } = await db.rpc('admin_credit', {
-      p_admin_id: admin.id,
-      p_user_id: userId,
-      p_amount: amount,
-      p_reason: 'Yield disbursement (admin)',
+    await adjustAccount(userId, { cash_balance: amount })
+    await recordTxn(userId, {
+      type: 'yield',
+      amount,
+      currency: 'USD',
+      status: 'completed',
+      processedBy: admin.id,
+      meta: { label: 'Yield disbursement (admin)' },
     })
-    if (rows?.[0]?.ok === false) return { ok: false, error: rows[0].error }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -206,173 +182,6 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
     // If the user already exists, promote them immediately.
     await db.from('profiles').update({ role: 'admin' }).ilike('email', clean)
     return getAdminSnapshot()
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-// ──────────────────────────────────────
-// Staff Management
-// ──────────────────────────────────────
-
-export async function addStaffMember(staffData: {
-  email: string
-  fullName: string
-  department: string
-  position: string
-  role: 'staff' | 'manager' | 'director'
-  phone?: string
-  country?: string
-  notes?: string
-}): Promise<{ ok: boolean; error?: string; staffId?: string }> {
-  try {
-    const admin = await requireAdmin()
-    const db = serviceClient()
-    const clean = staffData.email.trim().toLowerCase()
-    
-    const { data, error } = await db
-      .from('staff_members')
-      .insert({
-        email: clean,
-        full_name: staffData.fullName,
-        department: staffData.department,
-        position: staffData.position,
-        role: staffData.role,
-        phone: staffData.phone || null,
-        country: staffData.country || null,
-        notes: staffData.notes || null,
-        created_by: admin.id,
-      })
-      .select('id')
-      .single()
-    
-    if (error) return { ok: false, error: error.message }
-    
-    // Log the action
-    await db.from('staff_logs').insert({
-      staff_id: data.id,
-      action: 'created',
-      performed_by: admin.id,
-      changes: { email: clean, department: staffData.department, position: staffData.position },
-    })
-    
-    return { ok: true, staffId: data.id }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function updateStaffMember(
-  staffId: string,
-  staffData: Partial<{
-    fullName: string
-    department: string
-    position: string
-    role: 'staff' | 'manager' | 'director'
-    status: 'active' | 'inactive' | 'suspended'
-    phone: string
-    country: string
-    notes: string
-  }>
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const admin = await requireAdmin()
-    const db = serviceClient()
-    
-    const updateData: Record<string, any> = {}
-    if (staffData.fullName !== undefined) updateData.full_name = staffData.fullName
-    if (staffData.department !== undefined) updateData.department = staffData.department
-    if (staffData.position !== undefined) updateData.position = staffData.position
-    if (staffData.role !== undefined) updateData.role = staffData.role
-    if (staffData.status !== undefined) updateData.status = staffData.status
-    if (staffData.phone !== undefined) updateData.phone = staffData.phone || null
-    if (staffData.country !== undefined) updateData.country = staffData.country || null
-    if (staffData.notes !== undefined) updateData.notes = staffData.notes || null
-    
-    const { error } = await db
-      .from('staff_members')
-      .update(updateData)
-      .eq('id', staffId)
-    
-    if (error) return { ok: false, error: error.message }
-    
-    // Log the update
-    await db.from('staff_logs').insert({
-      staff_id: staffId,
-      action: 'updated',
-      performed_by: admin.id,
-      changes: staffData,
-    })
-    
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function suspendStaffMember(staffId: string, reason: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const admin = await requireAdmin()
-    const db = serviceClient()
-    
-    const { error } = await db
-      .from('staff_members')
-      .update({ status: 'suspended' })
-      .eq('id', staffId)
-    
-    if (error) return { ok: false, error: error.message }
-    
-    await db.from('staff_logs').insert({
-      staff_id: staffId,
-      action: 'suspended',
-      performed_by: admin.id,
-      changes: { reason },
-    })
-    
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getStaffList(): Promise<{ ok: boolean; staff?: any[]; error?: string }> {
-  try {
-    await requireAdmin()
-    const db = serviceClient()
-    
-    const { data, error } = await db
-      .from('staff_members')
-      .select('*')
-      .order('created_at', { ascending: false })
-    
-    if (error) return { ok: false, error: error.message }
-    
-    return {
-      ok: true,
-      staff: data || [],
-    }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getStaffLogs(staffId: string): Promise<{ ok: boolean; logs?: any[]; error?: string }> {
-  try {
-    await requireAdmin()
-    const db = serviceClient()
-    
-    const { data, error } = await db
-      .from('staff_logs')
-      .select('*')
-      .eq('staff_id', staffId)
-      .order('created_at', { ascending: false })
-    
-    if (error) return { ok: false, error: error.message }
-    
-    return {
-      ok: true,
-      logs: data || [],
-    }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }

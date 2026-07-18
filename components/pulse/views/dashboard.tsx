@@ -17,19 +17,9 @@ export function DashboardView() {
   const { state, totalInvested, currentTier, portfolioValue, openModal, setView } = usePulse()
   const upcoming = nextTier(currentTier.id)
   const progress = upcoming ? Math.min(100, (totalInvested / upcoming.minInvest) * 100) : 100
-  const kycVerified = state.kyc === 'verified'
-  const kycNotStarted = state.kyc === 'none'
 
   return (
     <div className="space-y-5">
-      {/* Show approval status banner if pending */}
-      {kycNotStarted && (
-        <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
-          <p className="text-sm font-semibold text-yellow-500">Complete verification to unlock deposits & tiers</p>
-          <p className="mt-1 text-xs text-yellow-500/80">You can view all features but deposits require KYC approval</p>
-        </div>
-      )}
-      
       <Glass gold className="animate-rise">
         <p className="text-xs font-medium uppercase tracking-wide text-gold">Total portfolio value</p>
         <p className="mt-1 font-mono text-4xl font-semibold tracking-tight">${money(portfolioValue)}</p>
@@ -48,22 +38,18 @@ export function DashboardView() {
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Button
             size="lg"
-            disabled={!kycVerified}
-            className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90 disabled:opacity-50"
-            onClick={() => kycVerified ? openModal('deposit') : openModal('kyc')}
-            title={kycVerified ? undefined : 'Complete KYC to deposit'}
+            className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+            onClick={() => openModal('deposit')}
           >
-            <ArrowDownRight className="size-4" /> {kycVerified ? 'Deposit' : 'Locked'}
+            <ArrowDownRight className="size-4" /> Deposit
           </Button>
           <Button
             size="lg"
-            disabled={!kycVerified || state.cash === 0}
             variant="outline"
-            className="h-11 w-full border-white/12 bg-white/[0.03] font-semibold disabled:opacity-50"
-            onClick={() => kycVerified ? openModal('withdraw') : openModal('kyc')}
-            title={kycVerified ? undefined : 'Complete KYC to withdraw'}
+            className="h-11 w-full border-white/12 bg-white/[0.03] font-semibold"
+            onClick={() => openModal('withdraw')}
           >
-            <ArrowUpRight className="size-4" /> {kycVerified ? 'Withdraw' : 'Locked'}
+            <ArrowUpRight className="size-4" /> Withdraw
           </Button>
         </div>
       </Glass>
@@ -72,15 +58,11 @@ export function DashboardView() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Current tier</p>
-            <p className="mt-0.5 text-lg font-semibold">{kycVerified ? currentTier.name : 'Starter (Locked)'}</p>
+            <p className="mt-0.5 text-lg font-semibold">{currentTier.name}</p>
           </div>
-          <Pill tone={kycVerified ? "green" : "muted"}>{kycVerified ? currentTier.yieldLabel : 'KYC Required'}</Pill>
+          <Pill tone="green">{currentTier.yieldLabel}</Pill>
         </div>
-        {!kycVerified ? (
-          <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
-            <p className="text-xs text-yellow-500">Tier system is locked until you complete KYC verification</p>
-          </div>
-        ) : upcoming ? (
+        {upcoming ? (
           <div className="mt-4">
             <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
               <span>Progress to {upcoming.name}</span>
@@ -95,7 +77,7 @@ export function DashboardView() {
           onClick={() => setView('invest')}
           className="mt-4 flex w-full items-center justify-between text-sm font-medium text-gold"
         >
-          {kycVerified ? 'View all tiers' : 'View tiers (read-only)'} <ChevronRight className="size-4" />
+          View all tiers <ChevronRight className="size-4" />
         </button>
       </Glass>
 

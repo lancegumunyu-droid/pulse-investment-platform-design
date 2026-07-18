@@ -274,12 +274,14 @@ function DepositModal({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({ amount: usd, payCurrency: currency }),
       })
       if (res.status === 501) {
-        // Payment gateway not yet configured. Inform the user to contact support.
-        toast({
-          title: 'Payment gateway offline',
-          description: 'Our payment gateway is currently being configured. Please contact support to arrange a manual deposit.',
-          variant: 'error',
-        })
+        // NOWPayments not configured — use the sandbox credit path.
+        const r = await api.deposit(usd)
+        if (!r.ok) {
+          toast({ title: 'Deposit failed', description: r.error, variant: 'error' })
+          return
+        }
+        toast({ title: 'Sandbox deposit credited', description: `$${money(usd)} added to your balance.`, variant: 'success' })
+        onClose()
         return
       }
       const data = await res.json()

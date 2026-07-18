@@ -103,19 +103,9 @@ export function ProfileView() {
         variant="outline"
         size="lg"
         className="h-11 w-full border-white/12 bg-white/[0.03] font-medium"
-        onClick={openAdmin}
+        onClick={() => setView('admin')}
       >
-        <Lock className="size-4" />
-        {state.isAdmin ? 'Admin dashboard' : 'Request admin access'}
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="lg"
-        className="h-11 w-full font-medium text-muted-foreground hover:text-destructive"
-        onClick={signOut}
-      >
-        <LogOut className="size-4" /> Sign out
+        <Lock className="size-4" /> Admin dashboard
       </Button>
 
       <RiskNote />
