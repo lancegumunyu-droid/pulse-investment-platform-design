@@ -48,6 +48,8 @@ export async function simulateDeposit(amount: number): Promise<Result> {
   try {
     const user = await requireUser()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
+    const snap = await getSnapshot(user.id)
+    if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to deposit' }
     await recordTxn(user.id, {
       type: 'deposit',
       amount,
