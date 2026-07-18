@@ -42,7 +42,6 @@ export function AdminView() {
 
   useEffect(() => { load() }, [load])
 
-  // Non-admin guard
   if (!state.isAdmin) {
     return (
       <div className="space-y-5">
@@ -63,6 +62,7 @@ export function AdminView() {
     { id: 'overview', label: 'Overview' },
     { id: 'kyc', label: `KYC${snap ? ` (${snap.pendingKyc})` : ''}` },
     { id: 'deposits', label: `Deposits${snap ? ` (${snap.pendingDeposits})` : ''}` },
+    { id: 'withdrawals', label: `Withdrawals${snap ? ` (${snap.pendingWithdrawals})` : ''}` },
     { id: 'users', label: 'Users' },
     { id: 'settings', label: 'Settings' },
   ]
@@ -88,7 +88,6 @@ export function AdminView() {
         </Button>
       </div>
 
-      {/* Tab strip */}
       <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
         {tabs.map((t) => (
           <button
@@ -115,7 +114,6 @@ export function AdminView() {
 
       {!loading && snap && (
         <>
-          {/* ── Overview ── */}
           {tab === 'overview' && (
             <div className="space-y-4 animate-rise">
               <Glass>
@@ -126,6 +124,7 @@ export function AdminView() {
                   <Stat label="Users" value={snap.userCount} />
                   <Stat label="Pending KYC" value={snap.pendingKyc} />
                   <Stat label="Pending deposits" value={snap.pendingDeposits} />
+                  <Stat label="Pending withdrawals" value={snap.pendingWithdrawals} />
                 </div>
               </Glass>
 
@@ -151,7 +150,6 @@ export function AdminView() {
                 )}
               </Glass>
 
-              {/* Manual yield disbursement */}
               <Glass>
                 <p className="mb-1 text-sm font-semibold">Disburse yield</p>
                 <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
@@ -207,7 +205,6 @@ export function AdminView() {
             </div>
           )}
 
-          {/* ── KYC queue ── */}
           {tab === 'kyc' && (
             <div className="space-y-3 animate-rise">
               {snap.kycQueue.length === 0 ? (
@@ -265,7 +262,7 @@ export function AdminView() {
               )}
             </div>
           )}
-{/* ── Deposit queue ── */}
+
           {tab === 'deposits' && (
             <div className="space-y-3 animate-rise">
               {snap.depositQueue.length === 0 ? (
@@ -322,7 +319,7 @@ export function AdminView() {
               )}
             </div>
           )}
-          {/* ── Withdrawal queue ── */}
+
           {tab === 'withdrawals' && (
             <div className="space-y-3 animate-rise">
               {snap.withdrawalQueue.length === 0 ? (
@@ -378,7 +375,6 @@ export function AdminView() {
             </div>
           )}
 
-          {/* ── Users ── */}
           {tab === 'users' && (
             <div className="space-y-3 animate-rise">
               {snap.users.map((u) => (
@@ -417,7 +413,6 @@ export function AdminView() {
             </div>
           )}
 
-          {/* ── Settings ── */}
           {tab === 'settings' && (
             <div className="space-y-4 animate-rise">
               <Glass>
