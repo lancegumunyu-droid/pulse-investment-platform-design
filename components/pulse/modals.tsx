@@ -61,28 +61,18 @@ export function Modals() {
 }
 
 function KycModal({ onClose }: { onClose: () => void }) {
-  const { api, busy, toast, state } = usePulse()
+  const { dispatch, toast, state } = usePulse()
   const [step, setStep] = useState(state.kyc === 'pending' ? 2 : 0)
   const [form, setForm] = useState({ name: '', country: 'Botswana', idNumber: '', dob: '' })
 
-  const submit = async () => {
-    const res = await api.submitKyc({
-      fullName: form.name,
-      idNumber: form.idNumber,
-      dateOfBirth: form.dob || undefined,
-      country: form.country,
-    })
-    if (!res.ok) {
-      toast({ title: 'Could not submit', description: res.error, variant: 'error' })
-      return
-    }
+  const submit = () => {
+    dispatch({ type: 'SET_KYC', status: 'pending' })
     setStep(2)
-    toast({
-      title: 'Submitted for review',
-      description: 'Our team will verify your identity shortly.',
-      variant: 'success',
-    })
-    setTimeout(onClose, 1200)
+    setTimeout(() => {
+      dispatch({ type: 'SET_KYC', status: 'verified' })
+      toast({ title: 'Identity verified', description: 'You now have full access to Pulse.', variant: 'success' })
+      onClose()
+    }, 1800)
   }
 
   return (
@@ -136,20 +126,20 @@ function KycModal({ onClose }: { onClose: () => void }) {
             variant="default"
             size="lg"
             className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-            disabled={!form.name || !form.idNumber || !form.dob || busy}
+            disabled={!form.name || !form.idNumber || !form.dob}
             onClick={submit}
           >
             Submit for verification
           </Button>
-          <p className="mt-3 text-center text-xs text-muted-foreground">A Pulse admin reviews every submission before approval.</p>
+          <p className="mt-3 text-center text-xs text-muted-foreground">Verification usually completes instantly in this demo.</p>
         </>
       ) : (
         <div className="flex flex-col items-center py-8 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-gold-soft text-gold">
             <ShieldCheck className="size-7 animate-pulse" />
           </span>
-          <p className="mt-4 font-semibold">Submitted for review</p>
-          <p className="mt-1 text-sm text-muted-foreground">You&apos;ll get full access once an admin approves your identity.</p>
+          <p className="mt-4 font-semibold">Reviewing your details…</p>
+          <p className="mt-1 text-sm text-muted-foreground">This will only take a moment.</p>
         </div>
       )}
     </ModalShell>
@@ -157,9 +147,9 @@ function KycModal({ onClose }: { onClose: () => void }) {
 }
 
 function InvestModal({ onClose }: { onClose: () => void }) {
-  const { state, api, busy, toast, openModal, modal } = usePulse()
-  const projectId = (modal.payload?.projectId as string) || PROJECTS[0].id
-  const preset = modal.payload?.amount as number | undefined
+  const { state, dispatch, toast, openModal } = usePulse()
+  const projectId = (usePulse().modal.payload?.projectId as string) || PROJECTS[0].id
+  const preset = usePulse().modal.payload?.amount as number | undefined
   const project = PROJECTS.find((p) => p.id === projectId) || PROJECTS[0]
   const [amount, setAmount] = useState(String(preset ?? 75))
 
@@ -168,7 +158,7 @@ function InvestModal({ onClose }: { onClose: () => void }) {
   const insufficient = value > state.cash
   const needsKyc = value > KYC_REQUIRED_ABOVE && state.kyc !== 'verified'
 
-  const confirm = async () => {
+  const confirm = () => {
     if (needsKyc) {
       toast({ title: 'Verification required', description: `KYC is required for investments over $${KYC_REQUIRED_ABOVE}.`, variant: 'error' })
       onClose()
@@ -181,11 +171,7 @@ function InvestModal({ onClose }: { onClose: () => void }) {
       openModal('deposit')
       return
     }
-    const res = await api.invest(value, projectId)
-    if (!res.ok) {
-      toast({ title: 'Investment failed', description: res.error, variant: 'error' })
-      return
-    }
+    dispatch({ type: 'INVEST', amount: value, projectId })
     toast({ title: 'Investment confirmed', description: `$${money(value)} allocated to ${project.name}.`, variant: 'success' })
     onClose()
   }
@@ -237,7 +223,7 @@ function InvestModal({ onClose }: { onClose: () => void }) {
           'mt-4 h-12 w-full text-base font-semibold',
           'bg-gold text-primary-foreground hover:bg-gold/90',
         )}
-        disabled={value <= 0 || busy}
+        disabled={value <= 0}
         onClick={confirm}
       >
         {insufficient ? 'Deposit to continue' : `Confirm $${money(value)} investment`}
@@ -247,102 +233,31 @@ function InvestModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-interface PayInfo {
-  payAddress: string
-  payAmount: number
-  payCurrency: string
-}
-
 function DepositModal({ onClose }: { onClose: () => void }) {
-  const { api, busy, toast, refresh } = usePulse()
-  const [currency, setCurrency] = useState<'usdttrc20' | 'btc'>('usdttrc20')
+  const { dispatch, toast } = usePulse()
+  const [currency, setCurrency] = useState<'USDT' | 'BTC'>('USDT')
   const [amount, setAmount] = useState('100')
   const [processing, setProcessing] = useState(false)
-  const [payInfo, setPayInfo] = useState<PayInfo | null>(null)
 
   const usd = Number(amount) || 0
-  const label = currency === 'btc' ? 'BTC' : 'USDT (TRC-20)'
+  const btcRate = 68000
+  const cryptoAmount = currency === 'USDT' ? usd : usd / btcRate
 
-  // Attempt a real NOWPayments crypto deposit. Falls back to a sandbox credit
-  // when NOWPayments keys are not configured yet.
-  const pay = async () => {
+  const pay = () => {
     setProcessing(true)
-    try {
-      const res = await fetch('/api/nowpayments/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: usd, payCurrency: currency }),
-      })
-      if (res.status === 501) {
-        // NOWPayments not configured — use the sandbox credit path.
-        const r = await api.deposit(usd)
-        if (!r.ok) {
-          toast({ title: 'Deposit failed', description: r.error, variant: 'error' })
-          return
-        }
-        toast({ title: 'Sandbox deposit credited', description: `$${money(usd)} added to your balance.`, variant: 'success' })
-        onClose()
-        return
-      }
-      const data = await res.json()
-      if (!res.ok) {
-        toast({ title: 'Could not start payment', description: data?.message ?? 'Try again.', variant: 'error' })
-        return
-      }
-      setPayInfo({ payAddress: data.payAddress, payAmount: data.payAmount, payCurrency: data.payCurrency })
-      toast({ title: 'Payment created', description: 'Send the exact amount to the address shown.', variant: 'info' })
-    } catch {
-      toast({ title: 'Network error', description: 'Please try again.', variant: 'error' })
-    } finally {
+    // Simulated NOWPayments confirmation flow.
+    setTimeout(() => {
+      dispatch({ type: 'DEPOSIT', amount: usd, currency: 'USDT' })
+      toast({ title: 'Deposit confirmed', description: `$${money(usd)} credited via ${currency}.`, variant: 'success' })
       setProcessing(false)
-    }
-  }
-
-  if (payInfo) {
-    return (
-      <ModalShell title="Complete your deposit" icon={<ArrowDownRight className="size-5" />} onClose={onClose}>
-        <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-          Send exactly the amount below. Your balance credits automatically once the payment is confirmed on-chain.
-        </p>
-        <div className="space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
-          <Row label="Send amount" value={`${payInfo.payAmount} ${payInfo.payCurrency.toUpperCase()}`} tone="gold" />
-          <Row label="Credited" value={`$${money(usd)}`} tone="green" />
-        </div>
-        <div className="mt-3">
-          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Deposit address</span>
-          <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
-            <span className="flex-1 truncate font-mono text-xs">{payInfo.payAddress}</span>
-            <button
-              onClick={() => {
-                navigator.clipboard?.writeText(payInfo.payAddress)
-                toast({ title: 'Address copied', variant: 'info' })
-              }}
-              className="text-gold"
-              aria-label="Copy deposit address"
-            >
-              Copy
-            </button>
-          </div>
-        </div>
-        <Button
-          size="lg"
-          variant="outline"
-          className="mt-4 h-11 w-full border-white/12 bg-white/[0.03] font-semibold"
-          onClick={() => refresh()}
-        >
-          Refresh balance
-        </Button>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Confirmation can take a few minutes depending on network conditions.
-        </p>
-      </ModalShell>
-    )
+      onClose()
+    }, 1600)
   }
 
   return (
     <ModalShell title="Deposit funds" icon={<ArrowDownRight className="size-5" />} onClose={onClose}>
       <div className="mb-4 grid grid-cols-2 gap-2">
-        {(['usdttrc20', 'btc'] as const).map((c) => (
+        {(['USDT', 'BTC'] as const).map((c) => (
           <button
             key={c}
             onClick={() => setCurrency(c)}
@@ -351,7 +266,7 @@ function DepositModal({ onClose }: { onClose: () => void }) {
               currency === c ? 'border-gold/50 bg-gold-soft text-gold' : 'border-white/8 bg-white/[0.03] text-muted-foreground',
             )}
           >
-            {c === 'btc' ? 'BTC' : 'USDT'}
+            {c}
           </button>
         ))}
       </div>
@@ -359,32 +274,32 @@ function DepositModal({ onClose }: { onClose: () => void }) {
         <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
       <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
-        <Row label="Pay with" value={label} />
+        <Row label="You pay" value={`${currency === 'BTC' ? cryptoAmount.toFixed(6) : money(cryptoAmount)} ${currency}`} />
         <Row label="You receive" value={`$${money(usd)} balance`} tone="green" />
         <Row label="Network fee" value="Covered by Pulse" />
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Crypto deposits are processed by NOWPayments. Funds credit automatically once confirmed on-chain.
+        Processed via NOWPayments in production. This demo simulates the confirmation and does not move real funds.
       </p>
       <Button
         size="lg"
         className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || processing || busy}
+        disabled={usd <= 0 || processing}
         onClick={pay}
       >
-        {processing ? 'Starting payment…' : `Deposit $${money(usd)}`}
+        {processing ? 'Confirming payment…' : `Deposit $${money(usd)}`}
       </Button>
     </ModalShell>
   )
 }
 
 function WithdrawModal({ onClose }: { onClose: () => void }) {
-  const { state, api, busy, toast, openModal } = usePulse()
+  const { state, dispatch, toast, openModal } = usePulse()
   const [amount, setAmount] = useState('50')
   const usd = Number(amount) || 0
   const insufficient = usd > state.cash
 
-  const submit = async () => {
+  const submit = () => {
     if (state.kyc !== 'verified') {
       toast({ title: 'Verification required', description: 'Complete KYC before withdrawing.', variant: 'error' })
       onClose()
@@ -400,11 +315,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Amount exceeds balance', variant: 'error' })
       return
     }
-    const res = await api.withdraw(usd)
-    if (!res.ok) {
-      toast({ title: 'Withdrawal failed', description: res.error, variant: 'error' })
-      return
-    }
+    dispatch({ type: 'WITHDRAW', amount: usd })
     toast({ title: 'Withdrawal requested', description: 'Funds will arrive after admin approval.', variant: 'info' })
     onClose()
   }
@@ -422,7 +333,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       <Button
         size="lg"
         className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || busy}
+        disabled={usd <= 0}
         onClick={submit}
       >
         Request withdrawal

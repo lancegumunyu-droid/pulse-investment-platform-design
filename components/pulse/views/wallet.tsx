@@ -30,38 +30,25 @@ const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; s
 }
 
 export function WalletView() {
-  const { state, api, toast, openModal } = usePulse()
+  const { state, dispatch, toast, openModal } = usePulse()
 
   const connect = async () => {
     try {
-      let address: string | null = null
       if (typeof window !== 'undefined' && window.ethereum) {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-        if (accounts?.[0]) address = accounts[0]
+        if (accounts?.[0]) {
+          dispatch({ type: 'CONNECT_WALLET', address: accounts[0] })
+          toast({ title: 'Wallet connected', description: 'MetaMask linked successfully.', variant: 'success' })
+          return
+        }
       }
-      const injected = !!address
-      if (!address) {
-        // Fallback for environments without an injected wallet (e.g. preview / webview).
-        address = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
-      }
-      const res = await api.connectWallet(address)
-      if (!res.ok) {
-        toast({ title: 'Could not save wallet', description: res.error, variant: 'error' })
-        return
-      }
-      toast(
-        injected
-          ? { title: 'Wallet connected', description: 'MetaMask linked successfully.', variant: 'success' }
-          : { title: 'Demo wallet connected', description: 'No injected wallet found — using a demo address.', variant: 'info' },
-      )
+      // Fallback for environments without an injected wallet (e.g. preview / webview).
+      const demo = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+      dispatch({ type: 'CONNECT_WALLET', address: demo })
+      toast({ title: 'Demo wallet connected', description: 'No injected wallet found — using a demo address.', variant: 'info' })
     } catch {
       toast({ title: 'Connection cancelled', variant: 'error' })
     }
-  }
-
-  const disconnect = async () => {
-    const res = await api.disconnectWallet()
-    if (res.ok) toast({ title: 'Wallet disconnected', variant: 'info' })
   }
 
   const copy = () => {
@@ -102,7 +89,7 @@ export function WalletView() {
                 </button>
               </div>
             </div>
-            <Button size="icon" variant="ghost" onClick={disconnect} aria-label="Disconnect wallet">
+            <Button size="icon" variant="ghost" onClick={() => dispatch({ type: 'DISCONNECT_WALLET' })} aria-label="Disconnect wallet">
               <LogOut className="size-4" />
             </Button>
           </div>

@@ -11,7 +11,7 @@ const SALE_RAISED = 1_842_000
 const SALE_GOAL = 3_000_000
 
 export function SaleView() {
-  const { state, api, busy, toast, openModal } = usePulse()
+  const { state, dispatch, toast, openModal } = usePulse()
   const [usd, setUsd] = useState('200')
 
   const value = Number(usd) || 0
@@ -21,17 +21,13 @@ export function SaleView() {
   const pct = Math.round((SALE_RAISED / SALE_GOAL) * 100)
   const insufficient = value > state.cash
 
-  const buy = async () => {
+  const buy = () => {
     if (insufficient) {
       toast({ title: 'Insufficient balance', description: 'Deposit funds to join the sale.', variant: 'error' })
       openModal('deposit')
       return
     }
-    const res = await api.buyToken(value, Math.round(totalTokens))
-    if (!res.ok) {
-      toast({ title: 'Purchase failed', description: res.error, variant: 'error' })
-      return
-    }
+    dispatch({ type: 'BUY_TOKEN', pulse: Math.round(totalTokens), cost: value })
     toast({
       title: 'Purchase confirmed',
       description: `${Math.round(totalTokens).toLocaleString()} PULSE added (incl. ${TOKEN.bonusPct}% bonus).`,
@@ -96,7 +92,7 @@ export function SaleView() {
         <Button
           size="lg"
           className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-          disabled={value <= 0 || busy}
+          disabled={value <= 0}
           onClick={buy}
         >
           {insufficient ? 'Deposit to continue' : `Buy ${money(totalTokens, 0)} PULSE`}
