@@ -71,6 +71,7 @@ export interface AdminTxnRow {
   status: string
   reference: string | null
   createdAt: number
+  settledStatus?: string | null
 }
 
 export interface AdminSnapshot {
@@ -78,10 +79,12 @@ export interface AdminSnapshot {
   totalInvested: number
   totalStaked: number
   pendingWithdrawals: number
+  pendingDeposits: number
   pendingKyc: number
   userCount: number
   users: AdminUserRow[]
   kycQueue: AdminKycRow[]
   withdrawalQueue: AdminTxnRow[]
+  depositQueue: AdminTxnRow[]
   recentTxns: AdminTxnRow[]
 }
