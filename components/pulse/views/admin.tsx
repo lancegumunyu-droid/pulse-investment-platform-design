@@ -17,10 +17,10 @@ import { usePulse, money } from '../store'
 import { Glass, Pill, SectionTitle, Stat } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getAdminSnapshot, reviewKyc, reviewWithdrawal, disburseYield, addAdminByEmail } from '@/app/actions/admin'
+import { getAdminSnapshot, reviewKyc, reviewWithdrawal, reviewDeposit, disburseYield, addAdminByEmail } from '@/app/actions/admin'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 
-type Tab = 'overview' | 'kyc' | 'withdrawals' | 'users' | 'settings'
+type Tab = 'overview' | 'kyc' | 'deposits' | 'withdrawals' | 'users' | 'settings'
 
 export function AdminView() {
   const { state, setView, toast } = usePulse()
@@ -62,7 +62,7 @@ export function AdminView() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'kyc', label: `KYC${snap ? ` (${snap.pendingKyc})` : ''}` },
-    { id: 'withdrawals', label: `Withdrawals${snap ? ` (${snap.pendingWithdrawals})` : ''}` },
+    { id: 'deposits', label: `Deposits${snap ? ` (${snap.pendingDeposits})` : ''}` },
     { id: 'users', label: 'Users' },
     { id: 'settings', label: 'Settings' },
   ]
@@ -125,7 +125,7 @@ export function AdminView() {
                   <Stat label="Total staked (PULSE)" value={`${money(snap.totalStaked, 0)}`} />
                   <Stat label="Users" value={snap.userCount} />
                   <Stat label="Pending KYC" value={snap.pendingKyc} />
-                  <Stat label="Pending withdrawals" value={snap.pendingWithdrawals} />
+                  <Stat label="Pending deposits" value={snap.pendingDeposits} />
                 </div>
               </Glass>
 
@@ -265,7 +265,63 @@ export function AdminView() {
               )}
             </div>
           )}
-
+{/* ── Deposit queue ── */}
+          {tab === 'deposits' && (
+            <div className="space-y-3 animate-rise">
+              {snap.depositQueue.length === 0 ? (
+                <Glass className="py-8 text-center">
+                  <Check className="mx-auto size-8 text-green" />
+                  <p className="mt-2 text-sm font-semibold">No pending deposits</p>
+                </Glass>
+              ) : (
+                snap.depositQueue.map((d) => (
+                  <Glass key={d.id} className="animate-rise">
+                    <div className="mb-3 flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold">${money(d.amount)}</p>
+                        <p className="text-xs text-muted-foreground">{d.email ?? d.userId.slice(0, 12)}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</p>
+                      </div>
+                      <Pill tone={d.settledStatus === 'finished' || d.settledStatus === 'confirmed' ? 'green' : 'gold'}>
+                        {d.settledStatus ? 'payment confirmed' : 'awaiting payment'}
+                      </Pill>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-green/90 font-semibold text-background hover:bg-green"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await reviewDeposit(d.id, 'approved')
+                            if (res.ok) toast({ title: 'Deposit approved', description: `$${money(d.amount)} credited.`, variant: 'success' })
+                            return res
+                          })
+                        }
+                      >
+                        <Check className="size-3.5" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await reviewDeposit(d.id, 'rejected')
+                            if (res.ok) toast({ title: 'Deposit rejected', variant: 'info' })
+                            return res
+                          })
+                        }
+                      >
+                        <X className="size-3.5" /> Reject
+                      </Button>
+                    </div>
+                  </Glass>
+                ))
+              )}
+            </div>
+          )}
           {/* ── Withdrawal queue ── */}
           {tab === 'withdrawals' && (
             <div className="space-y-3 animate-rise">
