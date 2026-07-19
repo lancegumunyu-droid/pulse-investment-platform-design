@@ -1,278 +1,174 @@
-'use server'
+'use client'
 
-import { createClient } from '@/lib/supabase/server'
-import { serviceClient } from '@/lib/pulse/service'
-import { adjustAccount, ensureAccount, getSnapshot, recordTxn } from '@/lib/pulse/data-access'
-import { tierForAmount, TIERS } from '@/lib/pulse-data'
-import type { Snapshot } from '@/lib/pulse/types'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { Activity, Loader2 } from 'lucide-react'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
 
-async function requireUser() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  return user
-}
+export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const isSignUp = mode === 'sign-up'
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
-
-async function withSnapshot(userId: string): Promise<Result> {
-  return { ok: true, snapshot: await getSnapshot(userId) }
-}
-
-export async function fetchSnapshot(): Promise<Snapshot | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-  return getSnapshot(user.id)
-}
-
-// Recompute and persist the tier based on total invested.
-async function syncTier(userId: string) {
-  const db = serviceClient()
-  const acct = await ensureAccount(userId)
-  const tier = tierForAmount(Number(acct.invested_balance))
-  const idx = TIERS.findIndex((t) => t.id === tier.id)
-  await db.from('profiles').update({ tier: idx }).eq('id', userId)
-}
-
-// CHANGED: this used to credit cash_balance immediately (bypassing review).
-// Now it only records a PENDING deposit request. The balance is credited by
-// reviewDeposit() in admin.ts once an admin approves it — same pattern as
-// requestWithdrawal below. Function name kept as simulateDeposit so no UI
-// call sites need to change.
-export async function simulateDeposit(amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to deposit' }
-    await recordTxn(user.id, {
-      type: 'deposit',
-      amount,
-      currency: 'USD',
-      status: 'pending',
-      reference: 'manual',
-      meta: { label: 'Deposit request — pending admin approval' },
+  // Redirect already-authenticated users away from auth pages.
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace('/app')
     })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
+  }, [router])
 
-export async function requestWithdrawal(amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to withdraw' }
-    if (amount > snap.cash) return { ok: false, error: 'Amount exceeds available balance' }
-    // Hold the funds and create a pending withdrawal for admin approval.
-    await adjustAccount(user.id, { cash_balance: -amount })
-    await recordTxn(user.id, {
-      type: 'withdrawal',
-      amount,
-      currency: 'USD',
-      status: 'pending',
-      meta: { label: 'Withdrawal to wallet', wallet: snap.wallet },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function invest(amount: number, projectId: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (amount > snap.cash) return { ok: false, error: 'Insufficient balance — deposit first' }
-    if (amount > 500 && snap.kyc !== 'verified') {
-      return { ok: false, error: 'Verify your identity for investments over $500' }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    const supabase = createClient()
+    try {
+      if (isSignUp) {
+        // CHANGED: capture ?ref=CODE from the URL (e.g. from a shared
+        // referral link) and pass it through as user metadata. The
+        // handle_new_user() database trigger reads this to set
+        // profiles.referred_by.
+        const refCode = searchParams.get('ref')
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo:
+              process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
+            data: { full_name: fullName, ...(refCode ? { ref_code: refCode } : {}) },
+          },
+        })
+        if (error) throw error
+        router.push('/auth/sign-up-success')
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) throw error
+        router.push('/app')
+        router.refresh()
+      }
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
     }
-    const newTotalInvested = snap.holdings.reduce((s, h) => s + h.amount, 0) + amount
-    const tier = tierForAmount(newTotalInvested)
-    const db = serviceClient()
-    await adjustAccount(user.id, { cash_balance: -amount, invested_balance: amount })
-    await db.from('holdings').insert({
-      user_id: user.id,
-      project_id: projectId,
-      amount,
-      tier: TIERS.findIndex((t) => t.id === tier.id),
-      target_yield_low: tier.yieldLow,
-      target_yield_high: tier.yieldHigh,
-    })
-    await recordTxn(user.id, {
-      type: 'investment',
-      amount,
-      currency: 'USD',
-      status: 'completed',
-      meta: { label: 'Project share purchase', projectId },
-    })
-    await syncTier(user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
   }
+
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10 text-center">
+        <div className="glass rounded-3xl p-8">
+          <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
+            <Activity className="size-7 text-gold" />
+          </span>
+          <h1 className="text-lg font-semibold">Supabase not configured</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
+            Add <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in{' '}
+            <strong>Settings → Vars</strong> to enable authentication.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
+      <div className="mb-8 flex flex-col items-center text-center">
+        <span className="mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
+          <Activity className="size-7 text-gold" />
+        </span>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {isSignUp ? 'Create your Pulse account' : 'Welcome back'}
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground text-pretty">
+          {isSignUp
+            ? 'Invest in real African projects. Grow responsibly.'
+            : 'Sign in to access your Pulse portfolio.'}
+        </p>
+      </div>
+
+      <form onSubmit={submit} className="glass rounded-3xl p-5">
+        {isSignUp ? (
+          <Field label="Full name">
+            <input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              autoComplete="name"
+              className="pulse-input"
+              placeholder="Thabo Nkosi"
+            />
+          </Field>
+        ) : null}
+        <Field label="Email">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            className="pulse-input"
+            placeholder="you@example.com"
+          />
+        </Field>
+        <Field label="Password">
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            autoComplete={isSignUp ? 'new-password' : 'current-password'}
+            className="pulse-input"
+            placeholder="••••••••"
+          />
+        </Field>
+
+        {error ? (
+          <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
+
+        <Button
+          type="submit"
+          size="lg"
+          disabled={loading}
+          className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
+        >
+          {loading ? <Loader2 className="size-4 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
+        </Button>
+      </form>
+
+      <p className="mt-5 text-center text-sm text-muted-foreground">
+        {isSignUp ? 'Already have an account?' : 'New to Pulse?'}{' '}
+        <Link href={isSignUp ? '/auth/login' : '/auth/sign-up'} className="font-semibold text-gold">
+          {isSignUp ? 'Sign in' : 'Create an account'}
+        </Link>
+      </p>
+
+      <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground text-pretty">
+        Investments carry risk of loss. Yields are variable and depend on real project performance. This is a product
+        demonstration and does not process real funds.
+      </p>
+    </div>
+  )
 }
 
-export async function buyToken(cost: number, pulse: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(cost > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (cost > snap.cash) return { ok: false, error: 'Insufficient balance — deposit first' }
-    await adjustAccount(user.id, { cash_balance: -cost, token_balance: pulse })
-    await recordTxn(user.id, {
-      type: 'token_purchase',
-      amount: pulse,
-      currency: 'PULSE',
-      status: 'completed',
-      meta: { label: `Private sale — ${Math.round(pulse).toLocaleString()} PULSE`, usdCost: cost },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function stake(amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (amount > snap.pulse) return { ok: false, error: 'Not enough liquid PULSE' }
-    const db = serviceClient()
-    await adjustAccount(user.id, { token_balance: -amount, staked_balance: amount })
-    await db.from('staking_positions').insert({ user_id: user.id, amount, apy: 24.8, active: true })
-    await recordTxn(user.id, {
-      type: 'stake',
-      amount,
-      currency: 'PULSE',
-      status: 'completed',
-      meta: { label: 'Staked PULSE' },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function unstake(amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (amount > snap.staked) return { ok: false, error: 'Not enough staked PULSE' }
-    await adjustAccount(user.id, { token_balance: amount, staked_balance: -amount })
-    await recordTxn(user.id, {
-      type: 'unstake',
-      amount,
-      currency: 'PULSE',
-      status: 'completed',
-      meta: { label: 'Unstaked PULSE' },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function setWallet(address: string | null): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    await db.from('profiles').update({ wallet_address: address }).eq('id', user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function submitKyc(input: {
-  fullName: string
-  idNumber: string
-  dateOfBirth?: string
-  country?: string
-}): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!input.fullName?.trim() || !input.idNumber?.trim()) {
-      return { ok: false, error: 'Full name and ID number are required' }
-    }
-    if (!input.dateOfBirth) {
-      return { ok: false, error: 'Date of birth is required' }
-    }
-    const dob = new Date(input.dateOfBirth)
-    const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    if (age < 18) {
-      return { ok: false, error: 'You must be at least 18 years old to invest with Pulse' }
-    }
-    const db = serviceClient()
-    const idClean = input.idNumber.trim().toLowerCase()
-    const { data: existing } = await db
-      .from('kyc_submissions')
-      .select('id, user_id')
-      .ilike('id_number', idClean)
-      .neq('user_id', user.id)
-      .limit(1)
-    if (existing && existing.length > 0) {
-      return { ok: false, error: 'This ID number is already registered to another account' }
-    }
-    await db.from('kyc_submissions').insert({
-      user_id: user.id,
-      full_name: input.fullName.trim(),
-      id_number: input.idNumber.trim(),
-      date_of_birth: input.dateOfBirth || null,
-      country: input.country || null,
-      status: 'pending',
-    })
-    await db.from('profiles').update({ kyc_status: 'pending' }).eq('id', user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function castVote(proposalId: string, choice: 'for' | 'against' | 'abstain'): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const snap = await getSnapshot(user.id)
-    if (snap.staked <= 0) return { ok: false, error: 'Stake PULSE to participate in governance' }
-    const db = serviceClient()
-    await db
-      .from('governance_votes')
-      .upsert({ user_id: user.id, proposal_id: proposalId, choice, weight: snap.staked }, { onConflict: 'user_id,proposal_id' })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-// Bootstrap: if there are no admins yet, the first caller becomes an admin.
-// Also promotes any user whose email is on the admin allowlist.
-export async function claimAdmin(): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    const { count } = await db.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin')
-    const { data: allow } = await db
-      .from('admin_allowlist')
-      .select('email')
-      .ilike('email', user.email ?? '')
-      .maybeSingle()
-    if ((count ?? 0) > 0 && !allow) {
-      return { ok: false, error: 'An admin already exists. Ask an existing admin to add you.' }
-    }
-    await db.from('profiles').update({ role: 'admin' }).eq('id', user.id)
-    await db.from('admin_allowlist').upsert({ email: user.email }, { onConflict: 'email' })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="mb-3 block">
+      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  )
 }
