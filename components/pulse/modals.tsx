@@ -63,7 +63,7 @@ export function Modals() {
 function KycModal({ onClose }: { onClose: () => void }) {
   const { api, busy, toast, state } = usePulse()
   const [step, setStep] = useState(state.kyc === 'pending' ? 2 : 0)
-  const [form, setForm] = useState({ name: '', country: 'Botswana', idNumber: '', dob: '' })
+  const [form, setForm] = useState({ name: '', country: 'Botswana', idNumber: '', dob: '', phone: '', address: '' })
 
   const submit = async () => {
     const res = await api.submitKyc({
@@ -71,6 +71,8 @@ function KycModal({ onClose }: { onClose: () => void }) {
       idNumber: form.idNumber,
       dateOfBirth: form.dob || undefined,
       country: form.country,
+      phone: form.phone,
+      address: form.address,
     })
     if (!res.ok) {
       toast({ title: 'Could not submit', description: res.error, variant: 'error' })
@@ -85,13 +87,15 @@ function KycModal({ onClose }: { onClose: () => void }) {
     setTimeout(onClose, 1200)
   }
 
+  const canSubmit = form.name && form.idNumber && form.dob && form.phone && form.address
+
   return (
     <ModalShell title="Identity verification" icon={<ShieldCheck className="size-5" />} onClose={onClose}>
       {step < 2 ? (
         <>
           <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-            KYC is required to protect investors and comply with SADC financial regulations. Your details are used only
-            for verification in this demo.
+            KYC is required to protect investors and comply with SADC financial regulations. You must be 18 or older
+            to invest with Pulse. Your details are used only for verification.
           </p>
           <div className="space-y-3">
             <Field label="Full legal name">
@@ -131,12 +135,29 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setForm({ ...form, dob: e.target.value })}
               />
             </Field>
+            <Field label="Phone number">
+              <input
+                type="tel"
+                className={inputCls}
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="+267 71 234 567"
+              />
+            </Field>
+            <Field label="Residential address">
+              <input
+                className={inputCls}
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Street, city, postal code"
+              />
+            </Field>
           </div>
           <Button
             variant="default"
             size="lg"
             className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-            disabled={!form.name || !form.idNumber || !form.dob || busy}
+            disabled={!canSubmit || busy}
             onClick={submit}
           >
             Submit for verification
@@ -263,8 +284,6 @@ function DepositModal({ onClose }: { onClose: () => void }) {
   const usd = Number(amount) || 0
   const label = currency === 'btc' ? 'BTC' : 'USDT (TRC-20)'
 
-  // Attempt a real NOWPayments crypto deposit. Falls back to a sandbox credit
-  // when NOWPayments keys are not configured yet.
   const pay = async () => {
     setProcessing(true)
     try {
@@ -274,13 +293,12 @@ function DepositModal({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({ amount: usd, payCurrency: currency }),
       })
       if (res.status === 501) {
-        // NOWPayments not configured — use the sandbox credit path.
         const r = await api.deposit(usd)
         if (!r.ok) {
           toast({ title: 'Deposit failed', description: r.error, variant: 'error' })
           return
         }
-        toast({ title: 'Sandbox deposit credited', description: `$${money(usd)} added to your balance.`, variant: 'success' })
+        toast({ title: 'Deposit requested', description: `$${money(usd)} pending admin approval.`, variant: 'info' })
         onClose()
         return
       }
@@ -302,7 +320,8 @@ function DepositModal({ onClose }: { onClose: () => void }) {
     return (
       <ModalShell title="Complete your deposit" icon={<ArrowDownRight className="size-5" />} onClose={onClose}>
         <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-          Send exactly the amount below. Your balance credits automatically once the payment is confirmed on-chain.
+          Send exactly the amount below. Your deposit is credited once the payment is confirmed on-chain and approved
+          by an admin.
         </p>
         <div className="space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
           <Row label="Send amount" value={`${payInfo.payAmount} ${payInfo.payCurrency.toUpperCase()}`} tone="gold" />
@@ -364,7 +383,7 @@ function DepositModal({ onClose }: { onClose: () => void }) {
         <Row label="Network fee" value="Covered by Pulse" />
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Crypto deposits are processed by NOWPayments. Funds credit automatically once confirmed on-chain.
+        Crypto deposits are processed by NOWPayments and credited after admin approval.
       </p>
       <Button
         size="lg"
