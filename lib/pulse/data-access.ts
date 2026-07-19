@@ -129,7 +129,11 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
       label: (t.meta?.label as string) ?? TXN_LABEL[t.type] ?? t.type,
       amount: Number(t.amount),
       currency: t.currency === 'PULSE' ? 'PULSE' : 'USDT',
-      status: t.status === 'completed' ? 'completed' : 'pending',
+      // CHANGED: pass through the real status instead of collapsing
+      // 'cancelled'/'failed' into 'pending'. This was the actual bug
+      // behind "status never updates" — the DB was correct the whole
+      // time, this mapping was just lying about it.
+      status: t.status as SnapshotTxn['status'],
       date: new Date(t.created_at).getTime(),
     })),
     kyc: kycMap[profile?.kyc_status ?? 'none'] ?? 'none',
