@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Activity, Loader2 } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isSignUp = mode === 'sign-up'
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -32,13 +33,18 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
     const supabase = createClient()
     try {
       if (isSignUp) {
+        // CHANGED: capture ?ref=CODE from the URL (e.g. from a shared
+        // referral link) and pass it through as user metadata. The
+        // handle_new_user() database trigger reads this to set
+        // profiles.referred_by.
+        const refCode = searchParams.get('ref')
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo:
               process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
-            data: { full_name: fullName },
+            data: { full_name: fullName, ...(refCode ? { ref_code: refCode } : {}) },
           },
         })
         if (error) throw error
