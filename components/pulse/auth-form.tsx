@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Activity, Loader2 } from 'lucide-react'
@@ -8,6 +8,20 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-dvh items-center justify-center bg-background">
+          <Activity className="size-6 animate-spin text-gold" />
+        </div>
+      }
+    >
+      <AuthFormInner mode={mode} />
+    </Suspense>
+  )
+}
+
+function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isSignUp = mode === 'sign-up'
