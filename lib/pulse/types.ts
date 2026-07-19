@@ -16,7 +16,7 @@ export interface SnapshotTxn {
   label: string
   amount: number
   currency: 'USDT' | 'PULSE'
-  status: 'completed' | 'pending'
+  status: 'completed' | 'pending' | 'cancelled' | 'failed'
   date: number
 }
 
@@ -71,6 +71,8 @@ export interface AdminTxnRow {
   status: string
   reference: string | null
   createdAt: number
+  // NEW: lets the admin dashboard show "payment confirmed by NOWPayments,
+  // awaiting your approval" vs. "awaiting payment" for deposits.
   settledStatus?: string | null
 }
 
@@ -79,12 +81,12 @@ export interface AdminSnapshot {
   totalInvested: number
   totalStaked: number
   pendingWithdrawals: number
-  pendingDeposits: number
+  pendingDeposits: number // NEW
   pendingKyc: number
   userCount: number
   users: AdminUserRow[]
   kycQueue: AdminKycRow[]
   withdrawalQueue: AdminTxnRow[]
-  depositQueue: AdminTxnRow[]
+  depositQueue: AdminTxnRow[] // NEW
   recentTxns: AdminTxnRow[]
 }
