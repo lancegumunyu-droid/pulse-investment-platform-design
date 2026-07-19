@@ -142,6 +142,30 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .eq('id', sub.user_id)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
 
+    // Welcome bonus: credited once, only on first approval, matching the
+    // original design (bonus unlocks alongside verified access).
+    if (decision === 'approved') {
+      const { data: alreadyBonused } = await db
+        .from('transactions')
+        .select('id')
+        .eq('user_id', sub.user_id)
+        .eq('type', 'yield')
+        .ilike('reference', 'welcome_bonus')
+        .maybeSingle()
+      if (!alreadyBonused) {
+        await adjustAccount(sub.user_id, { cash_balance: 35 })
+        await recordTxn(sub.user_id, {
+          type: 'yield',
+          amount: 35,
+          currency: 'USD',
+          status: 'completed',
+          reference: 'welcome_bonus',
+          processedBy: admin.id,
+          meta: { label: 'Welcome bonus' },
+        })
+      }
+    }
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
