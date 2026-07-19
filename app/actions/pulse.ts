@@ -205,7 +205,25 @@ export async function submitKyc(input: {
     if (!input.fullName?.trim() || !input.idNumber?.trim()) {
       return { ok: false, error: 'Full name and ID number are required' }
     }
+    if (!input.dateOfBirth) {
+      return { ok: false, error: 'Date of birth is required' }
+    }
+    const dob = new Date(input.dateOfBirth)
+    const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+    if (age < 18) {
+      return { ok: false, error: 'You must be at least 18 years old to invest with Pulse' }
+    }
     const db = serviceClient()
+    const idClean = input.idNumber.trim().toLowerCase()
+    const { data: existing } = await db
+      .from('kyc_submissions')
+      .select('id, user_id')
+      .ilike('id_number', idClean)
+      .neq('user_id', user.id)
+      .limit(1)
+    if (existing && existing.length > 0) {
+      return { ok: false, error: 'This ID number is already registered to another account' }
+    }
     await db.from('kyc_submissions').insert({
       user_id: user.id,
       full_name: input.fullName.trim(),
