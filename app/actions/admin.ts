@@ -129,14 +129,36 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
     const db = serviceClient()
     const { data: sub } = await db.from('kyc_submissions').select('*').eq('id', id).single()
     if (!sub) return { ok: false, error: 'Submission not found' }
-    await db
+
+    const { error: kycErr } = await db
       .from('kyc_submissions')
       .update({ status: decision, reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
       .eq('id', id)
-    await db
+    if (kycErr) return { ok: false, error: `kyc_submissions update failed: ${kycErr.message}` }
+
+    const { error: profErr } = await db
       .from('profiles')
       .update({ kyc_status: decision === 'approved' ? 'verified' : 'rejected' })
       .eq('id', sub.user_id)
+    if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
+
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// NEW: lets admin send a user's KYC back to square one so they can resubmit
+// (e.g. blurry ID photo, mismatched details, or they need a fresh look).
+export async function resetKyc(userId: string): Promise<AdminResult> {
+  try {
+    await requireAdmin()
+    const db = serviceClient()
+    const { error: profErr } = await db
+      .from('profiles')
+      .update({ kyc_status: 'none' })
+      .eq('id', userId)
+    if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -153,15 +175,17 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
     }
     if (decision === 'approved') {
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
-      await db
+      const { error } = await db
         .from('transactions')
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
+      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     } else {
-      await db
+      const { error } = await db
         .from('transactions')
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
+      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     }
     return getAdminSnapshot()
   } catch (e) {
@@ -178,17 +202,18 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
       return { ok: false, error: 'Withdrawal not found or already processed' }
     }
     if (decision === 'approved') {
-      await db
+      const { error } = await db
         .from('transactions')
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
+      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     } else {
-      // Refund the held funds back to the user's balance.
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
-      await db
+      const { error } = await db
         .from('transactions')
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
+      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     }
     return getAdminSnapshot()
   } catch (e) {
@@ -221,9 +246,34 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
     const clean = email.trim().toLowerCase()
     if (!clean.includes('@')) return { ok: false, error: 'Enter a valid email' }
     const db = serviceClient()
-    await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
-    // If the user already exists, promote them immediately.
+    const { error: allowErr } = await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
+    if (allowErr) return { ok: false, error: `admin_allowlist upsert failed: ${allowErr.message}` }
     await db.from('profiles').update({ role: 'admin' }).ilike('email', clean)
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// NEW: fully remove a user who doesn't meet requirements. Cleans up all
+// dependent rows first, then removes the auth account itself. Irreversible.
+export async function deleteUser(userId: string): Promise<AdminResult> {
+  try {
+    const admin = await requireAdmin()
+    if (userId === admin.id) return { ok: false, error: "You can't delete your own admin account" }
+    const db = serviceClient()
+
+    await db.from('transactions').delete().eq('user_id', userId)
+    await db.from('kyc_submissions').delete().eq('user_id', userId)
+    await db.from('holdings').delete().eq('user_id', userId)
+    await db.from('staking_positions').delete().eq('user_id', userId)
+    await db.from('governance_votes').delete().eq('user_id', userId)
+    await db.from('accounts').delete().eq('user_id', userId)
+    await db.from('profiles').delete().eq('id', userId)
+
+    const { error: authErr } = await db.auth.admin.deleteUser(userId)
+    if (authErr) return { ok: false, error: `Auth account removal failed: ${authErr.message}` }
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
