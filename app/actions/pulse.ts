@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, ensureAccount, getSnapshot, recordTxn } from '@/lib/pulse/data-access'
 import { tierForAmount, TIERS } from '@/lib/pulse-data'
-import type { Snapshot } from '@/lib/pulse/types'
+import type { Snapshot, LeaderboardRow, FounderRow } from '@/lib/pulse/types'
 
 async function requireUser() {
   const supabase = await createClient()
@@ -271,6 +271,39 @@ export async function castVote(proposalId: string, choice: 'for' | 'against' | '
       .from('governance_votes')
       .upsert({ user_id: user.id, proposal_id: proposalId, choice, weight: snap.staked }, { onConflict: 'user_id,proposal_id' })
     return withSnapshot(user.id)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }> {
+  try {
+    await requireUser()
+    const db = serviceClient()
+    const { data, error } = await db.rpc('get_leaderboard')
+    if (error) return { ok: false, error: error.message }
+    const rows: LeaderboardRow[] = (data ?? []).map((r: { full_name: string; total_points: number; founder_number: number | null }) => ({
+      fullName: r.full_name,
+      totalPoints: Number(r.total_points),
+      founderNumber: r.founder_number,
+    }))
+    return { ok: true, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }> {
+  try {
+    await requireUser()
+    const db = serviceClient()
+    const { data, error } = await db.rpc('get_founders_wall')
+    if (error) return { ok: false, error: error.message }
+    const rows: FounderRow[] = (data ?? []).map((r: { full_name: string; founder_number: number }) => ({
+      fullName: r.full_name,
+      founderNumber: r.founder_number,
+    }))
+    return { ok: true, rows }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
