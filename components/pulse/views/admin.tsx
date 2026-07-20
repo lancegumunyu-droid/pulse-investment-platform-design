@@ -8,7 +8,9 @@ import {
   ChevronRight,
   Coins,
   Lock,
+  RotateCcw,
   ShieldCheck,
+  Trash2,
   TriangleAlert,
   User,
   X,
@@ -17,7 +19,16 @@ import { usePulse, money } from '../store'
 import { Glass, Pill, SectionTitle, Stat } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getAdminSnapshot, reviewKyc, reviewWithdrawal, reviewDeposit, disburseYield, addAdminByEmail } from '@/app/actions/admin'
+import {
+  getAdminSnapshot,
+  reviewKyc,
+  reviewWithdrawal,
+  reviewDeposit,
+  disburseYield,
+  addAdminByEmail,
+  resetKyc,
+  deleteUser,
+} from '@/app/actions/admin'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 
 type Tab = 'overview' | 'kyc' | 'deposits' | 'withdrawals' | 'users' | 'settings'
@@ -31,6 +42,7 @@ export function AdminView() {
   const [disburseAmt, setDisburseAmt] = useState('')
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -408,6 +420,59 @@ export function AdminView() {
                       <p className="text-muted-foreground">Staked</p>
                     </div>
                   </div>
+
+                  {u.role !== 'admin' && (
+                    <div className="mt-3 flex gap-2 border-t border-white/8 pt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-gold/30 font-semibold text-gold hover:bg-gold/10"
+                        disabled={busy || u.kycStatus === 'none'}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await resetKyc(u.id)
+                            if (res.ok) toast({ title: 'KYC reset', description: `${u.email ?? 'User'} can resubmit their documents.`, variant: 'info' })
+                            return res
+                          })
+                        }
+                      >
+                        <RotateCcw className="size-3.5" /> Reset KYC
+                      </Button>
+
+                      {confirmDeleteId === u.id ? (
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-destructive font-semibold text-white hover:bg-destructive/90"
+                          disabled={busy}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await deleteUser(u.id)
+                              if (res.ok) toast({ title: 'User deleted', description: u.email ?? undefined, variant: 'info' })
+                              setConfirmDeleteId(null)
+                              return res
+                            })
+                          }
+                        >
+                          <Trash2 className="size-3.5" /> Confirm delete
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10"
+                          disabled={busy}
+                          onClick={() => setConfirmDeleteId(u.id)}
+                        >
+                          <Trash2 className="size-3.5" /> Delete
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {confirmDeleteId === u.id && (
+                    <p className="mt-2 text-center text-[11px] text-destructive">
+                      This permanently removes the account and all its data. Tap Confirm delete again, or navigate away to cancel.
+                    </p>
+                  )}
                 </Glass>
               ))}
             </div>
