@@ -115,6 +115,21 @@ export async function invest(amount: number, projectId: string): Promise<Result>
       meta: { label: 'Project share purchase', projectId },
     })
     await syncTier(user.id)
+
+    // Honest referral reward: points only, awarded once, on the referred
+    // user's first investment. First-investment points apply to everyone;
+    // the referrer bonus only applies if this user was actually referred.
+    if (snap.holdings.length === 0) {
+      const { error: pointsErr } = await db.rpc('award_points', { p_user_id: user.id, p_amount: 50, p_reason: 'First investment' })
+      if (pointsErr) console.error('award_points (self) failed:', pointsErr.message)
+
+      const { data: profile } = await db.from('profiles').select('referred_by').eq('id', user.id).maybeSingle()
+      if (profile?.referred_by) {
+        const { error: refErr } = await db.rpc('award_points', { p_user_id: profile.referred_by, p_amount: 200, p_reason: 'Your referral made their first investment' })
+        if (refErr) console.error('award_points (referrer) failed:', refErr.message)
+      }
+    }
+
     return withSnapshot(user.id)
   } catch (e) {
     return { ok: false, error: (e as Error).message }
