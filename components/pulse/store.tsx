@@ -12,12 +12,14 @@ import {
 import { useRouter } from 'next/navigation'
 import { tierForAmount, TIERS, TOKEN } from '@/lib/pulse-data'
 import { createClient } from '@/lib/supabase/client'
-import type { Snapshot, SnapshotHolding, SnapshotTxn } from '@/lib/pulse/types'
+import type { Snapshot, SnapshotHolding, SnapshotTxn, LeaderboardRow, FounderRow } from '@/lib/pulse/types'
 import {
   buyToken as buyTokenAction,
   castVote,
   claimAdmin as claimAdminAction,
   fetchSnapshot,
+  getFoundersWall,
+  getLeaderboard,
   invest as investAction,
   requestWithdrawal,
   setWallet as setWalletAction,
@@ -51,6 +53,9 @@ interface State {
   email: string | null
   tier: number
   isAdmin: boolean
+  points: number
+  founderNumber: number | null
+  walletId: string | null
 }
 
 function fromSnapshot(s: Snapshot): State {
@@ -68,6 +73,9 @@ function fromSnapshot(s: Snapshot): State {
     email: s.email,
     tier: s.tier,
     isAdmin: s.isAdmin,
+    points: s.points,
+    founderNumber: s.founderNumber,
+    walletId: s.walletId,
   }
 }
 
@@ -109,9 +117,11 @@ interface StoreContext {
     unstake: (amount: number) => Promise<ActionResult>
     connectWallet: (address: string) => Promise<ActionResult>
     disconnectWallet: () => Promise<ActionResult>
-    submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string }) => Promise<ActionResult>
+    submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string; phone?: string; address?: string }) => Promise<ActionResult>
     vote: (proposalId: string, choice: 'for' | 'against' | 'abstain') => Promise<ActionResult>
     claimAdmin: () => Promise<ActionResult>
+    leaderboard: () => Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }>
+    foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
   }
 }
 
@@ -192,6 +202,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       submitKyc: (input) => run(() => submitKycAction(input)),
       vote: (proposalId, choice) => run(() => castVote(proposalId, choice)),
       claimAdmin: () => run(() => claimAdminAction()),
+      leaderboard: () => getLeaderboard(),
+      foundersWall: () => getFoundersWall(),
     }),
     [run],
   )
