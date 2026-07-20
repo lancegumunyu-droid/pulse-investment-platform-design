@@ -164,6 +164,20 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
           meta: { label: 'Welcome bonus' },
         })
       }
+
+      // Honest referral rewards: points only, never yield. And a shot at
+      // the real (non-fabricated) Founders' Circle badge.
+      const { error: founderErr } = await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
+      if (founderErr) console.error('assign_founder_number failed:', founderErr.message)
+
+      const { error: kycPointsErr } = await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
+      if (kycPointsErr) console.error('award_points (kyc self) failed:', kycPointsErr.message)
+
+      const { data: verifiedProfile } = await db.from('profiles').select('referred_by').eq('id', sub.user_id).maybeSingle()
+      if (verifiedProfile?.referred_by) {
+        const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
+        if (refPointsErr) console.error('award_points (kyc referrer) failed:', refPointsErr.message)
+      }
     }
 
     return getAdminSnapshot()
