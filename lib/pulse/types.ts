@@ -34,6 +34,20 @@ export interface Snapshot {
   email: string | null
   tier: number
   isAdmin: boolean
+  points: number
+  founderNumber: number | null
+  walletId: string | null
+}
+
+export interface LeaderboardRow {
+  fullName: string
+  totalPoints: number
+  founderNumber: number | null
+}
+
+export interface FounderRow {
+  fullName: string
+  founderNumber: number
 }
 
 // Admin dashboard payload
