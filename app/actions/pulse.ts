@@ -276,6 +276,25 @@ export async function castVote(proposalId: string, choice: 'for' | 'against' | '
   }
 }
 
+export async function setUsername(username: string): Promise<Result> {
+  try {
+    const user = await requireUser()
+    const clean = username.trim()
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+      return { ok: false, error: 'Username must be 3–20 characters: letters, numbers, underscore only' }
+    }
+    const db = serviceClient()
+    const { error } = await db.from('profiles').update({ username: clean }).eq('id', user.id)
+    if (error) {
+      if (error.code === '23505') return { ok: false, error: 'That username is already taken' }
+      return { ok: false, error: error.message }
+    }
+    return withSnapshot(user.id)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }> {
   try {
     await requireUser()
