@@ -97,12 +97,13 @@ export async function recordTxn(userId: string, row: {
 
 export async function getSnapshot(userId: string): Promise<Snapshot> {
   const db = serviceClient()
-  const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }] = await Promise.all([
+  const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }, { data: referrals }] = await Promise.all([
     db.from('profiles').select('*').eq('id', userId).maybeSingle(),
     ensureAccount(userId),
     db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
     db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     db.from('points_ledger').select('amount').eq('user_id', userId),
+    db.from('profiles').select('kyc_status').eq('referred_by', userId),
   ])
 
   const kycMap: Record<string, Snapshot['kyc']> = {
@@ -147,6 +148,9 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     points: (pointsRows ?? []).reduce((s, r) => s + Number(r.amount), 0),
     founderNumber: profile?.founder_number ?? null,
     walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
+    username: profile?.username ?? null,
+    referralCount: (referrals ?? []).length,
+    referralVerifiedCount: (referrals ?? []).filter((r) => r.kyc_status === 'verified').length,
   }
 }
 
