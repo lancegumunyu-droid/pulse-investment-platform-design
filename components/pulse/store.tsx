@@ -22,6 +22,7 @@ import {
   getLeaderboard,
   invest as investAction,
   requestWithdrawal,
+  setUsername as setUsernameAction,
   setWallet as setWalletAction,
   simulateDeposit,
   stake as stakeAction,
@@ -56,6 +57,9 @@ interface State {
   points: number
   founderNumber: number | null
   walletId: string | null
+  username: string | null
+  referralCount: number
+  referralVerifiedCount: number
 }
 
 function fromSnapshot(s: Snapshot): State {
@@ -76,6 +80,9 @@ function fromSnapshot(s: Snapshot): State {
     points: s.points,
     founderNumber: s.founderNumber,
     walletId: s.walletId,
+    username: s.username,
+    referralCount: s.referralCount,
+    referralVerifiedCount: s.referralVerifiedCount,
   }
 }
 
@@ -120,6 +127,7 @@ interface StoreContext {
     submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string; phone?: string; address?: string }) => Promise<ActionResult>
     vote: (proposalId: string, choice: 'for' | 'against' | 'abstain') => Promise<ActionResult>
     claimAdmin: () => Promise<ActionResult>
+    setUsername: (username: string) => Promise<ActionResult>
     leaderboard: () => Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }>
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
   }
@@ -202,6 +210,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       submitKyc: (input) => run(() => submitKycAction(input)),
       vote: (proposalId, choice) => run(() => castVote(proposalId, choice)),
       claimAdmin: () => run(() => claimAdminAction()),
+      setUsername: (username) => run(() => setUsernameAction(username)),
       leaderboard: () => getLeaderboard(),
       foundersWall: () => getFoundersWall(),
     }),
