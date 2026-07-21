@@ -14,6 +14,21 @@ export function ProfileView() {
   const [founders, setFounders] = useState<FounderRow[] | null>(null)
   const [loadingBoard, setLoadingBoard] = useState(false)
   const [loadingFounders, setLoadingFounders] = useState(false)
+  const [editingUsername, setEditingUsername] = useState(false)
+  const [usernameInput, setUsernameInput] = useState(state.username ?? '')
+  const [savingUsername, setSavingUsername] = useState(false)
+
+  const saveUsername = async () => {
+    setSavingUsername(true)
+    const res = await api.setUsername(usernameInput)
+    if (res.ok) {
+      toast({ title: 'Username updated', variant: 'success' })
+      setEditingUsername(false)
+    } else {
+      toast({ title: 'Could not update username', description: res.error, variant: 'error' })
+    }
+    setSavingUsername(false)
+  }
 
   const referralLink =
     typeof window !== 'undefined'
@@ -72,13 +87,39 @@ export function ProfileView() {
           <span className="flex size-14 items-center justify-center rounded-2xl glass-gold text-gold">
             <User className="size-7" />
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-lg font-semibold">{state.fullName ?? 'Investor'}</p>
             <p className="text-sm text-muted-foreground">{currentTier.name} tier</p>
           </div>
         </div>
+        <div className="mt-3">
+          {editingUsername ? (
+            <div className="flex items-center gap-2">
+              <input
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder="username"
+                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
+              />
+              <Button size="sm" className="bg-gold font-semibold text-primary-foreground hover:bg-gold/90" disabled={savingUsername} onClick={saveUsername}>
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setEditingUsername(false); setUsernameInput(state.username ?? '') }}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingUsername(true)}
+              className="flex w-full items-center justify-between rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs"
+            >
+              <span className="text-muted-foreground">Username</span>
+              <span className="font-mono font-semibold text-gold">{state.username ? `@${state.username}` : 'Set a username →'}</span>
+            </button>
+          )}
+        </div>
         {state.walletId && (
-          <div className="mt-3 flex items-center justify-between rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs">
+          <div className="mt-2 flex items-center justify-between rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs">
             <span className="text-muted-foreground">Pulse Wallet ID</span>
             <span className="font-mono font-semibold text-gold">{state.walletId}</span>
           </div>
@@ -144,6 +185,16 @@ export function ProfileView() {
           <button onClick={copyRef} className="text-gold" aria-label="Copy referral link">
             <Copy className="size-4" />
           </button>
+        </div>
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-white/[0.03] p-2.5 text-center">
+            <p className="font-mono text-lg font-semibold">{state.referralCount}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Joined via your link</p>
+          </div>
+          <div className="rounded-xl bg-white/[0.03] p-2.5 text-center">
+            <p className="font-mono text-lg font-semibold text-green">{state.referralVerifiedCount}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Verified identity</p>
+          </div>
         </div>
         <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
           You and your friend each earn 50 points when they sign up, 100 more when they verify their identity, and
