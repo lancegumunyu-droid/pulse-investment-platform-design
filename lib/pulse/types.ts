@@ -37,6 +37,9 @@ export interface Snapshot {
   points: number
   founderNumber: number | null
   walletId: string | null
+  username: string | null
+  referralCount: number
+  referralVerifiedCount: number
 }
 
 export interface LeaderboardRow {
