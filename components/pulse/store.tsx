@@ -17,6 +17,7 @@ import {
   buyToken as buyTokenAction,
   castVote,
   claimAdmin as claimAdminAction,
+  applyForCard as applyForCardAction,
   fetchSnapshot,
   getFoundersWall,
   getLeaderboard,
@@ -63,6 +64,7 @@ interface State {
   referralVerifiedCount: number
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
+  cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
 }
 
 function fromSnapshot(s: Snapshot): State {
@@ -88,6 +90,7 @@ function fromSnapshot(s: Snapshot): State {
     referralVerifiedCount: s.referralVerifiedCount,
     badges: s.badges,
     adminScope: s.adminScope,
+    cardStatus: s.cardStatus,
   }
 }
 
@@ -136,6 +139,7 @@ interface StoreContext {
     leaderboard: () => Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }>
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
     myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
+    applyForCard: () => Promise<ActionResult>
   }
 }
 
@@ -220,6 +224,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       leaderboard: () => getLeaderboard(),
       foundersWall: () => getFoundersWall(),
       myReferrals: () => getMyReferrals(),
+      applyForCard: () => run(() => applyForCardAction()),
     }),
     [run],
   )
