@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'next/navigation'
 import { tierForAmount, TIERS, TOKEN } from '@/lib/pulse-data'
 import { createClient } from '@/lib/supabase/client'
-import type { Snapshot, SnapshotHolding, SnapshotTxn, LeaderboardRow, FounderRow } from '@/lib/pulse/types'
+import type { Snapshot, SnapshotHolding, SnapshotTxn, LeaderboardRow, FounderRow, MyReferralRow, BadgeRow } from '@/lib/pulse/types'
 import {
   buyToken as buyTokenAction,
   castVote,
@@ -20,6 +20,7 @@ import {
   fetchSnapshot,
   getFoundersWall,
   getLeaderboard,
+  getMyReferrals,
   invest as investAction,
   requestWithdrawal,
   setUsername as setUsernameAction,
@@ -60,6 +61,8 @@ interface State {
   username: string | null
   referralCount: number
   referralVerifiedCount: number
+  badges: BadgeRow[]
+  adminScope: 'full' | 'finance' | 'operations' | null
 }
 
 function fromSnapshot(s: Snapshot): State {
@@ -83,6 +86,8 @@ function fromSnapshot(s: Snapshot): State {
     username: s.username,
     referralCount: s.referralCount,
     referralVerifiedCount: s.referralVerifiedCount,
+    badges: s.badges,
+    adminScope: s.adminScope,
   }
 }
 
@@ -130,6 +135,7 @@ interface StoreContext {
     setUsername: (username: string) => Promise<ActionResult>
     leaderboard: () => Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }>
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
+    myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
   }
 }
 
@@ -213,6 +219,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       setUsername: (username) => run(() => setUsernameAction(username)),
       leaderboard: () => getLeaderboard(),
       foundersWall: () => getFoundersWall(),
+      myReferrals: () => getMyReferrals(),
     }),
     [run],
   )
