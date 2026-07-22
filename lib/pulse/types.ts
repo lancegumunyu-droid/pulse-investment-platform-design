@@ -40,6 +40,20 @@ export interface Snapshot {
   username: string | null
   referralCount: number
   referralVerifiedCount: number
+  badges: BadgeRow[]
+  adminScope: 'full' | 'finance' | 'operations' | null
+}
+
+export interface BadgeRow {
+  key: string
+  earnedAt: number
+}
+
+export interface MyReferralRow {
+  walletId: string | null
+  displayName: string
+  kycStatus: string
+  createdAt: number
 }
 
 export interface LeaderboardRow {
@@ -58,12 +72,14 @@ export interface AdminUserRow {
   id: string
   email: string | null
   fullName: string | null
+  username: string | null
   role: string
   kycStatus: string
   cash: number
   invested: number
   staked: number
   createdAt: number
+  adminScope: 'full' | 'finance' | 'operations' | null
 }
 
 export interface AdminKycRow {
