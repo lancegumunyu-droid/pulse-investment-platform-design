@@ -295,22 +295,55 @@ export async function setUsername(username: string): Promise<Result> {
   }
 }
 
+export async function applyForCard(): Promise<r> {
+  try {
+    const user = await requireUser()
+    const db = serviceClient()
+    const { data: existing } = await db.from('card_applications').select('id').eq('user_id', user.id).maybeSingle()
+    if (existing) return { ok: true } // already applied — treat as a no-op success, not an error
+    const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }> {
   try {
     const user = await requireUser()
     const db = serviceClient()
-    const { data, error } = await db
+    const { data: referredProfiles, error } = await db
       .from('profiles')
-      .select('username, full_name, kyc_status, created_at, accounts(wallet_id)')
+      .select('id, username, full_name, kyc_status, created_at')
       .eq('referred_by', user.id)
       .order('created_at', { ascending: false })
     if (error) return { ok: false, error: error.message }
-    const rows: MyReferralRow[] = (data ?? []).map((r: any) => ({
-      walletId: r.accounts?.wallet_id ?? null,
-      displayName: r.username ? `@${r.username}` : (r.full_name ?? 'Investor'),
-      kycStatus: r.kyc_status ?? 'none',
-      createdAt: new Date(r.created_at).getTime(),
-    }))
+
+    const ids = (referredProfiles ?? []).map((p) => p.id)
+    // Fetched separately and joined in JS, on purpose: profiles and accounts
+    // have no foreign key PostgREST can resolve for an auto-embed
+    // (`accounts(wallet_id)` inline in .select() throws "Could not find a
+    // relationship between 'profiles' and 'accounts' in the schema cache").
+    // Every other query in this codebase already avoids that embed for the
+    // same reason — this is the one place that didn't, and it broke referrals
+    // for every user in production. Not touching schema/FKs to fix this;
+    // two queries + a Map merge is the same safe pattern used everywhere else.
+    const walletByUserId = new Map<string, string | null>()
+    if (ids.length > 0) {
+      const { data: accts } = await db.from('accounts').select('user_id, wallet_id').in('user_id', ids)
+      for (const a of accts ?? []) walletByUserId.set(a.user_id, a.wallet_id ?? null)
+    }
+
+    const rows: MyReferralRow[] = (referredProfiles ?? []).map((r) => {
+      const walletId = walletByUserId.get(r.id) ?? null
+      return {
+        walletId,
+        displayName: r.username ? `@${r.username}` : (walletId ?? 'Investor'),
+        kycStatus: r.kyc_status ?? 'none',
+        createdAt: new Date(r.created_at).getTime(),
+      }
+    })
     return { ok: true, rows }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
