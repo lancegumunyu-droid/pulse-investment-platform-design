@@ -400,8 +400,26 @@ function DepositModal({ onClose }: { onClose: () => void }) {
 function WithdrawModal({ onClose }: { onClose: () => void }) {
   const { state, api, busy, toast, openModal } = usePulse()
   const [amount, setAmount] = useState('50')
+  const [walletInput, setWalletInput] = useState('')
+  const [connecting, setConnecting] = useState(false)
   const usd = Number(amount) || 0
   const insufficient = usd > state.cash
+
+  const connect = async () => {
+    const addr = walletInput.trim()
+    if (addr.length < 20) {
+      toast({ title: 'That doesn\'t look like a valid address', variant: 'error' })
+      return
+    }
+    setConnecting(true)
+    const res = await api.connectWallet(addr)
+    setConnecting(false)
+    if (!res.ok) {
+      toast({ title: 'Could not connect wallet', description: res.error, variant: 'error' })
+      return
+    }
+    toast({ title: 'Wallet connected', variant: 'success' })
+  }
 
   const submit = async () => {
     if (state.kyc !== 'verified') {
@@ -411,8 +429,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       return
     }
     if (!state.wallet) {
-      toast({ title: 'No wallet connected', description: 'Connect a wallet to receive withdrawals.', variant: 'error' })
-      onClose()
+      toast({ title: 'Connect a wallet first', description: 'Add the address you want your withdrawal sent to.', variant: 'error' })
       return
     }
     if (insufficient) {
@@ -435,13 +452,43 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
         <Row label="Destination" value={state.wallet ? `${state.wallet.slice(0, 6)}…${state.wallet.slice(-4)}` : 'Not connected'} tone={state.wallet ? 'gold' : 'danger'} />
         <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
       </div>
+
+      {!state.wallet ? (
+        <div className="mb-4">
+          <Field label="Your wallet address (USDT TRC-20 or BTC)">
+            <input
+              className={inputCls}
+              value={walletInput}
+              onChange={(e) => setWalletInput(e.target.value)}
+              placeholder="Paste the address you want to receive funds at"
+            />
+          </Field>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2 w-full border-white/12 bg-white/[0.03]"
+            disabled={connecting || walletInput.trim().length < 20}
+            onClick={connect}
+          >
+            {connecting ? 'Connecting…' : 'Connect wallet'}
+          </Button>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            This is where withdrawals will be sent. You can change it any time before requesting a withdrawal.
+          </p>
+        </div>
+      ) : (
+        <button onClick={() => api.disconnectWallet()} className="mb-4 text-[11px] text-muted-foreground underline">
+          Disconnect and use a different address
+        </button>
+      )}
+
       <Field label="Amount (USDT)">
         <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
       <Button
         size="lg"
         className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || busy}
+        disabled={usd <= 0 || busy || !state.wallet}
         onClick={submit}
       >
         Request withdrawal
@@ -466,17 +513,4 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'green' | 'danger' }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          'font-medium',
-          tone === 'gold' && 'text-gold',
-          tone === 'green' && 'text-green',
-          tone === 'danger' && 'text-destructive',
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  )
-}
+      <span className="text-muted-foreground">{label}<
