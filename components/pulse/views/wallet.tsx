@@ -1,24 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
   Coins,
   Copy,
+  CreditCard,
   LogOut,
   Sparkles,
   Wallet,
   Zap,
 } from 'lucide-react'
 import { money, usePulse, type Txn } from '../store'
-import { Glass, RiskNote, SectionTitle } from '../ui-bits'
+import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
-
-declare global {
-  interface Window {
-    ethereum?: { request: (args: { method: string }) => Promise<string[]> }
-  }
-}
 
 const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; sign: string }> = {
   deposit: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
@@ -29,34 +25,46 @@ const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; s
   unstake: { icon: Coins, tone: 'text-green', sign: '' },
 }
 
+const CARD_COPY: Record<'none' | 'waitlisted' | 'approved' | 'free_card_earned', { title: string; body: string }> = {
+  none: {
+    title: 'Apply for a Pulse Card',
+    body: 'Spend directly from your Pulse Wallet — funded by your cash balance and PULSE token, no separate top-up needed. Physical cards are rolling out to the waitlist in order.',
+  },
+  waitlisted: {
+    title: "You're on the waitlist",
+    body: "We'll notify you here the moment your Pulse Card is ready to activate. No action needed in the meantime.",
+  },
+  approved: {
+    title: 'Your card is approved',
+    body: 'Your Pulse Card has been approved. Physical card issuance and activation will appear here once it ships.',
+  },
+  free_card_earned: {
+    title: 'Free card earned 🎉',
+    body: 'You reached 100 verified referrals and earned a free Pulse Card. Physical card issuance and activation will appear here once it ships.',
+  },
+}
+
 export function WalletView() {
   const { state, api, toast, openModal } = usePulse()
+  const [addressInput, setAddressInput] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [applyingCard, setApplyingCard] = useState(false)
 
   const connect = async () => {
-    try {
-      let address: string | null = null
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-        if (accounts?.[0]) address = accounts[0]
-      }
-      const injected = !!address
-      if (!address) {
-        // Fallback for environments without an injected wallet (e.g. preview / webview).
-        address = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
-      }
-      const res = await api.connectWallet(address)
-      if (!res.ok) {
-        toast({ title: 'Could not save wallet', description: res.error, variant: 'error' })
-        return
-      }
-      toast(
-        injected
-          ? { title: 'Wallet connected', description: 'MetaMask linked successfully.', variant: 'success' }
-          : { title: 'Demo wallet connected', description: 'No injected wallet found — using a demo address.', variant: 'info' },
-      )
-    } catch {
-      toast({ title: 'Connection cancelled', variant: 'error' })
+    const addr = addressInput.trim()
+    if (addr.length < 20) {
+      toast({ title: "That doesn't look like a valid address", description: 'Paste your USDT (TRC-20) or BTC receiving address.', variant: 'error' })
+      return
     }
+    setConnecting(true)
+    const res = await api.connectWallet(addr)
+    setConnecting(false)
+    if (!res.ok) {
+      toast({ title: 'Could not save wallet', description: res.error, variant: 'error' })
+      return
+    }
+    setAddressInput('')
+    toast({ title: 'Wallet connected', description: 'This is where your withdrawals will be sent.', variant: 'success' })
   }
 
   const disconnect = async () => {
@@ -70,6 +78,19 @@ export function WalletView() {
       toast({ title: 'Address copied', variant: 'info' })
     }
   }
+
+  const applyCard = async () => {
+    setApplyingCard(true)
+    const res = await api.applyForCard()
+    setApplyingCard(false)
+    if (!res.ok) {
+      toast({ title: 'Could not submit application', description: res.error, variant: 'error' })
+      return
+    }
+    toast({ title: "You're on the Pulse Card waitlist", variant: 'success' })
+  }
+
+  const cardCopy = CARD_COPY[state.cardStatus]
 
   return (
     <div className="space-y-5">
@@ -107,11 +128,24 @@ export function WalletView() {
             </Button>
           </div>
         ) : (
-          <div className="text-center">
+          <div>
             <p className="text-sm font-semibold">No wallet connected</p>
-            <p className="mt-1 text-xs text-muted-foreground">Connect MetaMask to enable withdrawals to your address.</p>
-            <Button size="lg" className="mt-4 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90" onClick={connect}>
-              <Wallet className="size-4" /> Connect MetaMask
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add the address you want withdrawals sent to — USDT (TRC-20) or BTC.
+            </p>
+            <input
+              value={addressInput}
+              onChange={(e) => setAddressInput(e.target.value)}
+              placeholder="Paste your receiving address"
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm outline-none transition-colors focus:border-gold/50 focus:ring-2 focus:ring-gold/20"
+            />
+            <Button
+              size="lg"
+              className="mt-3 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+              disabled={connecting || addressInput.trim().length < 20}
+              onClick={connect}
+            >
+              <Wallet className="size-4" /> {connecting ? 'Connecting…' : 'Connect wallet'}
             </Button>
           </div>
         )}
@@ -132,6 +166,57 @@ export function WalletView() {
             <p className="mt-1 font-mono font-semibold text-gold">{money(state.staked, 0)}</p>
           </div>
         </div>
+      </Glass>
+
+      {/*
+        Pulse Card — interface only, deliberately. No real card-issuer
+        integration exists yet (needs a licensed partner like Marqeta or
+        Stripe Issuing). This section shows real, live status pulled from
+        card_applications, and gives every user a way to get on the list —
+        so the moment a real issuer is connected, this UI already works,
+        nothing here needs to change.
+      */}
+      <Glass className="animate-rise">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-gold-soft text-gold">
+            <CreditCard className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">Pulse Card</p>
+              {state.cardStatus !== 'none' && (
+                <Pill tone={state.cardStatus === 'waitlisted' ? 'muted' : 'gold'}>
+                  {state.cardStatus === 'free_card_earned' ? 'free card' : state.cardStatus}
+                </Pill>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Visual card face — mockup only, not a real issued card */}
+        <div className="mb-3 rounded-2xl bg-gradient-to-br from-gold/25 via-gold/10 to-transparent p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gold">Pulse</span>
+            <Wallet className="size-4 text-gold" />
+          </div>
+          <p className="mt-6 font-mono text-sm tracking-widest text-muted-foreground">
+            {state.walletId ? `•••• •••• •••• ${state.walletId.slice(-4)}` : '•••• •••• •••• ••••'}
+          </p>
+          <p className="mt-2 text-[10px] text-muted-foreground">Linked to your Pulse Wallet — not yet active</p>
+        </div>
+
+        <p className="text-xs leading-relaxed text-muted-foreground">{cardCopy.body}</p>
+
+        {state.cardStatus === 'none' && (
+          <Button
+            size="lg"
+            className="mt-3 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+            disabled={applyingCard}
+            onClick={applyCard}
+          >
+            {applyingCard ? 'Submitting…' : cardCopy.title}
+          </Button>
+        )}
       </Glass>
 
       <div>
