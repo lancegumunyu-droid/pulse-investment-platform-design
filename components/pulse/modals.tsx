@@ -513,4 +513,17 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'green' | 'danger' }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}<
+      <span className="text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          'font-medium',
+          tone === 'gold' && 'text-gold',
+          tone === 'green' && 'text-green',
+          tone === 'danger' && 'text-destructive',
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
