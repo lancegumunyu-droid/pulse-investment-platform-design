@@ -37,12 +37,14 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         id: p.id,
         email: p.email,
         fullName: p.full_name,
+        username: p.username,
         role: p.role,
         kycStatus: p.kyc_status,
         cash: Number(a?.cash_balance ?? 0),
         invested: Number(a?.invested_balance ?? 0),
         staked: Number(a?.staked_balance ?? 0),
         createdAt: new Date(p.created_at).getTime(),
+        adminScope: p.admin_scope ?? null,
       }
     })
 
@@ -177,6 +179,14 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       if (verifiedProfile?.referred_by) {
         const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
         if (refPointsErr) console.error('award_points (kyc referrer) failed:', refPointsErr.message)
+
+        // This verification just changed the referrer's *verified* referral
+        // count, which is exactly what badge thresholds (10/25/100) are
+        // measured against. Check now — this was previously never called
+        // anywhere, so nobody could ever actually earn a badge or unlock
+        // the 100-referral free card.
+        const { error: badgeErr } = await db.rpc('check_and_award_referral_badges', { p_user_id: verifiedProfile.referred_by })
+        if (badgeErr) console.error('check_and_award_referral_badges failed:', badgeErr.message)
       }
     }
 
@@ -287,6 +297,24 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
     const { error: allowErr } = await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
     if (allowErr) return { ok: false, error: `admin_allowlist upsert failed: ${allowErr.message}` }
     await db.from('profiles').update({ role: 'admin' }).ilike('email', clean)
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// NEW: a full admin can appoint another admin to a narrower scope
+// (finance-only or operations-only) so the dashboard splits between them.
+export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations'): Promise<AdminResult> {
+  try {
+    const admin = await requireAdmin()
+    const db = serviceClient()
+    const { data: callerProfile } = await db.from('profiles').select('admin_scope').eq('id', admin.id).maybeSingle()
+    if (callerProfile?.admin_scope && callerProfile.admin_scope !== 'full') {
+      return { ok: false, error: 'Only a full admin can appoint admin scopes' }
+    }
+    const { error } = await db.from('profiles').update({ admin_scope: scope, role: 'admin' }).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
