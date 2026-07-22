@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, ensureAccount, getSnapshot, recordTxn } from '@/lib/pulse/data-access'
 import { tierForAmount, TIERS } from '@/lib/pulse-data'
-import type { Snapshot, LeaderboardRow, FounderRow } from '@/lib/pulse/types'
+import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
 
 async function requireUser() {
   const supabase = await createClient()
@@ -290,6 +290,28 @@ export async function setUsername(username: string): Promise<Result> {
       return { ok: false, error: error.message }
     }
     return withSnapshot(user.id)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }> {
+  try {
+    const user = await requireUser()
+    const db = serviceClient()
+    const { data, error } = await db
+      .from('profiles')
+      .select('username, full_name, kyc_status, created_at, accounts(wallet_id)')
+      .eq('referred_by', user.id)
+      .order('created_at', { ascending: false })
+    if (error) return { ok: false, error: error.message }
+    const rows: MyReferralRow[] = (data ?? []).map((r: any) => ({
+      walletId: r.accounts?.wallet_id ?? null,
+      displayName: r.username ? `@${r.username}` : (r.full_name ?? 'Investor'),
+      kycStatus: r.kyc_status ?? 'none',
+      createdAt: new Date(r.created_at).getTime(),
+    }))
+    return { ok: true, rows }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
