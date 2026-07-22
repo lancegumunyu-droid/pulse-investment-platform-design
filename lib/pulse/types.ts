@@ -42,6 +42,7 @@ export interface Snapshot {
   referralVerifiedCount: number
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
+  cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
 }
 
 export interface BadgeRow {
