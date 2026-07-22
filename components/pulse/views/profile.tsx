@@ -1,19 +1,28 @@
 'use client'
 
 import { useState } from 'react'
-import { Award, BadgeCheck, Copy, Gift, Lock, LogOut, ShieldCheck, Sparkles, Trophy, User, Users } from 'lucide-react'
+import { Award, BadgeCheck, Copy, Gift, ListChecks, Lock, LogOut, Medal, ShieldCheck, Sparkles, Trophy, User, Users } from 'lucide-react'
 import { usePulse } from '../store'
 import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
-import type { LeaderboardRow, FounderRow } from '@/lib/pulse/types'
+import type { LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
+
+const BADGE_LABELS: Record<string, { label: string; hint: string }> = {
+  referral_10: { label: '10 Referrals', hint: '10 verified friends joined through you' },
+  referral_25: { label: '25 Referrals', hint: '25 verified friends joined through you' },
+  referral_100: { label: '100 Referrals', hint: '100 verified friends — free Pulse Card earned' },
+  founder: { label: 'Founder', hint: 'One of the first 1,000 verified investors' },
+}
 
 export function ProfileView() {
   const { state, currentTier, openModal, setView, toast, signOut, api } = usePulse()
   const referralCode = state.referralCode
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[] | null>(null)
   const [founders, setFounders] = useState<FounderRow[] | null>(null)
+  const [myReferrals, setMyReferrals] = useState<MyReferralRow[] | null>(null)
   const [loadingBoard, setLoadingBoard] = useState(false)
   const [loadingFounders, setLoadingFounders] = useState(false)
+  const [loadingReferrals, setLoadingReferrals] = useState(false)
   const [editingUsername, setEditingUsername] = useState(false)
   const [usernameInput, setUsernameInput] = useState(state.username ?? '')
   const [savingUsername, setSavingUsername] = useState(false)
@@ -64,6 +73,18 @@ export function ProfileView() {
     setLoadingFounders(false)
   }
 
+  const toggleMyReferrals = async () => {
+    if (myReferrals) {
+      setMyReferrals(null)
+      return
+    }
+    setLoadingReferrals(true)
+    const res = await api.myReferrals()
+    if (res.ok) setMyReferrals(res.rows)
+    else toast({ title: 'Could not load referrals', description: res.error, variant: 'error' })
+    setLoadingReferrals(false)
+  }
+
   const openAdmin = async () => {
     if (state.isAdmin) {
       setView('admin')
@@ -88,35 +109,33 @@ export function ProfileView() {
             <User className="size-7" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold">{state.fullName ?? 'Investor'}</p>
-            <p className="text-sm text-muted-foreground">{currentTier.name} tier</p>
+            {editingUsername ? (
+              <div className="flex items-center gap-2">
+                <input
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  placeholder="username"
+                  autoFocus
+                  className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm outline-none focus:border-gold/50"
+                />
+                <Button size="sm" className="shrink-0 bg-gold font-semibold text-primary-foreground hover:bg-gold/90" disabled={savingUsername} onClick={saveUsername}>
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => { setEditingUsername(false); setUsernameInput(state.username ?? '') }}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingUsername(true)} className="text-left">
+                <p className="truncate text-lg font-semibold">
+                  {state.username ? `@${state.username}` : 'Set a username →'}
+                </p>
+              </button>
+            )}
+            <p className="truncate text-sm text-muted-foreground">
+              {state.fullName ?? 'Investor'} &middot; {currentTier.name} tier
+            </p>
           </div>
-        </div>
-        <div className="mt-3">
-          {editingUsername ? (
-            <div className="flex items-center gap-2">
-              <input
-                value={usernameInput}
-                onChange={(e) => setUsernameInput(e.target.value)}
-                placeholder="username"
-                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
-              />
-              <Button size="sm" className="bg-gold font-semibold text-primary-foreground hover:bg-gold/90" disabled={savingUsername} onClick={saveUsername}>
-                Save
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setEditingUsername(false); setUsernameInput(state.username ?? '') }}>
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setEditingUsername(true)}
-              className="flex w-full items-center justify-between rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs"
-            >
-              <span className="text-muted-foreground">Username</span>
-              <span className="font-mono font-semibold text-gold">{state.username ? `@${state.username}` : 'Set a username →'}</span>
-            </button>
-          )}
         </div>
         {state.walletId && (
           <div className="mt-2 flex items-center justify-between rounded-xl bg-white/[0.03] px-3.5 py-2.5 text-xs">
@@ -131,6 +150,34 @@ export function ProfileView() {
           </div>
         )}
       </Glass>
+
+      {state.badges.length > 0 && (
+        <Glass className="animate-rise">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-gold-soft text-gold">
+              <Medal className="size-5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">Badges</p>
+              <p className="text-xs text-muted-foreground">Earned through real, verified activity</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {state.badges.map((b) => {
+              const meta = BADGE_LABELS[b.key] ?? { label: b.key, hint: '' }
+              return (
+                <div key={b.key} className="rounded-xl border border-gold/25 bg-gold/[0.06] p-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <Award className="size-3.5 shrink-0 text-gold" />
+                    <p className="truncate text-xs font-semibold text-gold">{meta.label}</p>
+                  </div>
+                  {meta.hint && <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{meta.hint}</p>}
+                </div>
+              )
+            })}
+          </div>
+        </Glass>
+      )}
 
       <Glass className="animate-rise">
         <div className="flex items-center justify-between">
@@ -201,6 +248,39 @@ export function ProfileView() {
           200 for you when they make their first investment. Points are a recognition system only &mdash; they never
           affect your tier, your yields, or how projects perform. Returns come solely from real project performance.
         </p>
+      </Glass>
+
+      <Glass className="animate-rise">
+        <button onClick={toggleMyReferrals} className="flex w-full items-center justify-between" disabled={loadingReferrals}>
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-gold-soft text-gold">
+              <ListChecks className="size-5" />
+            </span>
+            <div className="text-left">
+              <p className="text-sm font-semibold">My Referrals</p>
+              <p className="text-xs text-muted-foreground">
+                {loadingReferrals ? 'Loading…' : myReferrals ? 'Tap to hide' : `${state.referralCount} joined via your link`}
+              </p>
+            </div>
+          </div>
+        </button>
+        {myReferrals && (
+          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto border-t border-white/8 pt-3 no-scrollbar">
+            {myReferrals.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nobody has joined with your link yet.</p>
+            ) : (
+              myReferrals.map((r, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{r.displayName}</p>
+                    <p className="truncate font-mono text-[10px] text-muted-foreground">{r.walletId ?? 'No wallet yet'}</p>
+                  </div>
+                  <Pill tone={r.kycStatus === 'verified' ? 'green' : 'muted'}>{r.kycStatus}</Pill>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </Glass>
 
       <Glass className="animate-rise">
