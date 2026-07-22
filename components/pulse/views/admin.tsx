@@ -26,6 +26,7 @@ import {
   reviewDeposit,
   disburseYield,
   addAdminByEmail,
+  appointAdminScope,
   resetKyc,
   deleteUser,
 } from '@/app/actions/admin'
@@ -70,14 +71,20 @@ export function AdminView() {
     )
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'kyc', label: `KYC${snap ? ` (${snap.pendingKyc})` : ''}` },
-    { id: 'deposits', label: `Deposits${snap ? ` (${snap.pendingDeposits})` : ''}` },
-    { id: 'withdrawals', label: `Withdrawals${snap ? ` (${snap.pendingWithdrawals})` : ''}` },
-    { id: 'users', label: 'Users' },
-    { id: 'settings', label: 'Settings' },
+  // A full admin (the default for any admin promoted before this feature
+  // existed) sees every tab. A scoped admin only sees the tabs relevant to
+  // what they were appointed to monitor, so the dashboard actually splits
+  // between people instead of just labeling who's who.
+  const scope = state.adminScope ?? 'full'
+  const allTabs: { id: Tab; label: string; scopes: Array<'full' | 'finance' | 'operations'> }[] = [
+    { id: 'overview', label: 'Overview', scopes: ['full', 'finance', 'operations'] },
+    { id: 'kyc', label: `KYC${snap ? ` (${snap.pendingKyc})` : ''}`, scopes: ['full', 'operations'] },
+    { id: 'deposits', label: `Deposits${snap ? ` (${snap.pendingDeposits})` : ''}`, scopes: ['full', 'finance'] },
+    { id: 'withdrawals', label: `Withdrawals${snap ? ` (${snap.pendingWithdrawals})` : ''}`, scopes: ['full', 'finance'] },
+    { id: 'users', label: 'Users', scopes: ['full', 'operations'] },
+    { id: 'settings', label: 'Settings', scopes: ['full'] },
   ]
+  const tabs = allTabs.filter((t) => t.scopes.includes(scope as 'full' | 'finance' | 'operations'))
 
   const act = async (fn: () => Promise<{ ok: boolean; error?: string; snapshot?: AdminSnapshot }>) => {
     setBusy(true)
@@ -94,7 +101,11 @@ export function AdminView() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <SectionTitle title="Admin" subtitle="Platform management" icon={<ShieldCheck className="size-5" />} />
+        <SectionTitle
+          title="Admin"
+          subtitle={scope === 'full' ? 'Platform management' : `${scope === 'finance' ? 'Finance' : 'Operations'} admin`}
+          icon={<ShieldCheck className="size-5" />}
+        />
         <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setView('profile')}>
           Exit
         </Button>
@@ -402,7 +413,9 @@ export function AdminView() {
                       </div>
                     </div>
                     <div className="ml-2 flex shrink-0 items-center gap-1.5">
-                      {u.role === 'admin' && <Pill tone="gold">admin</Pill>}
+                      {u.role === 'admin' && (
+                        <Pill tone="gold">{u.adminScope && u.adminScope !== 'full' ? u.adminScope : 'admin'}</Pill>
+                      )}
                       <Pill tone={u.kycStatus === 'verified' ? 'green' : 'muted'}>{u.kycStatus}</Pill>
                     </div>
                   </div>
@@ -472,6 +485,35 @@ export function AdminView() {
                     <p className="mt-2 text-center text-[11px] text-destructive">
                       This permanently removes the account and all its data. Tap Confirm delete again, or navigate away to cancel.
                     </p>
+                  )}
+
+                  {scope === 'full' && (
+                    <div className="mt-3 border-t border-white/8 pt-3">
+                      <p className="mb-2 text-[11px] font-medium text-muted-foreground">Appoint as admin</p>
+                      <div className="flex gap-1.5">
+                        {(['finance', 'operations', 'full'] as const).map((s) => (
+                          <Button
+                            key={s}
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              'flex-1 border-white/12 text-[11px] font-medium capitalize',
+                              u.role === 'admin' && (u.adminScope ?? 'full') === s && 'border-gold/40 bg-gold/10 text-gold',
+                            )}
+                            disabled={busy || (u.role === 'admin' && (u.adminScope ?? 'full') === s)}
+                            onClick={() =>
+                              act(async () => {
+                                const res = await appointAdminScope(u.id, s)
+                                if (res.ok) toast({ title: `${u.email ?? 'User'} appointed`, description: `${s} admin`, variant: 'success' })
+                                return res
+                              })
+                            }
+                          >
+                            {s}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </Glass>
               ))}
