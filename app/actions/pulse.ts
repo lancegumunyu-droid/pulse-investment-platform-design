@@ -295,15 +295,94 @@ export async function setUsername(username: string): Promise<Result> {
   }
 }
 
-export async function applyForCard(): Promise<r> {
+export async function addSavedWallet(label: string, address: string): Promise<Result> {
+  try {
+    const user = await requireUser()
+    const cleanLabel = label.trim().slice(0, 40) || 'Wallet'
+    const cleanAddress = address.trim()
+    if (cleanAddress.length < 20) return { ok: false, error: 'That doesn\'t look like a valid address' }
+    const db = serviceClient()
+    const { error } = await db.from('saved_wallets').insert({ user_id: user.id, label: cleanLabel, address: cleanAddress })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, snapshot: await getSnapshot(user.id) }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function removeSavedWallet(id: string): Promise<Result> {
+  try {
+    const user = await requireUser()
+    const db = serviceClient()
+    const { error } = await db.from('saved_wallets').delete().eq('id', id).eq('user_id', user.id)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, snapshot: await getSnapshot(user.id) }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// P2P transfers, moderated: exactly the same hold-then-admin-approve
+// pattern as withdrawals, for the same reason — the sender's funds are
+// deducted immediately on request (so they can't spend the same balance
+// twice while the transfer sits pending), and refunded if an admin
+// rejects it. Nothing is ever credited to the recipient until an admin
+// approves it. See admin.ts:reviewP2PTransfer for the other half.
+export async function requestTransfer(recipientIdentifier: string, amount: number): Promise<Result> {
+  try {
+    const user = await requireUser()
+    if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Enter a valid amount' }
+    const snap = await getSnapshot(user.id)
+    if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to send funds' }
+    if (amount > snap.cash) return { ok: false, error: 'Amount exceeds your available balance' }
+
+    const db = serviceClient()
+    const clean = recipientIdentifier.trim().replace(/^@/, '')
+    if (!clean) return { ok: false, error: 'Enter a username or Pulse ID' }
+
+    // Look up by username first, then by Pulse Wallet ID — two separate
+    // queries on purpose (see getMyReferrals for why we don't rely on
+    // PostgREST embeds between profiles and accounts).
+    let recipientId: string | null = null
+    let recipientLabel = clean
+    const { data: byUsername } = await db.from('profiles').select('id, username').ilike('username', clean).maybeSingle()
+    if (byUsername) {
+      recipientId = byUsername.id
+      recipientLabel = byUsername.username ? `@${byUsername.username}` : clean
+    } else {
+      const { data: byWallet } = await db.from('accounts').select('user_id, wallet_id').eq('wallet_id', clean).maybeSingle()
+      if (byWallet) {
+        recipientId = byWallet.user_id
+        recipientLabel = byWallet.wallet_id ?? clean
+      }
+    }
+    if (!recipientId) return { ok: false, error: 'No Pulse user found with that username or Pulse ID' }
+    if (recipientId === user.id) return { ok: false, error: "You can't send funds to yourself" }
+
+    await adjustAccount(user.id, { cash_balance: -amount })
+    await recordTxn(user.id, {
+      type: 'p2p_send',
+      amount,
+      status: 'pending',
+      meta: { label: `Sent to ${recipientLabel}`, recipientId, recipientLabel },
+    })
+    return { ok: true, snapshot: await getSnapshot(user.id) }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function applyForCard(): Promise<Result> {
   try {
     const user = await requireUser()
     const db = serviceClient()
     const { data: existing } = await db.from('card_applications').select('id').eq('user_id', user.id).maybeSingle()
-    if (existing) return { ok: true } // already applied — treat as a no-op success, not an error
-    const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
-    if (error) return { ok: false, error: error.message }
-    return { ok: true }
+    if (!existing) {
+      const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
+      if (error) return { ok: false, error: error.message }
+    }
+    // already applied — treat as a no-op success, not an error
+    return { ok: true, snapshot: await getSnapshot(user.id) }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
