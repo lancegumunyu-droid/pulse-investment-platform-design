@@ -12,12 +12,15 @@ import {
 import { useRouter } from 'next/navigation'
 import { tierForAmount, TIERS, TOKEN } from '@/lib/pulse-data'
 import { createClient } from '@/lib/supabase/client'
-import type { Snapshot, SnapshotHolding, SnapshotTxn, LeaderboardRow, FounderRow, MyReferralRow, BadgeRow } from '@/lib/pulse/types'
+import type { Snapshot, SnapshotHolding, SnapshotTxn, LeaderboardRow, FounderRow, MyReferralRow, BadgeRow, SavedWallet } from '@/lib/pulse/types'
 import {
   buyToken as buyTokenAction,
   castVote,
   claimAdmin as claimAdminAction,
   applyForCard as applyForCardAction,
+  addSavedWallet as addSavedWalletAction,
+  removeSavedWallet as removeSavedWalletAction,
+  requestTransfer as requestTransferAction,
   fetchSnapshot,
   getFoundersWall,
   getLeaderboard,
@@ -38,7 +41,7 @@ export type Holding = SnapshotHolding
 export type Txn = SnapshotTxn
 
 export interface ModalState {
-  type: 'kyc' | 'invest' | 'deposit' | 'withdraw' | null
+  type: 'kyc' | 'invest' | 'deposit' | 'withdraw' | 'transfer' | null
   payload?: Record<string, unknown>
 }
 
@@ -65,6 +68,7 @@ interface State {
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
   cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  savedWallets: SavedWallet[]
 }
 
 function fromSnapshot(s: Snapshot): State {
@@ -91,6 +95,7 @@ function fromSnapshot(s: Snapshot): State {
     badges: s.badges,
     adminScope: s.adminScope,
     cardStatus: s.cardStatus,
+    savedWallets: s.savedWallets,
   }
 }
 
@@ -140,6 +145,9 @@ interface StoreContext {
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
     myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
     applyForCard: () => Promise<ActionResult>
+    addSavedWallet: (label: string, address: string) => Promise<ActionResult>
+    removeSavedWallet: (id: string) => Promise<ActionResult>
+    transfer: (recipientIdentifier: string, amount: number) => Promise<ActionResult>
   }
 }
 
@@ -225,6 +233,9 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       foundersWall: () => getFoundersWall(),
       myReferrals: () => getMyReferrals(),
       applyForCard: () => run(() => applyForCardAction()),
+      addSavedWallet: (label, address) => run(() => addSavedWalletAction(label, address)),
+      removeSavedWallet: (id) => run(() => removeSavedWalletAction(id)),
+      transfer: (recipientIdentifier, amount) => run(() => requestTransferAction(recipientIdentifier, amount)),
     }),
     [run],
   )
