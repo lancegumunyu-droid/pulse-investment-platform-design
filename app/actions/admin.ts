@@ -15,6 +15,20 @@ async function requireAdmin() {
   return user
 }
 
+// Scope was previously enforced only by which tabs the admin dashboard
+// showed — a finance-scoped admin could still call reviewKyc() etc.
+// directly, since the underlying server action only checked "is this
+// person an admin at all," not which scope. Real enforcement now lives
+// here, at the same layer that actually moves money.
+async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations'>) {
+  const user = await requireAdmin()
+  const db = serviceClient()
+  const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
+  const scope = (data?.admin_scope as 'full' | 'finance' | 'operations' | null) ?? 'full'
+  if (!allowed.includes(scope)) throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
+  return user
+}
+
 type AdminResult = { ok: true; snapshot: AdminSnapshot } | { ok: false; error: string }
 
 export async function getAdminSnapshot(): Promise<AdminResult> {
@@ -81,6 +95,21 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         createdAt: new Date(t.created_at).getTime(),
       }))
 
+    const p2pQueue = (txns ?? [])
+      .filter((t) => t.type === 'p2p_send' && t.status === 'pending')
+      .map((t) => ({
+        id: t.id,
+        userId: t.user_id,
+        email: emailMap.get(t.user_id) ?? null,
+        type: t.type,
+        amount: Number(t.amount),
+        currency: t.currency,
+        status: t.status,
+        reference: t.reference,
+        createdAt: new Date(t.created_at).getTime(),
+        counterpartyLabel: (t.meta as Record<string, unknown> | null)?.recipientLabel as string | null ?? null,
+      }))
+
     const recentTxns = (txns ?? []).slice(0, 40).map((t) => ({
       id: t.id,
       userId: t.user_id,
@@ -112,11 +141,13 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       pendingWithdrawals: withdrawalQueue.length,
       pendingDeposits: depositQueue.length,
       pendingKyc: kycQueue.length,
+      pendingP2P: p2pQueue.length,
       userCount: users.length,
       users,
       kycQueue,
       withdrawalQueue,
       depositQueue,
+      p2pQueue,
       recentTxns,
     }
     return { ok: true, snapshot }
@@ -127,7 +158,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
 
 export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
     const { data: sub } = await db.from('kyc_submissions').select('*').eq('id', id).single()
     if (!sub) return { ok: false, error: 'Submission not found' }
@@ -179,14 +210,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       if (verifiedProfile?.referred_by) {
         const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
         if (refPointsErr) console.error('award_points (kyc referrer) failed:', refPointsErr.message)
-
-        // This verification just changed the referrer's *verified* referral
-        // count, which is exactly what badge thresholds (10/25/100) are
-        // measured against. Check now — this was previously never called
-        // anywhere, so nobody could ever actually earn a badge or unlock
-        // the 100-referral free card.
-        const { error: badgeErr } = await db.rpc('check_and_award_referral_badges', { p_user_id: verifiedProfile.referred_by })
-        if (badgeErr) console.error('check_and_award_referral_badges failed:', badgeErr.message)
       }
     }
 
@@ -200,7 +223,7 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
 // (e.g. blurry ID photo, mismatched details, or they need a fresh look).
 export async function resetKyc(userId: string): Promise<AdminResult> {
   try {
-    await requireAdmin()
+    await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
     const { error: profErr } = await db
       .from('profiles')
@@ -215,7 +238,7 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
 
 export async function reviewDeposit(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAdminScope(['full', 'finance'])
     const db = serviceClient()
     const { data: txn } = await db.from('transactions').select('*').eq('id', id).single()
     if (!txn || txn.type !== 'deposit' || txn.status !== 'pending') {
@@ -243,7 +266,7 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
 
 export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAdminScope(['full', 'finance'])
     const db = serviceClient()
     const { data: txn } = await db.from('transactions').select('*').eq('id', id).single()
     if (!txn || txn.type !== 'withdrawal' || txn.status !== 'pending') {
@@ -269,9 +292,49 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
   }
 }
 
+export async function reviewP2PTransfer(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
+  try {
+    const admin = await requireAdminScope(['full', 'finance'])
+    const db = serviceClient()
+    const { data: txn } = await db.from('transactions').select('*').eq('id', id).single()
+    if (!txn || txn.type !== 'p2p_send' || txn.status !== 'pending') {
+      return { ok: false, error: 'Transfer not found or already processed' }
+    }
+    const meta = (txn.meta as Record<string, unknown> | null) ?? {}
+    const recipientId = meta.recipientId as string | undefined
+    if (decision === 'approved') {
+      if (!recipientId) return { ok: false, error: 'Transfer is missing a recipient — cannot approve' }
+      await adjustAccount(recipientId, { cash_balance: Number(txn.amount) })
+      await recordTxn(recipientId, {
+        type: 'p2p_receive',
+        amount: Number(txn.amount),
+        status: 'completed',
+        processedBy: admin.id,
+        meta: { label: 'Received transfer', senderId: txn.user_id },
+      })
+      const { error } = await db
+        .from('transactions')
+        .update({ status: 'completed', processed_by: admin.id })
+        .eq('id', id)
+      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
+    } else {
+      // Refund the sender — funds were held at request time.
+      await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
+      const { error } = await db
+        .from('transactions')
+        .update({ status: 'cancelled', processed_by: admin.id })
+        .eq('id', id)
+      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
+    }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 export async function disburseYield(userId: string, amount: number): Promise<AdminResult> {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAdminScope(['full', 'finance'])
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
     await adjustAccount(userId, { cash_balance: amount })
     await recordTxn(userId, {
@@ -290,7 +353,7 @@ export async function disburseYield(userId: string, amount: number): Promise<Adm
 
 export async function addAdminByEmail(email: string): Promise<AdminResult> {
   try {
-    await requireAdmin()
+    await requireAdminScope(['full'])
     const clean = email.trim().toLowerCase()
     if (!clean.includes('@')) return { ok: false, error: 'Enter a valid email' }
     const db = serviceClient()
@@ -307,12 +370,8 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
 // (finance-only or operations-only) so the dashboard splits between them.
 export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations'): Promise<AdminResult> {
   try {
-    const admin = await requireAdmin()
+    await requireAdminScope(['full'])
     const db = serviceClient()
-    const { data: callerProfile } = await db.from('profiles').select('admin_scope').eq('id', admin.id).maybeSingle()
-    if (callerProfile?.admin_scope && callerProfile.admin_scope !== 'full') {
-      return { ok: false, error: 'Only a full admin can appoint admin scopes' }
-    }
     const { error } = await db.from('profiles').update({ admin_scope: scope, role: 'admin' }).eq('id', userId)
     if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
@@ -325,7 +384,7 @@ export async function appointAdminScope(userId: string, scope: 'full' | 'finance
 // dependent rows first, then removes the auth account itself. Irreversible.
 export async function deleteUser(userId: string): Promise<AdminResult> {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAdminScope(['full'])
     if (userId === admin.id) return { ok: false, error: "You can't delete your own admin account" }
     const db = serviceClient()
 
