@@ -8,6 +8,7 @@ import {
   Copy,
   CreditCard,
   LogOut,
+  Send,
   Sparkles,
   Wallet,
   Zap,
@@ -23,6 +24,8 @@ const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; s
   sale: { icon: Sparkles, tone: 'text-gold', sign: '' },
   stake: { icon: Zap, tone: 'text-gold', sign: '' },
   unstake: { icon: Coins, tone: 'text-green', sign: '' },
+  p2p_send: { icon: Send, tone: 'text-destructive', sign: '-' },
+  p2p_receive: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
 }
 
 const CARD_COPY: Record<'none' | 'waitlisted' | 'approved' | 'free_card_earned', { title: string; body: string }> = {
@@ -99,12 +102,15 @@ export function WalletView() {
       <Glass gold className="animate-rise">
         <p className="text-xs uppercase tracking-wide text-gold">Available balance</p>
         <p className="mt-1 font-mono text-3xl font-semibold">${money(state.cash)}</p>
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <Button size="lg" className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90" onClick={() => openModal('deposit')}>
             <ArrowDownRight className="size-4" /> Deposit
           </Button>
           <Button size="lg" variant="outline" className="h-11 w-full border-white/12 bg-white/[0.03] font-semibold" onClick={() => openModal('withdraw')}>
             <ArrowUpRight className="size-4" /> Withdraw
+          </Button>
+          <Button size="lg" variant="outline" className="h-11 w-full border-white/12 bg-white/[0.03] font-semibold" onClick={() => openModal('transfer')}>
+            <Send className="size-4" /> Send
           </Button>
         </div>
       </Glass>
