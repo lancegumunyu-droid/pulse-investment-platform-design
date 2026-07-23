@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowDownRight, ArrowUpRight, ShieldCheck, X } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Send, ShieldCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { money, usePulse } from './store'
 import { RiskNote } from './ui-bits'
@@ -57,6 +57,7 @@ export function Modals() {
   if (modal.type === 'invest') return <InvestModal onClose={closeModal} />
   if (modal.type === 'deposit') return <DepositModal onClose={closeModal} />
   if (modal.type === 'withdraw') return <WithdrawModal onClose={closeModal} />
+  if (modal.type === 'transfer') return <TransferModal onClose={closeModal} />
   return null
 }
 
@@ -274,6 +275,120 @@ interface PayInfo {
   payCurrency: string
 }
 
+function SavedWalletsPanel({ context }: { context?: boolean }) {
+  const { state, api, toast } = usePulse()
+  const [adding, setAdding] = useState(false)
+  const [label, setLabel] = useState('')
+  const [address, setAddress] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const useWallet = async (addr: string) => {
+    setBusyId(addr)
+    const res = await api.connectWallet(addr)
+    setBusyId(null)
+    if (!res.ok) toast({ title: 'Could not select wallet', description: res.error, variant: 'error' })
+  }
+
+  const saveNew = async () => {
+    if (address.trim().length < 20) {
+      toast({ title: "That doesn't look like a valid address", variant: 'error' })
+      return
+    }
+    setBusyId('new')
+    const res = await api.addSavedWallet(label || 'Wallet', address.trim())
+    if (!res.ok) {
+      setBusyId(null)
+      toast({ title: 'Could not save wallet', description: res.error, variant: 'error' })
+      return
+    }
+    await api.connectWallet(address.trim())
+    setBusyId(null)
+    setAdding(false)
+    setLabel('')
+    setAddress('')
+    toast({ title: 'Wallet saved and selected', variant: 'success' })
+  }
+
+  const remove = async (id: string) => {
+    setBusyId(id)
+    const res = await api.removeSavedWallet(id)
+    setBusyId(null)
+    if (!res.ok) toast({ title: 'Could not remove wallet', description: res.error, variant: 'error' })
+  }
+
+  return (
+    <div className="mb-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground">
+          {context ? 'Your saved wallets' : 'Choose a receiving wallet'}
+        </p>
+        {!adding && (
+          <button onClick={() => setAdding(true)} className="text-xs font-medium text-gold">
+            + Add wallet
+          </button>
+        )}
+      </div>
+
+      {state.savedWallets.length === 0 && !adding && (
+        <p className="rounded-xl bg-white/[0.03] px-3.5 py-3 text-xs text-muted-foreground">
+          No wallets saved yet. {context ? 'Add one so it\'s ready when you withdraw.' : 'Add the address you want withdrawals sent to.'}
+        </p>
+      )}
+
+      <div className="space-y-2">
+        {state.savedWallets.map((w) => {
+          const active = state.wallet === w.address
+          return (
+            <div
+              key={w.id}
+              className={cn(
+                'flex items-center gap-2 rounded-xl border px-3.5 py-2.5',
+                active ? 'border-gold/50 bg-gold-soft' : 'border-white/8 bg-white/[0.03]',
+              )}
+            >
+              <button onClick={() => useWallet(w.address)} disabled={busyId === w.address} className="min-w-0 flex-1 text-left">
+                <p className={cn('truncate text-xs font-semibold', active && 'text-gold')}>{w.label}</p>
+                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                  {w.address.slice(0, 8)}…{w.address.slice(-6)}
+                </p>
+              </button>
+              {active && <span className="shrink-0 text-[10px] font-semibold text-gold">ACTIVE</span>}
+              <button onClick={() => remove(w.id)} disabled={busyId === w.id} className="shrink-0 text-muted-foreground hover:text-destructive" aria-label="Remove wallet">
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {adding && (
+        <div className="mt-2 space-y-2 rounded-xl border border-white/8 bg-white/[0.03] p-3">
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Label (e.g. My Binance wallet)"
+            className={inputCls}
+          />
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Address (USDT TRC-20 or BTC)"
+            className={inputCls}
+          />
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1 bg-gold font-semibold text-primary-foreground hover:bg-gold/90" disabled={busyId === 'new'} onClick={saveNew}>
+              {busyId === 'new' ? 'Saving…' : 'Save & use'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DepositModal({ onClose }: { onClose: () => void }) {
   const { api, busy, toast, refresh } = usePulse()
   const [currency, setCurrency] = useState<'usdttrc20' | 'btc'>('usdttrc20')
@@ -385,6 +500,13 @@ function DepositModal({ onClose }: { onClose: () => void }) {
       <p className="mt-3 text-xs text-muted-foreground">
         Crypto deposits are processed by NOWPayments and credited after admin approval.
       </p>
+      <div className="mt-4">
+        <SavedWalletsPanel context />
+        <p className="text-[11px] text-muted-foreground">
+          This is where your <em>withdrawals</em> will go — not where this deposit comes from. Pulse always generates
+          a fresh receiving address for deposits, shown after you tap Deposit below.
+        </p>
+      </div>
       <Button
         size="lg"
         className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
@@ -400,26 +522,8 @@ function DepositModal({ onClose }: { onClose: () => void }) {
 function WithdrawModal({ onClose }: { onClose: () => void }) {
   const { state, api, busy, toast, openModal } = usePulse()
   const [amount, setAmount] = useState('50')
-  const [walletInput, setWalletInput] = useState('')
-  const [connecting, setConnecting] = useState(false)
   const usd = Number(amount) || 0
   const insufficient = usd > state.cash
-
-  const connect = async () => {
-    const addr = walletInput.trim()
-    if (addr.length < 20) {
-      toast({ title: 'That doesn\'t look like a valid address', variant: 'error' })
-      return
-    }
-    setConnecting(true)
-    const res = await api.connectWallet(addr)
-    setConnecting(false)
-    if (!res.ok) {
-      toast({ title: 'Could not connect wallet', description: res.error, variant: 'error' })
-      return
-    }
-    toast({ title: 'Wallet connected', variant: 'success' })
-  }
 
   const submit = async () => {
     if (state.kyc !== 'verified') {
@@ -429,7 +533,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       return
     }
     if (!state.wallet) {
-      toast({ title: 'Connect a wallet first', description: 'Add the address you want your withdrawal sent to.', variant: 'error' })
+      toast({ title: 'Select a wallet first', description: 'Add or choose the address you want your withdrawal sent to.', variant: 'error' })
       return
     }
     if (insufficient) {
@@ -449,38 +553,11 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
     <ModalShell title="Withdraw to wallet" icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
       <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
         <Row label="Withdrawable balance" value={`$${money(state.cash)}`} />
-        <Row label="Destination" value={state.wallet ? `${state.wallet.slice(0, 6)}…${state.wallet.slice(-4)}` : 'Not connected'} tone={state.wallet ? 'gold' : 'danger'} />
+        <Row label="Destination" value={state.wallet ? `${state.wallet.slice(0, 6)}…${state.wallet.slice(-4)}` : 'Not selected'} tone={state.wallet ? 'gold' : 'danger'} />
         <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
       </div>
 
-      {!state.wallet ? (
-        <div className="mb-4">
-          <Field label="Your wallet address (USDT TRC-20 or BTC)">
-            <input
-              className={inputCls}
-              value={walletInput}
-              onChange={(e) => setWalletInput(e.target.value)}
-              placeholder="Paste the address you want to receive funds at"
-            />
-          </Field>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-2 w-full border-white/12 bg-white/[0.03]"
-            disabled={connecting || walletInput.trim().length < 20}
-            onClick={connect}
-          >
-            {connecting ? 'Connecting…' : 'Connect wallet'}
-          </Button>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            This is where withdrawals will be sent. You can change it any time before requesting a withdrawal.
-          </p>
-        </div>
-      ) : (
-        <button onClick={() => api.disconnectWallet()} className="mb-4 text-[11px] text-muted-foreground underline">
-          Disconnect and use a different address
-        </button>
-      )}
+      <SavedWalletsPanel />
 
       <Field label="Amount (USDT)">
         <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -494,6 +571,72 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
         Request withdrawal
       </Button>
       <p className="mt-3 text-xs text-muted-foreground">Withdrawals are reviewed and disbursed by the platform admin.</p>
+    </ModalShell>
+  )
+}
+
+function TransferModal({ onClose }: { onClose: () => void }) {
+  const { state, api, busy, toast, openModal } = usePulse()
+  const [recipient, setRecipient] = useState('')
+  const [amount, setAmount] = useState('20')
+  const usd = Number(amount) || 0
+  const insufficient = usd > state.cash
+
+  const submit = async () => {
+    if (state.kyc !== 'verified') {
+      toast({ title: 'Verification required', description: 'Complete KYC before sending funds.', variant: 'error' })
+      onClose()
+      openModal('kyc')
+      return
+    }
+    if (!recipient.trim()) {
+      toast({ title: 'Enter a username or Pulse ID', variant: 'error' })
+      return
+    }
+    if (insufficient) {
+      toast({ title: 'Amount exceeds balance', variant: 'error' })
+      return
+    }
+    const res = await api.transfer(recipient.trim(), usd)
+    if (!res.ok) {
+      toast({ title: 'Transfer failed', description: res.error, variant: 'error' })
+      return
+    }
+    toast({ title: 'Transfer requested', description: 'Held pending admin approval, for both your safety.', variant: 'info' })
+    onClose()
+  }
+
+  return (
+    <ModalShell title="Send to another user" icon={<Send className="size-5" />} onClose={onClose}>
+      <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
+        <Row label="Available balance" value={`$${money(state.cash)}`} />
+        <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
+      </div>
+      <Field label="Recipient username or Pulse ID">
+        <input
+          className={inputCls}
+          value={recipient}
+          onChange={(e) => setRecipient(e.target.value)}
+          placeholder="@username or PLS-XXXXXX"
+        />
+      </Field>
+      <div className="mt-3">
+        <Field label="Amount (USD)">
+          <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        For safety, transfers are held and reviewed by an admin before the recipient is credited — the same as
+        deposits and withdrawals. Your balance is deducted now and refunded in full if the transfer is declined.
+      </p>
+      <Button
+        size="lg"
+        className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
+        disabled={usd <= 0 || busy || !recipient.trim()}
+        onClick={submit}
+      >
+        Send ${money(usd)}
+      </Button>
     </ModalShell>
   )
 }
