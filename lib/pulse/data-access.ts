@@ -11,6 +11,8 @@ const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
   unstake: 'unstake',
   token_purchase: 'sale',
   yield: 'deposit',
+  p2p_send: 'p2p_send',
+  p2p_receive: 'p2p_receive',
 }
 
 const TXN_LABEL: Record<string, string> = {
@@ -21,6 +23,8 @@ const TXN_LABEL: Record<string, string> = {
   unstake: 'Unstaked PULSE',
   token_purchase: 'Private sale purchase',
   yield: 'Yield disbursement',
+  p2p_send: 'Sent to another user',
+  p2p_receive: 'Received from another user',
 }
 
 export interface AccountRow {
@@ -97,7 +101,7 @@ export async function recordTxn(userId: string, row: {
 
 export async function getSnapshot(userId: string): Promise<Snapshot> {
   const db = serviceClient()
-  const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }, { data: referrals }, { data: badgeRows }, { data: cardApp }] = await Promise.all([
+  const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }, { data: referrals }, { data: badgeRows }, { data: cardApp }, { data: wallets }] = await Promise.all([
     db.from('profiles').select('*').eq('id', userId).maybeSingle(),
     ensureAccount(userId),
     db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
@@ -106,6 +110,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     db.from('profiles').select('kyc_status').eq('referred_by', userId),
     db.from('badges').select('badge_key, earned_at').eq('user_id', userId),
     db.from('card_applications').select('status').eq('user_id', userId).maybeSingle(),
+    db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
   ])
 
   const kycMap: Record<string, Snapshot['kyc']> = {
@@ -156,6 +161,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     badges: (badgeRows ?? []).map((b) => ({ key: b.badge_key, earnedAt: new Date(b.earned_at).getTime() })),
     adminScope: (profile?.admin_scope as Snapshot['adminScope']) ?? null,
     cardStatus: (cardApp?.status as Snapshot['cardStatus']) ?? 'none',
+    savedWallets: (wallets ?? []).map((w) => ({ id: w.id, label: w.label, address: w.address })),
   }
 }
 
