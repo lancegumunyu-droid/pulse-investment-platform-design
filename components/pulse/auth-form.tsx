@@ -171,8 +171,12 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       </p>
 
       <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground text-pretty">
-        Investments carry risk of loss. Yields are variable and depend on real project performance. This is a product
-        demonstration and does not process real funds.
+        Disclaimer: Investing involves substantial risk and is not suitable for every investor. The information
+        provided on this platform is for educational and informational purposes only. There are no guarantees of
+        profit nor of avoiding losses when investing. Each individual's results depend on their unique
+        circumstances and numerous other factors. Any past performance, hypothetical or otherwise, is not
+        indicative of future results. You should fully understand the risks and seek advice from a qualified
+        financial advisor before investing.
       </p>
     </div>
   )
