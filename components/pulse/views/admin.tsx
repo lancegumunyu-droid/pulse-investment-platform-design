@@ -26,6 +26,7 @@ import {
   reviewDeposit,
   reviewP2PTransfer,
   reviewCardApplication,
+  assignManager,
   disburseYield,
   addAdminByEmail,
   appointAdminScope,
@@ -46,6 +47,7 @@ export function AdminView() {
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [managerIdDraft, setManagerIdDraft] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -635,6 +637,63 @@ export function AdminView() {
                             {s}
                           </Button>
                         ))}
+                      </div>
+                      <p className="mb-2 mt-3 text-[11px] font-medium text-muted-foreground">
+                        Appoint as team lead (no fund access — salary/commission role only)
+                      </p>
+                      <div className="flex gap-1.5">
+                        {(['manager', 'director'] as const).map((s) => (
+                          <Button
+                            key={s}
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              'flex-1 border-white/12 text-[11px] font-medium capitalize',
+                              u.role === 'admin' && u.adminScope === s && 'border-gold/40 bg-gold/10 text-gold',
+                            )}
+                            disabled={busy || (u.role === 'admin' && u.adminScope === s)}
+                            onClick={() =>
+                              act(async () => {
+                                const res = await appointAdminScope(u.id, s)
+                                if (res.ok) toast({ title: `${u.email ?? 'User'} appointed`, description: s, variant: 'success' })
+                                return res
+                              })
+                            }
+                          >
+                            {s}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(scope === 'full' || scope === 'operations') && u.role !== 'admin' && (
+                    <div className="mt-3 border-t border-white/8 pt-3">
+                      <p className="mb-2 text-[11px] font-medium text-muted-foreground">
+                        Assign this user to a Manager (paste the manager&apos;s user ID)
+                      </p>
+                      <div className="flex gap-1.5">
+                        <input
+                          className="pulse-input flex-1 text-xs"
+                          placeholder="manager-user-id"
+                          value={managerIdDraft[u.id] ?? ''}
+                          onChange={(e) => setManagerIdDraft((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-white/12 text-[11px] font-medium"
+                          disabled={busy || !managerIdDraft[u.id]}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await assignManager(u.id, managerIdDraft[u.id])
+                              if (res.ok) toast({ title: 'Assigned', description: `${u.email ?? 'User'} → manager`, variant: 'success' })
+                              return res
+                            })
+                          }
+                        >
+                          Assign
+                        </Button>
                       </div>
                     </div>
                   )}
