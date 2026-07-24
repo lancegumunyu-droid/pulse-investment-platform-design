@@ -35,15 +35,17 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
   try {
     await requireAdmin()
     const db = serviceClient()
-    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }] = await Promise.all([
+    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] = await Promise.all([
       db.from('profiles').select('*').order('created_at', { ascending: false }),
       db.from('accounts').select('*'),
       db.from('kyc_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
       db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
+      db.from('card_applications').select('*').order('created_at', { ascending: false }),
     ])
 
     const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
     const emailMap = new Map((profiles ?? []).map((p) => [p.id, p.email]))
+    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
 
     const users = (profiles ?? []).map((p) => {
       const a = acctMap.get(p.id)
@@ -122,6 +124,21 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       createdAt: new Date(t.created_at).getTime(),
     }))
 
+    const cardQueue = (cardApps ?? [])
+      .filter((c) => c.status === 'waitlisted')
+      .map((c) => {
+        const p = profileMap.get(c.user_id)
+        return {
+          id: c.id,
+          userId: c.user_id,
+          email: emailMap.get(c.user_id) ?? null,
+          fullName: p?.full_name ?? null,
+          kycStatus: p?.kyc_status ?? 'none',
+          status: c.status,
+          createdAt: new Date(c.created_at).getTime(),
+        }
+      })
+
     const kycQueue = (kyc ?? []).map((k) => ({
       id: k.id,
       userId: k.user_id,
@@ -142,12 +159,14 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       pendingDeposits: depositQueue.length,
       pendingKyc: kycQueue.length,
       pendingP2P: p2pQueue.length,
+      pendingCards: cardQueue.length,
       userCount: users.length,
       users,
       kycQueue,
       withdrawalQueue,
       depositQueue,
       p2pQueue,
+      cardQueue,
       recentTxns,
     }
     return { ok: true, snapshot }
@@ -326,6 +345,31 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function reviewCardApplication(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
+  try {
+    const admin = await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { data: app } = await db.from('card_applications').select('*').eq('id', id).single()
+    if (!app || app.status !== 'waitlisted') {
+      return { ok: false, error: 'Application not found or already processed' }
+    }
+    if (decision === 'approved') {
+      const { data: profile } = await db.from('profiles').select('kyc_status').eq('id', app.user_id).maybeSingle()
+      if (profile?.kyc_status !== 'verified') {
+        return { ok: false, error: 'This applicant has not completed KYC yet — verify identity before approving a card' }
+      }
+    }
+    const { error } = await db
+      .from('card_applications')
+      .update({ status: decision === 'approved' ? 'approved' : 'rejected', reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
