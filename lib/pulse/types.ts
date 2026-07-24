@@ -102,6 +102,16 @@ export interface AdminKycRow {
   createdAt: number
 }
 
+export interface AdminCardRow {
+  id: string
+  userId: string
+  email: string | null
+  fullName: string | null
+  kycStatus: string
+  status: string
+  createdAt: number
+}
+
 export interface AdminTxnRow {
   id: string
   userId: string
@@ -128,11 +138,13 @@ export interface AdminSnapshot {
   pendingDeposits: number // NEW
   pendingKyc: number
   pendingP2P: number // NEW
+  pendingCards: number // NEW
   userCount: number
   users: AdminUserRow[]
   kycQueue: AdminKycRow[]
   withdrawalQueue: AdminTxnRow[]
   depositQueue: AdminTxnRow[] // NEW
   p2pQueue: AdminTxnRow[] // NEW
+  cardQueue: AdminCardRow[] // NEW
   recentTxns: AdminTxnRow[]
 }
