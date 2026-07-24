@@ -21,6 +21,14 @@ export default async function HomePage() {
       redirect('/app')
     }
   } catch (err) {
+    // redirect() intentionally throws a NEXT_REDIRECT signal for Next.js
+    // to catch at the framework layer — a generic catch here was
+    // swallowing that signal, silently cancelling the redirect and
+    // showing the marketing page even when login succeeded. Only
+    // real auth-check failures should be caught and logged.
+    if ((err as { digest?: string })?.digest?.startsWith('NEXT_REDIRECT')) {
+      throw err
+    }
     console.log('[v0] Supabase auth check skipped:', (err as Error).message)
   }
 
