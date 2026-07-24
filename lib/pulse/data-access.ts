@@ -1,7 +1,25 @@
 import 'server-only'
 import { serviceClient } from './service'
-import { tierForAmount, type TierId } from '@/lib/pulse-data'
+import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-data'
 import type { Snapshot, SnapshotTxn } from './types'
+
+// Live project funding: PROJECTS in pulse-data.ts holds the seed/base amount
+// each project had before individual holdings were tracked. Actual investor
+// money since then is summed from `holdings` and added on top, so the
+// progress bar on the homepage reflects real user investment instead of a
+// number that only ever changes when someone edits the source file.
+export async function getLiveProjects(): Promise<Project[]> {
+  const db = serviceClient()
+  const { data: rows } = await db.from('holdings').select('project_id, amount')
+  const liveByProject = new Map<string, number>()
+  for (const r of rows ?? []) {
+    liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
+  }
+  return PROJECTS.map((p) => ({
+    ...p,
+    funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
+  }))
+}
 
 const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
   deposit: 'deposit',
@@ -109,7 +127,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     db.from('points_ledger').select('amount').eq('user_id', userId),
     db.from('profiles').select('kyc_status').eq('referred_by', userId),
     db.from('badges').select('badge_key, earned_at').eq('user_id', userId),
-    db.from('card_applications').select('status').eq('user_id', userId).maybeSingle(),
+    db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle(),
     db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
   ])
 
@@ -161,6 +179,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     badges: (badgeRows ?? []).map((b) => ({ key: b.badge_key, earnedAt: new Date(b.earned_at).getTime() })),
     adminScope: (profile?.admin_scope as Snapshot['adminScope']) ?? null,
     cardStatus: (cardApp?.status as Snapshot['cardStatus']) ?? 'none',
+    cardRef: cardApp?.card_ref ?? null,
     savedWallets: (wallets ?? []).map((w) => ({ id: w.id, label: w.label, address: w.address })),
   }
 }
