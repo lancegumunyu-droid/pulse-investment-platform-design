@@ -20,11 +20,11 @@ async function requireAdmin() {
 // directly, since the underlying server action only checked "is this
 // person an admin at all," not which scope. Real enforcement now lives
 // here, at the same layer that actually moves money.
-async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations'>) {
+async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations' | 'manager' | 'director'>) {
   const user = await requireAdmin()
   const db = serviceClient()
   const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
-  const scope = (data?.admin_scope as 'full' | 'finance' | 'operations' | null) ?? 'full'
+  const scope = (data?.admin_scope as 'full' | 'finance' | 'operations' | 'manager' | 'director' | null) ?? 'full'
   if (!allowed.includes(scope)) throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
   return user
 }
@@ -365,9 +365,22 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
         return { ok: false, error: 'This applicant has not completed KYC yet — verify identity before approving a card' }
       }
     }
+    // NOTE: this generates a reference/tracking ID only — not a real,
+    // spendable payment card number. Issuing an actual card requires
+    // integrating a licensed card-issuing partner (e.g. Stripe Issuing,
+    // Marqeta); this framework is what that integration will plug into.
+    const cardRef =
+      decision === 'approved'
+        ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
+        : null
     const { error } = await db
       .from('card_applications')
-      .update({ status: decision === 'approved' ? 'approved' : 'rejected', reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
+      .update({
+        status: decision === 'approved' ? 'approved' : 'rejected',
+        reviewed_by: admin.id,
+        reviewed_at: new Date().toISOString(),
+        ...(cardRef ? { card_ref: cardRef } : {}),
+      })
       .eq('id', id)
     if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
     return getAdminSnapshot()
@@ -412,11 +425,86 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
 
 // NEW: a full admin can appoint another admin to a narrower scope
 // (finance-only or operations-only) so the dashboard splits between them.
-export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations'): Promise<AdminResult> {
+export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations' | 'manager' | 'director'): Promise<AdminResult> {
   try {
     await requireAdminScope(['full'])
     const db = serviceClient()
     const { error } = await db.from('profiles').update({ admin_scope: scope, role: 'admin' }).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// Read-only. Managers/Directors have no fund-moving or KYC-approval
+// permissions — this just totals verified investment volume for the
+// users assigned to them, so salary/commission can be calculated
+// against real, KYC'd investment activity rather than headcount.
+export async function getTeamVolumeReport(): Promise<
+  | { ok: true; scope: 'manager' | 'director'; rows: { userId: string; name: string | null; email: string | null; kycVerified: boolean; investedVolume: number }[] }
+  | AdminResult
+> {
+  try {
+    const user = await requireAdminScope(['manager', 'director', 'full'])
+    const db = serviceClient()
+    const { data: me } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
+    const scope: 'manager' | 'director' = me?.admin_scope === 'director' ? 'director' : 'manager'
+
+    let teamIds: string[] = []
+    if (scope === 'director') {
+      const { data: managers } = await db.from('profiles').select('id').eq('reports_to_director', user.id)
+      const managerIds = (managers ?? []).map((m) => m.id)
+      const { data: managed } = managerIds.length
+        ? await db.from('profiles').select('id').in('managed_by', managerIds)
+        : { data: [] as { id: string }[] }
+      teamIds = (managed ?? []).map((m) => m.id)
+    } else {
+      const { data: managed } = await db.from('profiles').select('id').eq('managed_by', user.id)
+      teamIds = (managed ?? []).map((m) => m.id)
+    }
+
+    if (teamIds.length === 0) return { ok: true, scope, rows: [] }
+
+    const [{ data: people }, { data: holdings }] = await Promise.all([
+      db.from('profiles').select('id, full_name, email, kyc_status').in('id', teamIds),
+      db.from('holdings').select('user_id, amount').in('user_id', teamIds),
+    ])
+
+    const volumeByUser = new Map<string, number>()
+    for (const h of holdings ?? []) volumeByUser.set(h.user_id, (volumeByUser.get(h.user_id) ?? 0) + Number(h.amount))
+
+    const rows = (people ?? []).map((p) => ({
+      userId: p.id,
+      name: p.full_name,
+      email: p.email,
+      kycVerified: p.kyc_status === 'verified',
+      investedVolume: volumeByUser.get(p.id) ?? 0,
+    }))
+
+    return { ok: true, scope, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function assignManager(userId: string, managerId: string): Promise<AdminResult> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { error } = await db.from('profiles').update({ managed_by: managerId || null }).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function assignDirector(managerId: string, directorId: string): Promise<AdminResult> {
+  try {
+    await requireAdminScope(['full'])
+    const db = serviceClient()
+    const { error } = await db.from('profiles').update({ reports_to_director: directorId || null }).eq('id', managerId)
     if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
