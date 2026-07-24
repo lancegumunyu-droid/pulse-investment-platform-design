@@ -12,24 +12,21 @@ const STATS = [
 ]
 
 export default async function HomePage() {
+  let isLoggedIn = false
   try {
     const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (user) {
-      redirect('/app')
-    }
+    isLoggedIn = !!user
   } catch (err) {
-    // redirect() intentionally throws a NEXT_REDIRECT signal for Next.js
-    // to catch at the framework layer — a generic catch here was
-    // swallowing that signal, silently cancelling the redirect and
-    // showing the marketing page even when login succeeded. Only
-    // real auth-check failures should be caught and logged.
-    if ((err as { digest?: string })?.digest?.startsWith('NEXT_REDIRECT')) {
-      throw err
-    }
+    // Only real auth-check failures land here now — redirect() is called
+    // below, completely outside this try/catch, so it can never be
+    // accidentally swallowed or turn into an uncaught crash.
     console.log('[v0] Supabase auth check skipped:', (err as Error).message)
+  }
+  if (isLoggedIn) {
+    redirect('/app')
   }
 
   const FEATURES = [
