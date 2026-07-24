@@ -25,6 +25,7 @@ import {
   reviewWithdrawal,
   reviewDeposit,
   reviewP2PTransfer,
+  reviewCardApplication,
   disburseYield,
   addAdminByEmail,
   appointAdminScope,
@@ -33,7 +34,7 @@ import {
 } from '@/app/actions/admin'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 
-type Tab = 'overview' | 'kyc' | 'deposits' | 'withdrawals' | 'transfers' | 'users' | 'settings'
+type Tab = 'overview' | 'kyc' | 'deposits' | 'withdrawals' | 'transfers' | 'cards' | 'users' | 'settings'
 
 export function AdminView() {
   const { state, setView, toast } = usePulse()
@@ -83,6 +84,7 @@ export function AdminView() {
     { id: 'deposits', label: `Deposits${snap ? ` (${snap.pendingDeposits})` : ''}`, scopes: ['full', 'finance'] },
     { id: 'withdrawals', label: `Withdrawals${snap ? ` (${snap.pendingWithdrawals})` : ''}`, scopes: ['full', 'finance'] },
     { id: 'transfers', label: `Transfers${snap ? ` (${snap.pendingP2P})` : ''}`, scopes: ['full', 'finance'] },
+    { id: 'cards', label: `Cards${snap ? ` (${snap.pendingCards})` : ''}`, scopes: ['full', 'operations'] },
     { id: 'users', label: 'Users', scopes: ['full', 'operations'] },
     { id: 'settings', label: 'Settings', scopes: ['full'] },
   ]
@@ -453,6 +455,68 @@ export function AdminView() {
                     </div>
                   </Glass>
                 ))
+              )}
+            </div>
+          )}
+
+          {tab === 'cards' && (
+            <div className="space-y-3 animate-rise">
+              {snap.cardQueue.length === 0 ? (
+                <Glass className="py-8 text-center">
+                  <Check className="mx-auto size-8 text-green" />
+                  <p className="mt-2 text-sm font-semibold">No pending card applications</p>
+                </Glass>
+              ) : (
+                snap.cardQueue.map((c) => {
+                  const verified = c.kycStatus === 'verified'
+                  return (
+                    <Glass key={c.id} className="animate-rise">
+                      <div className="mb-3 flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold">{c.fullName ?? 'Unnamed applicant'}</p>
+                          <p className="text-xs text-muted-foreground">{c.email ?? c.userId.slice(0, 12)}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</p>
+                        </div>
+                        <Pill tone={verified ? 'green' : 'danger'}>{verified ? 'KYC verified' : 'KYC not verified'}</Pill>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-green/90 font-semibold text-background hover:bg-green"
+                          disabled={busy || !verified}
+                          title={verified ? undefined : 'Applicant must complete KYC before their card can be approved'}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await reviewCardApplication(c.id, 'approved')
+                              if (res.ok) toast({ title: 'Card approved', description: c.fullName ?? undefined, variant: 'success' })
+                              return res
+                            })
+                          }
+                        >
+                          <Check className="size-3.5" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10"
+                          disabled={busy}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await reviewCardApplication(c.id, 'rejected')
+                              if (res.ok) toast({ title: 'Card application rejected', variant: 'info' })
+                              return res
+                            })
+                          }
+                        >
+                          <X className="size-3.5" /> Reject
+                        </Button>
+                      </div>
+                      {!verified && (
+                        <p className="mt-2 text-xs text-muted-foreground">Approve KYC first from the KYC tab, then come back to approve the card.</p>
+                      )}
+                    </Glass>
+                  )
+                })
               )}
             </div>
           )}
