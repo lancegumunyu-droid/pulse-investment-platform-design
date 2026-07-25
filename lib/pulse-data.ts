@@ -13,12 +13,6 @@ export interface Tier {
 
 // Tiers are unlocked purely by the amount an investor allocates.
 // They are NOT tied to recruiting other people.
-// Platform receiving addresses shown to every user during deposit.
-export const PLATFORM_WALLETS = {
-  usdttrc20: 'THB24HhGT515q2kT8qJRBdXMbGCu4uyAKZ', // Binance, TRC-20 (TRX network)
-  btc: '35oZ6ywxKnhVA5r2EccdUb1Jy7qJrU2mH8', // Luno
-} as const
-
 export const TIERS: Tier[] = [
   {
     id: 'starter',
@@ -189,6 +183,35 @@ export const TOKEN = {
   bonusPct: 35,
   stakingApy: 24.8,
 }
+
+// Platform's own receiving wallets — shown to users on the deposit screen
+// so they know exactly where to send funds. Users pay into these directly
+// from their own exchange/wallet, then enter the transaction reference on
+// Pulse; nothing is credited until an admin verifies it against the chain.
+export interface DepositWallet {
+  id: string
+  coin: 'BTC' | 'USDT'
+  network: string
+  exchangeLabel: string
+  address: string
+}
+
+export const DEPOSIT_WALLETS: DepositWallet[] = [
+  {
+    id: 'btc-luno',
+    coin: 'BTC',
+    network: 'Bitcoin',
+    exchangeLabel: 'Luno',
+    address: '35oZ6ywxKnhVA5r2EccdUb1Jy7qJrU2mH8',
+  },
+  {
+    id: 'usdt-trc20-binance',
+    coin: 'USDT',
+    network: 'TRX (TRC-20)',
+    exchangeLabel: 'Binance',
+    address: 'THB24HhGT515q2kT8qJRBdXMbGCu4uyAKZ',
+  },
+]
 
 export const RISK_DISCLAIMER =
   "Risk Warning: Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. The possibility exists that you could sustain a loss of some or all of your initial investment and therefore you should not invest money that you cannot afford to lose."
