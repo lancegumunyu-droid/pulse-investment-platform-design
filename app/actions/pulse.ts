@@ -44,10 +44,11 @@ async function syncTier(userId: string) {
 // reviewDeposit() in admin.ts once an admin approves it — same pattern as
 // requestWithdrawal below. Function name kept as simulateDeposit so no UI
 // call sites need to change.
-export async function simulateDeposit(amount: number): Promise<Result> {
+export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc', txReference: string): Promise<Result> {
   try {
     const user = await requireUser()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
+    if (!txReference.trim()) return { ok: false, error: 'Enter the transaction reference / TXID you sent with' }
     const snap = await getSnapshot(user.id)
     if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to deposit' }
     await recordTxn(user.id, {
@@ -55,8 +56,12 @@ export async function simulateDeposit(amount: number): Promise<Result> {
       amount,
       currency: 'USD',
       status: 'pending',
-      reference: 'manual',
-      meta: { label: 'Deposit request — pending admin approval' },
+      reference: txReference.trim(),
+      meta: {
+        label: `Manual deposit — ${currency === 'btc' ? 'BTC' : 'USDT (TRC-20)'}, awaiting admin verification`,
+        payCurrency: currency,
+        userTxRef: txReference.trim(),
+      },
     })
     return withSnapshot(user.id)
   } catch (e) {
@@ -64,10 +69,16 @@ export async function simulateDeposit(amount: number): Promise<Result> {
   }
 }
 
-export async function requestWithdrawal(amount: number): Promise<Result> {
+export async function requestWithdrawal(
+  amount: number,
+  destinationAddress: string,
+  network: string,
+  broker: string,
+): Promise<Result> {
   try {
     const user = await requireUser()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
+    if (!destinationAddress.trim()) return { ok: false, error: 'Enter the wallet address to withdraw to' }
     const snap = await getSnapshot(user.id)
     if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to withdraw' }
     if (amount > snap.cash) return { ok: false, error: 'Amount exceeds available balance' }
@@ -78,7 +89,12 @@ export async function requestWithdrawal(amount: number): Promise<Result> {
       amount,
       currency: 'USD',
       status: 'pending',
-      meta: { label: 'Withdrawal to wallet', wallet: snap.wallet },
+      meta: {
+        label: 'Withdrawal to wallet — awaiting admin approval',
+        wallet: destinationAddress.trim(),
+        network: network.trim() || 'Not specified',
+        broker: broker.trim() || 'Not specified',
+      },
     })
     return withSnapshot(user.id)
   } catch (e) {
