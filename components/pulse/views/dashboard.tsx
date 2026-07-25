@@ -1,10 +1,11 @@
 'use client'
 
-import { ArrowDownRight, ArrowUpRight, Building2, ChevronRight, Leaf, Pickaxe, Sun, TrendingUp } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Building2, ChevronRight, Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, TrendingUp, Zap } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
 import { PROJECTS, nextTier, type ProjectSector } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 const sectorIcon: Record<ProjectSector, typeof Sun> = {
   'Renewable Energy': Sun,
@@ -14,7 +15,7 @@ const sectorIcon: Record<ProjectSector, typeof Sun> = {
 }
 
 export function DashboardView() {
-  const { state, totalInvested, currentTier, portfolioValue, openModal, setView } = usePulse()
+  const { state, totalInvested, currentTier, portfolioValue, openModal, setView, toast } = usePulse()
   const upcoming = nextTier(currentTier.id)
   const progress = upcoming ? Math.min(100, (totalInvested / upcoming.minInvest) * 100) : 100
 
@@ -127,8 +128,97 @@ export function DashboardView() {
         </div>
       </div>
 
+      <div>
+        <SectionTitle title="Quick actions" />
+        <div className="grid grid-cols-2 gap-3">
+          <QuickActionTile
+            icon={<Rocket className="size-5" />}
+            tone="gold"
+            title="Buy $PULSE"
+            subtitle="Private sale"
+            onClick={() => setView('sale')}
+          />
+          <QuickActionTile
+            icon={<Zap className="size-5" />}
+            tone="green"
+            title="Stake"
+            subtitle="24.8% APY"
+            onClick={() => setView('stake')}
+          />
+          <QuickActionTile
+            icon={<Radio className="size-5" />}
+            tone="gold"
+            title="Signals"
+            subtitle="Live deals"
+            onClick={() => setView('signals')}
+          />
+          <QuickActionTile
+            icon={<ShieldCheck className="size-5" />}
+            tone="green"
+            title="Verify KYC"
+            subtitle={state.kyc === 'verified' ? 'Verified' : 'Get access'}
+            onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))}
+          />
+        </div>
+      </div>
+
+      <Glass className="animate-rise">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Your referral code</p>
+        <div className="mt-1.5 flex items-center justify-between gap-3">
+          <div>
+            <p className="font-mono text-lg font-semibold text-gold">{state.referralCode}</p>
+            <p className="text-xs text-muted-foreground">{state.referralCount} referrals · Unlock higher tiers</p>
+          </div>
+          <button
+            onClick={() => {
+              navigator.clipboard?.writeText(state.referralCode)
+              toast({ title: 'Referral code copied', variant: 'info' })
+            }}
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-muted-foreground transition-colors hover:text-gold"
+            aria-label="Copy referral code"
+          >
+            <Copy className="size-4" />
+          </button>
+        </div>
+      </Glass>
+
       <RiskNote />
     </div>
+  )
+}
+
+function QuickActionTile({
+  icon,
+  title,
+  subtitle,
+  tone,
+  onClick,
+}: {
+  icon: React.ReactNode
+  title: string
+  subtitle: string
+  tone: 'gold' | 'green'
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="animate-rise flex flex-col rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-left transition-colors hover:bg-white/[0.05]"
+    >
+      <div className="flex items-center justify-between">
+        <span
+          className={cn(
+            'flex size-9 items-center justify-center rounded-xl',
+            tone === 'gold' ? 'bg-gold-soft text-gold' : 'bg-green-soft text-green',
+          )}
+        >
+          {icon}
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground" />
+      </div>
+      <p className="mt-3 text-sm font-semibold">{title}</p>
+      <p className="text-xs text-muted-foreground">{subtitle}</p>
+    </button>
   )
 }
 
