@@ -13,6 +13,12 @@ export interface Tier {
 
 // Tiers are unlocked purely by the amount an investor allocates.
 // They are NOT tied to recruiting other people.
+// Platform receiving addresses shown to every user during deposit.
+export const PLATFORM_WALLETS = {
+  usdttrc20: 'THB24HhGT515q2kT8qJRBdXMbGCu4uyAKZ', // Binance, TRC-20 (TRX network)
+  btc: '35oZ6ywxKnhVA5r2EccdUb1Jy7qJrU2mH8', // Luno
+} as const
+
 export const TIERS: Tier[] = [
   {
     id: 'starter',
