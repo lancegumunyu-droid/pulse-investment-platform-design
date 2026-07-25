@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowDownRight, ArrowUpRight, Send, ShieldCheck, X } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { money, usePulse } from './store'
 import { RiskNote } from './ui-bits'
-import { PROJECTS, tierForAmount } from '@/lib/pulse-data'
+import { PLATFORM_WALLETS, PROJECTS, tierForAmount } from '@/lib/pulse-data'
 import { cn } from '@/lib/utils'
 
 const KYC_REQUIRED_ABOVE = 500
@@ -269,12 +269,6 @@ function InvestModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-interface PayInfo {
-  payAddress: string
-  payAmount: number
-  payCurrency: string
-}
-
 function SavedWalletsPanel({ context }: { context?: boolean }) {
   const { state, api, toast } = usePulse()
   const [adding, setAdding] = useState(false)
@@ -390,87 +384,39 @@ function SavedWalletsPanel({ context }: { context?: boolean }) {
 }
 
 function DepositModal({ onClose }: { onClose: () => void }) {
-  const { api, busy, toast, refresh } = usePulse()
+  const { api, busy, toast } = usePulse()
   const [currency, setCurrency] = useState<'usdttrc20' | 'btc'>('usdttrc20')
   const [amount, setAmount] = useState('100')
-  const [processing, setProcessing] = useState(false)
-  const [payInfo, setPayInfo] = useState<PayInfo | null>(null)
+  const [txRef, setTxRef] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const usd = Number(amount) || 0
+  const address = PLATFORM_WALLETS[currency]
   const label = currency === 'btc' ? 'BTC' : 'USDT (TRC-20)'
 
-  const pay = async () => {
-    setProcessing(true)
-    try {
-      const res = await fetch('/api/nowpayments/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: usd, payCurrency: currency }),
-      })
-      if (res.status === 501) {
-        const r = await api.deposit(usd)
-        if (!r.ok) {
-          toast({ title: 'Deposit failed', description: r.error, variant: 'error' })
-          return
-        }
-        toast({ title: 'Deposit requested', description: `$${money(usd)} pending admin approval.`, variant: 'info' })
-        onClose()
-        return
-      }
-      const data = await res.json()
-      if (!res.ok) {
-        toast({ title: 'Could not start payment', description: data?.message ?? 'Try again.', variant: 'error' })
-        return
-      }
-      setPayInfo({ payAddress: data.payAddress, payAmount: data.payAmount, payCurrency: data.payCurrency })
-      toast({ title: 'Payment created', description: 'Send the exact amount to the address shown.', variant: 'info' })
-    } catch {
-      toast({ title: 'Network error', description: 'Please try again.', variant: 'error' })
-    } finally {
-      setProcessing(false)
-    }
+  const copyAddress = () => {
+    navigator.clipboard?.writeText(address)
+    toast({ title: 'Address copied', variant: 'info' })
   }
 
-  if (payInfo) {
-    return (
-      <ModalShell title="Complete your deposit" icon={<ArrowDownRight className="size-5" />} onClose={onClose}>
-        <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-          Send exactly the amount below. Your deposit is credited once the payment is confirmed on-chain and approved
-          by an admin.
-        </p>
-        <div className="space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
-          <Row label="Send amount" value={`${payInfo.payAmount} ${payInfo.payCurrency.toUpperCase()}`} tone="gold" />
-          <Row label="Credited" value={`$${money(usd)}`} tone="green" />
-        </div>
-        <div className="mt-3">
-          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Deposit address</span>
-          <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
-            <span className="flex-1 truncate font-mono text-xs">{payInfo.payAddress}</span>
-            <button
-              onClick={() => {
-                navigator.clipboard?.writeText(payInfo.payAddress)
-                toast({ title: 'Address copied', variant: 'info' })
-              }}
-              className="text-gold"
-              aria-label="Copy deposit address"
-            >
-              Copy
-            </button>
-          </div>
-        </div>
-        <Button
-          size="lg"
-          variant="outline"
-          className="mt-4 h-11 w-full border-white/12 bg-white/[0.03] font-semibold"
-          onClick={() => refresh()}
-        >
-          Refresh balance
-        </Button>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Confirmation can take a few minutes depending on network conditions.
-        </p>
-      </ModalShell>
-    )
+  const submit = async () => {
+    if (usd <= 0) {
+      toast({ title: 'Enter a valid amount', variant: 'error' })
+      return
+    }
+    if (!txRef.trim()) {
+      toast({ title: 'Enter your transaction reference / TXID', description: 'This is how we match your payment to your account.', variant: 'error' })
+      return
+    }
+    setSubmitting(true)
+    const res = await api.deposit(usd, currency, txRef.trim())
+    setSubmitting(false)
+    if (!res.ok) {
+      toast({ title: 'Deposit failed', description: res.error, variant: 'error' })
+      return
+    }
+    toast({ title: 'Deposit submitted', description: 'Pending admin verification — this can take a little while.', variant: 'info' })
+    onClose()
   }
 
   return (
@@ -489,31 +435,53 @@ function DepositModal({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </div>
+
       <Field label="Amount (USD)">
         <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
-      <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
-        <Row label="Pay with" value={label} />
-        <Row label="You receive" value={`$${money(usd)} balance`} tone="green" />
-        <Row label="Network fee" value="Covered by Pulse" />
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Crypto deposits are processed by NOWPayments and credited after admin approval.
-      </p>
+
       <div className="mt-4">
-        <SavedWalletsPanel context />
-        <p className="text-[11px] text-muted-foreground">
-          This is where your <em>withdrawals</em> will go — not where this deposit comes from. Pulse always generates
-          a fresh receiving address for deposits, shown after you tap Deposit below.
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Send to this address</span>
+        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
+          <span className="flex-1 truncate font-mono text-xs">{address}</span>
+          <button onClick={copyAddress} className="flex items-center gap-1 text-gold" aria-label="Copy deposit address">
+            <Copy className="size-3.5" /> Copy
+          </button>
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          Only send {label}. Sending on the wrong network will result in lost funds.
         </p>
       </div>
+
+      <Field label="Transaction reference / TXID" className="mt-4">
+        <input
+          type="text"
+          className={inputCls}
+          placeholder="Paste the transaction hash from your wallet"
+          value={txRef}
+          onChange={(e) => setTxRef(e.target.value)}
+        />
+      </Field>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        After you send the payment on your side, paste the transaction ID here so we can match it to your deposit.
+      </p>
+
+      <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
+        <Row label="Pay with" value={label} />
+        <Row label="Credited on approval" value={`$${money(usd)}`} tone="green" />
+      </div>
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        Your deposit stays pending until an admin confirms your transaction on-chain and approves it.
+      </p>
+
       <Button
         size="lg"
         className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || processing || busy}
-        onClick={pay}
+        disabled={usd <= 0 || !txRef.trim() || submitting || busy}
+        onClick={submit}
       >
-        {processing ? 'Starting payment…' : `Deposit $${money(usd)}`}
+        {submitting ? 'Submitting…' : `Submit deposit — $${money(usd)}`}
       </Button>
     </ModalShell>
   )
@@ -522,6 +490,9 @@ function DepositModal({ onClose }: { onClose: () => void }) {
 function WithdrawModal({ onClose }: { onClose: () => void }) {
   const { state, api, busy, toast, openModal } = usePulse()
   const [amount, setAmount] = useState('50')
+  const [address, setAddress] = useState(state.wallet ?? '')
+  const [network, setNetwork] = useState('USDT (TRC-20)')
+  const [broker, setBroker] = useState('')
   const usd = Number(amount) || 0
   const insufficient = usd > state.cash
 
@@ -532,15 +503,15 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       openModal('kyc')
       return
     }
-    if (!state.wallet) {
-      toast({ title: 'Select a wallet first', description: 'Add or choose the address you want your withdrawal sent to.', variant: 'error' })
+    if (!address.trim()) {
+      toast({ title: 'Enter the wallet address you want your withdrawal sent to', variant: 'error' })
       return
     }
     if (insufficient) {
       toast({ title: 'Amount exceeds balance', variant: 'error' })
       return
     }
-    const res = await api.withdraw(usd)
+    const res = await api.withdraw(usd, address.trim(), network, broker)
     if (!res.ok) {
       toast({ title: 'Withdrawal failed', description: res.error, variant: 'error' })
       return
@@ -553,7 +524,6 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
     <ModalShell title="Withdraw to wallet" icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
       <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
         <Row label="Withdrawable balance" value={`$${money(state.cash)}`} />
-        <Row label="Destination" value={state.wallet ? `${state.wallet.slice(0, 6)}…${state.wallet.slice(-4)}` : 'Not selected'} tone={state.wallet ? 'gold' : 'danger'} />
         <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
       </div>
 
@@ -562,10 +532,48 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       <Field label="Amount (USDT)">
         <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
+
+      <Field label="Wallet address" className="mt-4">
+        <input
+          type="text"
+          className={inputCls}
+          placeholder="Paste the receiving wallet address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+      </Field>
+
+      <Field label="Network" className="mt-4">
+        <select
+          className={inputCls}
+          value={network}
+          onChange={(e) => setNetwork(e.target.value)}
+        >
+          <option>USDT (TRC-20)</option>
+          <option>USDT (ERC-20)</option>
+          <option>USDT (BEP-20)</option>
+          <option>BTC</option>
+        </select>
+      </Field>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        Choose the network your receiving wallet actually supports — sending on the wrong one loses funds and can't be
+        reversed.
+      </p>
+
+      <Field label="Exchange / broker (optional)" className="mt-4">
+        <input
+          type="text"
+          className={inputCls}
+          placeholder="e.g. Binance, Bybit, your personal wallet"
+          value={broker}
+          onChange={(e) => setBroker(e.target.value)}
+        />
+      </Field>
+
       <Button
         size="lg"
         className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || busy || !state.wallet}
+        disabled={usd <= 0 || busy || !address.trim()}
         onClick={submit}
       >
         Request withdrawal
@@ -644,9 +652,9 @@ function TransferModal({ onClose }: { onClose: () => void }) {
 const inputCls =
   'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm outline-none transition-colors focus:border-gold/50 focus:ring-2 focus:ring-gold/20'
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <label className="block">
+    <label className={cn('block', className)}>
       <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
