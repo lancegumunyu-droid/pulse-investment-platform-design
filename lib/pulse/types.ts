@@ -43,6 +43,7 @@ export interface Snapshot {
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
   cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  cardRef: string | null
   savedWallets: SavedWallet[]
 }
 
@@ -125,21 +126,18 @@ export interface AdminTxnRow {
   // NEW: lets the admin dashboard show "payment confirmed by NOWPayments,
   // awaiting your approval" vs. "awaiting payment" for deposits.
   settledStatus?: string | null
-  // NEW: for p2p_send rows, who the money is headed to — resolved
-  // server-side so the admin doesn't have to cross-reference user IDs.
-  counterpartyLabel?: string | null
-  // NEW: manual deposit flow — which coin the user paid with, and the
-  // TXID/reference they typed in, so admin can verify against the chain.
+  // NEW: the deposit currency and the TXID/reference the user typed in,
+  // so admin can cross-check it against the actual chain before approving.
   payCurrency?: string | null
   userTxRef?: string | null
-  // NEW: manual withdrawal flow — where the user asked funds to be sent.
+  // NEW: for withdrawals — the address, network, and broker/exchange the
+  // user entered when requesting the withdrawal.
   destinationAddress?: string | null
   network?: string | null
   broker?: string | null
-  // NEW: triage — an admin can mark "seen, I'm on it" without approving
-  // or rejecting yet, so the queue shows what's already been looked at.
-  notedBy?: string | null
-  notedAt?: number | null
+  // NEW: for p2p_send rows, who the money is headed to — resolved
+  // server-side so the admin doesn't have to cross-reference user IDs.
+  counterpartyLabel?: string | null
 }
 
 export interface AdminSnapshot {
