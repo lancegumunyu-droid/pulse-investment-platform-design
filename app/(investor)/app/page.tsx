@@ -3,6 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getSnapshot } from '@/lib/pulse/data-access'
 import { PulseApp } from '@/components/pulse/app'
 
+// This route depends on the logged-in user's session and must be
+// evaluated per-request — without this, Next.js tries to statically
+// prerender it at build time (no request/session exists then), which
+// was the actual cause of the "NEXT_PUBLIC_SUPABASE_URL must be set"
+// build failure.
+export const dynamic = 'force-dynamic'
+
 export default async function AppPage() {
   const supabase = await createClient()
   const {
