@@ -313,6 +313,16 @@ export function AdminView() {
                         {d.settledStatus ? 'payment confirmed' : 'awaiting payment'}
                       </Pill>
                     </div>
+                    <div className="mb-3 space-y-1.5 rounded-xl bg-white/[0.03] p-3 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Currency</span>
+                        <span className="font-semibold">{d.payCurrency === 'btc' ? 'BTC' : d.payCurrency === 'usdttrc20' ? 'USDT (TRC-20)' : '—'}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="shrink-0 text-muted-foreground">TXID / reference</span>
+                        <span className="truncate font-mono">{d.userTxRef || 'Not provided'}</span>
+                      </div>
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -367,6 +377,20 @@ export function AdminView() {
                         <p className="text-xs text-muted-foreground">{new Date(w.createdAt).toLocaleString()}</p>
                       </div>
                       <Pill tone="gold">pending</Pill>
+                    </div>
+                    <div className="mb-3 space-y-1.5 rounded-xl bg-white/[0.03] p-3 text-xs">
+                      <div className="flex justify-between gap-3">
+                        <span className="shrink-0 text-muted-foreground">Wallet address</span>
+                        <span className="truncate font-mono">{w.destinationAddress || 'Not provided'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Network</span>
+                        <span className="font-semibold">{w.network || '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Exchange / broker</span>
+                        <span className="font-semibold">{w.broker || '—'}</span>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button
