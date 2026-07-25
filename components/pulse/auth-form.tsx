@@ -31,14 +31,15 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // Redirect already-authenticated users away from auth pages.
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace('/app')
-    })
-  }, [router])
+  // NOTE: removed the client-side "if session exists, redirect to /app"
+  // check that used to live here. It read the session via the browser
+  // client (localStorage/cookies), which can disagree with what the
+  // server-side middleware sees on a custom domain — the client would
+  // say "logged in, go to /app," middleware would say "not logged in,
+  // go to /auth/login," and those two disagreeing checks is exactly
+  // what produced the infinite redirect loop. Middleware alone is now
+  // the single source of truth for redirecting authenticated users
+  // away from /auth pages.
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,8 +67,13 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        router.push('/app')
-        router.refresh()
+        // CHANGED: was router.push('/app') + router.refresh(). A client-side
+        // navigation can outrun the auth cookie actually being readable by
+        // the server on the next request — a full navigation guarantees
+        // the browser sends the fresh cookie and middleware sees a real,
+        // settled session instead of racing against it.
+        window.location.href = '/app'
+        return
       }
     } catch (err) {
       setError((err as Error).message)
