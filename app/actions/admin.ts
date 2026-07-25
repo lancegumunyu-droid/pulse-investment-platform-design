@@ -81,6 +81,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
         settledStatus: (t.meta as Record<string, unknown> | null)?.settled_status as string | null ?? null,
+        payCurrency: (t.meta as Record<string, unknown> | null)?.payCurrency as string | null ?? null,
+        userTxRef: (t.meta as Record<string, unknown> | null)?.userTxRef as string | null ?? null,
       }))
 
     const withdrawalQueue = (txns ?? [])
@@ -95,6 +97,9 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         status: t.status,
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
+        destinationAddress: (t.meta as Record<string, unknown> | null)?.wallet as string | null ?? null,
+        network: (t.meta as Record<string, unknown> | null)?.network as string | null ?? null,
+        broker: (t.meta as Record<string, unknown> | null)?.broker as string | null ?? null,
       }))
 
     const p2pQueue = (txns ?? [])
