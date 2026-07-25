@@ -153,6 +153,14 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           />
         </Field>
 
+        {!isSignUp && (
+          <div className="mt-2 text-right">
+            <Link href="/auth/forgot-password" className="text-xs font-medium text-gold">
+              Forgot password?
+            </Link>
+          </div>
+        )}
+
         {error ? (
           <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
