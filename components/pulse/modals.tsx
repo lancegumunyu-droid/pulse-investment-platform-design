@@ -491,6 +491,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
   const { state, api, busy, toast, openModal } = usePulse()
   const [amount, setAmount] = useState('50')
   const [address, setAddress] = useState(state.wallet ?? '')
+  const [walletName, setWalletName] = useState('')
   const [network, setNetwork] = useState('USDT (TRC-20)')
   const [broker, setBroker] = useState('')
   const usd = Number(amount) || 0
@@ -511,7 +512,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Amount exceeds balance', variant: 'error' })
       return
     }
-    const res = await api.withdraw(usd, address.trim(), network, broker)
+    const res = await api.withdraw(usd, address.trim(), walletName.trim(), network, broker)
     if (!res.ok) {
       toast({ title: 'Withdrawal failed', description: res.error, variant: 'error' })
       return
@@ -542,6 +543,19 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
           onChange={(e) => setAddress(e.target.value)}
         />
       </Field>
+
+      <Field label="Wallet name" className="mt-4">
+        <input
+          type="text"
+          className={inputCls}
+          placeholder="e.g. My Binance USDT wallet"
+          value={walletName}
+          onChange={(e) => setWalletName(e.target.value)}
+        />
+      </Field>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        A label to help you and the admin recognize this wallet — not verified, just for clarity.
+      </p>
 
       <Field label="Network" className="mt-4">
         <select
