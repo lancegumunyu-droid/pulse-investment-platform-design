@@ -10,6 +10,24 @@ import { cn } from '@/lib/utils'
 
 const KYC_REQUIRED_ABOVE = 500
 
+// African countries only, SADC given first priority — per explicit
+// product decision. Shared between the Nationality and Country of
+// residence fields since both are African-only.
+const AFRICA_SADC = [
+  'Angola', 'Botswana', 'Comoros', 'DR Congo', 'Eswatini', 'Lesotho', 'Madagascar',
+  'Malawi', 'Mauritius', 'Mozambique', 'Namibia', 'Seychelles', 'South Africa',
+  'Tanzania', 'Zambia', 'Zimbabwe',
+]
+const AFRICA_REST = [
+  'Algeria', 'Benin', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon',
+  'Central African Republic', 'Chad', 'Republic of the Congo', "Cote d'Ivoire",
+  'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Ethiopia', 'Gabon', 'Gambia',
+  'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Liberia', 'Libya', 'Mali',
+  'Mauritania', 'Morocco', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe',
+  'Senegal', 'Sierra Leone', 'Somalia', 'South Sudan', 'Sudan', 'Togo', 'Tunisia',
+  'Uganda',
+]
+
 function ModalShell({
   title,
   icon,
@@ -64,7 +82,7 @@ export function Modals() {
 function KycModal({ onClose }: { onClose: () => void }) {
   const { api, busy, toast, state } = usePulse()
   const [step, setStep] = useState(state.kyc === 'pending' ? 2 : 0)
-  const [form, setForm] = useState({ name: '', country: 'Botswana', idNumber: '', dob: '', phone: '', address: '' })
+  const [form, setForm] = useState({ name: '', nationality: 'Botswana', country: 'Botswana', idNumber: '', dob: '', phone: '', address: '' })
 
   // Real, but honest-scope, validation: format checks we can actually do
   // client-side (phone shape, ID sanity, minimum age). This is NOT
@@ -87,6 +105,7 @@ function KycModal({ onClose }: { onClose: () => void }) {
       fullName: form.name,
       idNumber: form.idNumber,
       dateOfBirth: form.dob || undefined,
+      nationality: form.nationality,
       country: form.country,
       phone: form.phone,
       address: form.address,
@@ -123,6 +142,28 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 placeholder="e.g. Thabo Nkosi"
               />
             </Field>
+            <Field label="Nationality">
+              <select
+                className={inputCls}
+                value={form.nationality}
+                onChange={(e) => setForm({ ...form, nationality: e.target.value })}
+              >
+                <optgroup label="SADC region">
+                  {AFRICA_SADC.map((c) => (
+                    <option key={c} value={c} className="bg-background">
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Rest of Africa">
+                  {AFRICA_REST.map((c) => (
+                    <option key={c} value={c} className="bg-background">
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </Field>
             <Field label="Country of residence">
               <select
                 className={inputCls}
@@ -130,60 +171,14 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setForm({ ...form, country: e.target.value })}
               >
                 <optgroup label="SADC region">
-                  {[
-                    'Angola', 'Botswana', 'Comoros', 'DR Congo', 'Eswatini', 'Lesotho', 'Madagascar',
-                    'Malawi', 'Mauritius', 'Mozambique', 'Namibia', 'Seychelles', 'South Africa',
-                    'Tanzania', 'Zambia', 'Zimbabwe',
-                  ].map((c) => (
+                  {AFRICA_SADC.map((c) => (
                     <option key={c} value={c} className="bg-background">
                       {c}
                     </option>
                   ))}
                 </optgroup>
                 <optgroup label="Rest of Africa">
-                  {[
-                    'Algeria', 'Benin', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon',
-                    'Central African Republic', 'Chad', 'Republic of the Congo', "Cote d'Ivoire",
-                    'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Ethiopia', 'Gabon', 'Gambia',
-                    'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Liberia', 'Libya', 'Mali',
-                    'Mauritania', 'Morocco', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe',
-                    'Senegal', 'Sierra Leone', 'Somalia', 'South Sudan', 'Sudan', 'Togo', 'Tunisia',
-                    'Uganda',
-                  ].map((c) => (
-                    <option key={c} value={c} className="bg-background">
-                      {c}
-                    </option>
-                  ))}
-                </optgroup>
-                {/*
-                  Rest of world — deliberately excludes jurisdictions with an
-                  outright crypto ban or comprehensive financial sanctions,
-                  since Pulse settles in crypto. African countries are kept
-                  regardless of local crypto stance, per product decision.
-                  Excluded: China, Bangladesh, Nepal, Qatar, Iraq,
-                  Afghanistan (crypto banned outright), and Iran, North
-                  Korea, Syria, Cuba (comprehensive sanctions — a licensed
-                  platform can't legally onboard residents of these
-                  regardless of the crypto question).
-                  NOTE: this is a residency self-declaration, not identity
-                  verification — actually confirming someone's ID document
-                  is genuine (or that its format is even valid for their
-                  country) needs a real verification provider like Smile
-                  Identity or Onfido. That's a paid third-party integration,
-                  not something this form can do on its own — flagging so
-                  it doesn't look done when it isn't.
-                */}
-                <optgroup label="Rest of World">
-                  {[
-                    'United States', 'United Kingdom', 'Canada', 'Australia', 'New Zealand',
-                    'Ireland', 'Germany', 'France', 'Netherlands', 'Belgium', 'Switzerland',
-                    'Austria', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Portugal', 'Spain',
-                    'Italy', 'Poland', 'Czech Republic', 'Greece', 'Malta', 'Cyprus',
-                    'United Arab Emirates', 'Saudi Arabia', 'Israel', 'Turkey', 'India',
-                    'Pakistan', 'Sri Lanka', 'Philippines', 'Indonesia', 'Malaysia', 'Singapore',
-                    'Thailand', 'Vietnam', 'South Korea', 'Japan', 'Brazil', 'Mexico', 'Argentina',
-                    'Chile', 'Colombia', 'Peru', 'Jamaica', 'Trinidad and Tobago',
-                  ].map((c) => (
+                  {AFRICA_REST.map((c) => (
                     <option key={c} value={c} className="bg-background">
                       {c}
                     </option>
@@ -191,8 +186,7 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 </optgroup>
               </select>
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Every African country is supported. Outside Africa, Pulse is available except where crypto is
-                restricted or the platform can't legally operate.
+                Pulse is currently open to residents of African countries only, with SADC given first priority.
               </p>
             </Field>
             <Field label="National ID / Passport number">
