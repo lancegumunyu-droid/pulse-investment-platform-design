@@ -15,6 +15,30 @@ async function requireUser() {
   return user
 }
 
+// Called from the sign-up form BEFORE calling supabase.auth.signUp(), so
+// the user gets an immediate, friendly error if their referral code is
+// wrong or belongs to an unverified account — rather than only finding
+// out from a raw database exception after submitting. This is a
+// convenience check, not the real enforcement: the actual gate is in
+// handle_new_user(), which rejects the signup outright if this same
+// condition isn't met, so someone can't bypass this by calling
+// supabase.auth.signUp() directly.
+export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const clean = code.trim().replace(/^@/, '')
+  if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
+  const db = serviceClient()
+  const { data: referrer } = await db
+    .from('profiles')
+    .select('id, kyc_status')
+    .eq('referral_code', clean)
+    .maybeSingle()
+  if (!referrer) return { ok: false, error: "We couldn't find a Pulse account with that code" }
+  if (referrer.kyc_status !== 'verified') {
+    return { ok: false, error: 'That account is not yet verified — only a verified user\'s code can be used' }
+  }
+  return { ok: true }
+}
+
 type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
 
 async function withSnapshot(userId: string): Promise<Result> {
@@ -72,6 +96,7 @@ export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc
 export async function requestWithdrawal(
   amount: number,
   destinationAddress: string,
+  walletName: string,
   network: string,
   broker: string,
 ): Promise<Result> {
@@ -96,6 +121,7 @@ export async function requestWithdrawal(
       meta: {
         label: 'Withdrawal to wallet — awaiting admin approval',
         wallet: destinationAddress.trim(),
+        walletName: walletName.trim() || 'Unnamed wallet',
         network: network.trim() || 'Not specified',
         broker: broker.trim() || 'Not specified',
       },
