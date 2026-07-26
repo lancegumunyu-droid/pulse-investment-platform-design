@@ -113,12 +113,36 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 value={form.country}
                 onChange={(e) => setForm({ ...form, country: e.target.value })}
               >
-                {['Botswana', 'South Africa', 'Zambia', 'Zimbabwe', 'Namibia', 'Mozambique', 'Malawi'].map((c) => (
-                  <option key={c} value={c} className="bg-background">
-                    {c}
-                  </option>
-                ))}
+                <optgroup label="SADC region">
+                  {[
+                    'Angola', 'Botswana', 'Comoros', 'DR Congo', 'Eswatini', 'Lesotho', 'Madagascar',
+                    'Malawi', 'Mauritius', 'Mozambique', 'Namibia', 'Seychelles', 'South Africa',
+                    'Tanzania', 'Zambia', 'Zimbabwe',
+                  ].map((c) => (
+                    <option key={c} value={c} className="bg-background">
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Rest of Africa">
+                  {[
+                    'Algeria', 'Benin', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon',
+                    'Central African Republic', 'Chad', 'Republic of the Congo', "Cote d'Ivoire",
+                    'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Ethiopia', 'Gabon', 'Gambia',
+                    'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Liberia', 'Libya', 'Mali',
+                    'Mauritania', 'Morocco', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe',
+                    'Senegal', 'Sierra Leone', 'Somalia', 'South Sudan', 'Sudan', 'Togo', 'Tunisia',
+                    'Uganda',
+                  ].map((c) => (
+                    <option key={c} value={c} className="bg-background">
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Pulse is currently open to residents of African countries only, with a focus on the SADC region.
+              </p>
             </Field>
             <Field label="National ID / Passport number">
               <input
@@ -491,7 +515,6 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
   const { state, api, busy, toast, openModal } = usePulse()
   const [amount, setAmount] = useState('50')
   const [address, setAddress] = useState(state.wallet ?? '')
-  const [walletName, setWalletName] = useState('')
   const [network, setNetwork] = useState('USDT (TRC-20)')
   const [broker, setBroker] = useState('')
   const usd = Number(amount) || 0
@@ -512,7 +535,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Amount exceeds balance', variant: 'error' })
       return
     }
-    const res = await api.withdraw(usd, address.trim(), walletName.trim(), network, broker)
+    const res = await api.withdraw(usd, address.trim(), network, broker)
     if (!res.ok) {
       toast({ title: 'Withdrawal failed', description: res.error, variant: 'error' })
       return
@@ -543,19 +566,6 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
           onChange={(e) => setAddress(e.target.value)}
         />
       </Field>
-
-      <Field label="Wallet name" className="mt-4">
-        <input
-          type="text"
-          className={inputCls}
-          placeholder="e.g. My Binance USDT wallet"
-          value={walletName}
-          onChange={(e) => setWalletName(e.target.value)}
-        />
-      </Field>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        A label to help you and the admin recognize this wallet — not verified, just for clarity.
-      </p>
 
       <Field label="Network" className="mt-4">
         <select
