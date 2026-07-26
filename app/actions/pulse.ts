@@ -17,6 +17,22 @@ async function requireUser() {
 
 type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
 
+export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const clean = code.trim().replace(/^@/, '')
+  if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
+  const db = serviceClient()
+  const { data: referrer } = await db
+    .from('profiles')
+    .select('id, kyc_status')
+    .eq('referral_code', clean)
+    .maybeSingle()
+  if (!referrer) return { ok: false, error: "We couldn't find a Pulse account with that code" }
+  if (referrer.kyc_status !== 'verified') {
+    return { ok: false, error: 'That account is not yet verified — only a verified user\'s code can be used' }
+  }
+  return { ok: true }
+}
+
 async function withSnapshot(userId: string): Promise<Result> {
   return { ok: true, snapshot: await getSnapshot(userId) }
 }
@@ -78,7 +94,13 @@ export async function requestWithdrawal(
   try {
     const user = await requireUser()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    if (!destinationAddress.trim()) return { ok: false, error: 'Enter the wallet address to withdraw to' }
+    // Defensive: guard against a mismatched caller passing undefined for
+    // any of these (this exact crash — "Cannot read properties of
+    // undefined (reading 'trim')" — happened live from a stale/mismatched
+    // client build). Never assume a string arg exists un-checked.
+    if (!destinationAddress?.trim()) return { ok: false, error: 'Enter the wallet address to withdraw to' }
+    const safeNetwork = network ?? ''
+    const safeBroker = broker ?? ''
     const snap = await getSnapshot(user.id)
     if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to withdraw' }
     if (amount > snap.cash) return { ok: false, error: 'Amount exceeds available balance' }
@@ -96,8 +118,8 @@ export async function requestWithdrawal(
       meta: {
         label: 'Withdrawal to wallet — awaiting admin approval',
         wallet: destinationAddress.trim(),
-        network: network.trim() || 'Not specified',
-        broker: broker.trim() || 'Not specified',
+        network: safeNetwork.trim() || 'Not specified',
+        broker: safeBroker.trim() || 'Not specified',
       },
     })
     return withSnapshot(user.id)
