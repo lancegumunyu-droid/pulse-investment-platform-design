@@ -1,7 +1,5 @@
 import type { TierId } from '@/lib/pulse-data'
-
 export type KycStatus = 'none' | 'pending' | 'verified' | 'rejected'
-
 export interface SnapshotHolding {
   id: string
   projectId: string
@@ -9,7 +7,6 @@ export interface SnapshotHolding {
   amount: number
   date: number
 }
-
 export interface SnapshotTxn {
   id: string
   type: 'deposit' | 'withdraw' | 'invest' | 'stake' | 'unstake' | 'sale' | 'p2p_send' | 'p2p_receive'
@@ -22,7 +19,6 @@ export interface SnapshotTxn {
   isProcessing?: boolean
   date: number
 }
-
 export interface Snapshot {
   cash: number
   pulse: number
@@ -46,38 +42,33 @@ export interface Snapshot {
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
   cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  cardRef: string | null
   savedWallets: SavedWallet[]
 }
-
 export interface SavedWallet {
   id: string
   label: string
   address: string
 }
-
 export interface BadgeRow {
   key: string
   earnedAt: number
 }
-
 export interface MyReferralRow {
   walletId: string | null
   displayName: string
   kycStatus: string
   createdAt: number
 }
-
 export interface LeaderboardRow {
   fullName: string
   totalPoints: number
   founderNumber: number | null
 }
-
 export interface FounderRow {
   fullName: string
   founderNumber: number
 }
-
 // Admin dashboard payload
 export interface AdminUserRow {
   id: string
@@ -92,7 +83,6 @@ export interface AdminUserRow {
   createdAt: number
   adminScope: 'full' | 'finance' | 'operations' | null
 }
-
 export interface AdminKycRow {
   id: string
   userId: string
@@ -105,7 +95,6 @@ export interface AdminKycRow {
   status: string
   createdAt: number
 }
-
 export interface AdminCardRow {
   id: string
   userId: string
@@ -115,7 +104,6 @@ export interface AdminCardRow {
   status: string
   createdAt: number
 }
-
 export interface AdminTxnRow {
   id: string
   userId: string
@@ -139,7 +127,6 @@ export interface AdminTxnRow {
   // server-side so the admin doesn't have to cross-reference user IDs.
   counterpartyLabel?: string | null
 }
-
 export interface AdminSnapshot {
   totalDeposits: number
   totalInvested: number
