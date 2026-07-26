@@ -103,7 +103,7 @@ export function ProfileView() {
     <div className="space-y-5">
       <SectionTitle title="Profile" icon={<User className="size-5" />} />
 
-      <Glass className="animate-rise">
+      <Glass className="animate-rise glow-edge">
         <div className="flex items-center gap-4">
           <span className="flex size-14 items-center justify-center rounded-2xl glass-gold text-gold">
             <User className="size-7" />
@@ -144,7 +144,7 @@ export function ProfileView() {
           </div>
         )}
         {state.founderNumber && (
-          <div className="mt-2 flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/[0.08] px-3.5 py-2.5">
+          <div className="mt-2 flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/[0.08] px-3.5 py-2.5 shimmer-sweep">
             <Award className="size-4 shrink-0 text-gold" />
             <p className="text-xs font-semibold text-gold">Pulse Pioneer &mdash; Founder #{state.founderNumber} of 1,000</p>
           </div>
