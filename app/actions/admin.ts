@@ -152,6 +152,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       idNumber: k.id_number,
       dateOfBirth: k.date_of_birth,
       country: k.country,
+      phone: k.phone,
+      address: k.address,
       status: k.status,
       createdAt: new Date(k.created_at).getTime(),
     }))
@@ -180,7 +182,17 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
   }
 }
 
-export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
+async function notify(
+  db: ReturnType<typeof serviceClient>,
+  userId: string,
+  title: string,
+  body: string,
+  kind: 'info' | 'action_required' | 'success' | 'warning' = 'info',
+) {
+  await db.from('notifications').insert({ user_id: userId, title, body, kind })
+}
+
+export async function reviewKyc(id: string, decision: 'approved' | 'rejected', note?: string): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
@@ -198,6 +210,18 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .update({ kyc_status: decision === 'approved' ? 'verified' : 'rejected' })
       .eq('id', sub.user_id)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
+
+    if (decision === 'approved') {
+      await notify(db, sub.user_id, 'Identity verified', 'Your KYC has been approved. You now have full access to deposits, withdrawals, and investing.', 'success')
+    } else {
+      await notify(
+        db,
+        sub.user_id,
+        'KYC needs another look',
+        note?.trim() ? note.trim() : 'Your submission was rejected. Please check your details and resubmit.',
+        'action_required',
+      )
+    }
 
     // Welcome bonus: credited once, only on first approval, matching the
     // original design (bonus unlocks alongside verified access).
@@ -275,12 +299,14 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
+      await notify(db, txn.user_id, 'Deposit approved', `$${Number(txn.amount).toFixed(2)} has been credited to your balance.`, 'success')
     } else {
       const { error } = await db
         .from('transactions')
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
+      await notify(db, txn.user_id, 'Deposit could not be verified', 'We could not match your transaction reference to a confirmed payment. Please check the TXID and try again.', 'action_required')
     }
     return getAdminSnapshot()
   } catch (e) {
