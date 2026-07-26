@@ -150,6 +150,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       fullName: k.full_name,
       idNumber: k.id_number,
       dateOfBirth: k.date_of_birth,
+      nationality: k.nationality,
       country: k.country,
       status: k.status,
       createdAt: new Date(k.created_at).getTime(),
