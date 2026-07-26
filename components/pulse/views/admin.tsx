@@ -48,6 +48,7 @@ export function AdminView() {
   const [busy, setBusy] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [managerIdDraft, setManagerIdDraft] = useState<Record<string, string>>({})
+  const [kycNoteDraft, setKycNoteDraft] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -254,8 +255,16 @@ export function AdminView() {
                       <p>ID: <span className="text-foreground font-mono">{k.idNumber}</span></p>
                       {k.dateOfBirth && <p>DOB: {k.dateOfBirth}</p>}
                       {k.country && <p>Country: {k.country}</p>}
+                      {k.phone && <p>Phone: <span className="text-foreground">{k.phone}</span></p>}
+                      {k.address && <p>Address: <span className="text-foreground">{k.address}</span></p>}
                       <p>Submitted: {new Date(k.createdAt).toLocaleString()}</p>
                     </div>
+                    <textarea
+                      placeholder="Note for rejection (e.g. 'ID photo unreadable, please resubmit') — optional"
+                      value={kycNoteDraft[k.id] ?? ''}
+                      onChange={(e) => setKycNoteDraft((prev) => ({ ...prev, [k.id]: e.target.value }))}
+                      className="pulse-input mb-3 min-h-16 resize-none text-xs"
+                    />
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -278,8 +287,8 @@ export function AdminView() {
                         disabled={busy}
                         onClick={() =>
                           act(async () => {
-                            const res = await reviewKyc(k.id, 'rejected')
-                            if (res.ok) toast({ title: 'KYC rejected', variant: 'info' })
+                            const res = await reviewKyc(k.id, 'rejected', kycNoteDraft[k.id])
+                            if (res.ok) toast({ title: 'KYC rejected', description: 'User has been notified.', variant: 'info' })
                             return res
                           })
                         }
