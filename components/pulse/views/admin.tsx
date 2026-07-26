@@ -254,6 +254,7 @@ export function AdminView() {
                     <div className="mb-3 space-y-1 text-xs text-muted-foreground">
                       <p>ID: <span className="text-foreground font-mono">{k.idNumber}</span></p>
                       {k.dateOfBirth && <p>DOB: {k.dateOfBirth}</p>}
+                      {k.nationality && <p>Nationality: {k.nationality}</p>}
                       {k.country && <p>Country: {k.country}</p>}
                       <p>Submitted: {new Date(k.createdAt).toLocaleString()}</p>
                     </div>
