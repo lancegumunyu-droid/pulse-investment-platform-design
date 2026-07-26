@@ -161,11 +161,14 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
       // behind "status never updates" — the DB was correct the whole
       // time, this mapping was just lying about it.
       status: t.status as SnapshotTxn['status'],
+      // NEW: 3-state deposit visibility for the user's own activity feed
+      // — "we've started processing" vs. plain "pending, untouched."
+      isProcessing: !!t.processing_started_at,
       date: new Date(t.created_at).getTime(),
     })),
     kyc: kycMap[profile?.kyc_status ?? 'none'] ?? 'none',
     wallet: profile?.wallet_address ?? null,
-    referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? profile?.referral_code ?? 'PLS-XXXX',
+    referralCode: profile?.referral_code ?? 'PLS-XXXX',
     fullName: profile?.full_name ?? null,
     email: profile?.email ?? null,
     tier: profile?.tier ?? 0,
