@@ -27,6 +27,7 @@
 
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
+  --color-champagne: var(--champagne);
   --color-green: var(--green);
   --color-green-soft: var(--green-soft);
   --color-danger: var(--danger);
@@ -50,7 +51,10 @@
   --card-foreground: #f4f4f5;
   --popover: #0d0d0f;
   --popover-foreground: #f4f4f5;
-  --primary: #f59e0b;
+  /* CHANGED: primary was #f59e0b (Tailwind amber-500 — a fairly generic
+     "orange gold"). Swapped for the heritage gold #E8A317 from the brief,
+     which reads richer/deeper and less like a stock UI-kit color. */
+  --primary: #e8a317;
   --primary-foreground: #0a0a0a;
   --secondary: #17171b;
   --secondary-foreground: #f4f4f5;
@@ -61,10 +65,14 @@
   --destructive: #ef4444;
   --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.12);
-  --ring: #f59e0b;
+  --ring: #e8a317;
 
-  --gold: #f59e0b;
-  --gold-soft: rgba(245, 158, 11, 0.12);
+  --gold: #e8a317;
+  --gold-soft: rgba(232, 163, 23, 0.12);
+  /* NEW: champagne — a paler, warmer gold for secondary accents/text on
+     top of gold surfaces, so everything gold doesn't read as one flat
+     color (per the brief's "heritage gold and champagne gold accents"). */
+  --champagne: #f0d9a8;
   --green: #10b981;
   --green-soft: rgba(16, 185, 129, 0.12);
   --danger: #ef4444;
@@ -82,7 +90,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(60rem 60rem at 80% -10%, rgba(245, 158, 11, 0.08), transparent 60%),
+      radial-gradient(60rem 60rem at 80% -10%, rgba(232, 163, 23, 0.09), transparent 60%),
       radial-gradient(50rem 50rem at -10% 20%, rgba(16, 185, 129, 0.06), transparent 55%);
     background-attachment: fixed;
   }
@@ -97,9 +105,28 @@
     box-shadow: 0 20px 40px -24px rgba(0, 0, 0, 0.8);
   }
   .glass-gold {
-    background: linear-gradient(180deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.03));
-    border: 1px solid rgba(245, 158, 11, 0.28);
-    box-shadow: 0 24px 48px -24px rgba(245, 158, 11, 0.35);
+    background: linear-gradient(180deg, rgba(232, 163, 23, 0.12), rgba(232, 163, 23, 0.03));
+    border: 1px solid rgba(232, 163, 23, 0.28);
+    box-shadow: 0 24px 48px -24px rgba(232, 163, 23, 0.35);
+  }
+  /* NEW: "golden edge lighting" per the brief — a subtle glowing hairline
+     border for premium surfaces (project cards, featured tiles) that's a
+     step up from .glass-gold's flat border, without being as heavy as a
+     full gold background. Layer this ON TOP of .glass. */
+  .glow-edge {
+    position: relative;
+  }
+  .glow-edge::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(232, 163, 23, 0.55), rgba(240, 217, 168, 0.15) 40%, rgba(232, 163, 23, 0.35));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
   .pulse-input {
     width: 100%;
@@ -112,8 +139,8 @@
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   .pulse-input:focus {
-    border-color: rgba(245, 158, 11, 0.5);
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+    border-color: rgba(232, 163, 23, 0.5);
+    box-shadow: 0 0 0 2px rgba(232, 163, 23, 0.2);
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -147,5 +174,54 @@
   }
   .animate-toast-in {
     animation: toast-in 0.25s ease-out both;
+  }
+
+  /* NEW: the living golden heartbeat, moved here from an inline <style>
+     tag in ui-bits.tsx so it's a real, reusable Tailwind utility instead
+     of a one-off — see components/pulse/ui-bits.tsx's Heartbeat component. */
+  @keyframes pulse-ring-slow {
+    0% { transform: scale(0.85); opacity: 0.55; }
+    70% { transform: scale(1.55); opacity: 0; }
+    100% { transform: scale(1.55); opacity: 0; }
+  }
+  @keyframes pulse-ring-fast {
+    0% { transform: scale(0.85); opacity: 0.75; }
+    60% { transform: scale(1.7); opacity: 0; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+  @keyframes heartbeat-icon {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+  .animate-heartbeat-ring-slow {
+    animation: pulse-ring-slow 2.4s ease-out infinite;
+  }
+  .animate-heartbeat-ring-fast {
+    animation: pulse-ring-fast 1.1s ease-out infinite;
+  }
+  .animate-heartbeat-icon-slow {
+    animation: heartbeat-icon 1.8s ease-in-out infinite;
+  }
+  .animate-heartbeat-icon-fast {
+    animation: heartbeat-icon 0.9s ease-in-out infinite;
+  }
+
+  /* NEW: gentle shimmer sweep for premium project cards — a soft light
+     pass every few seconds, not a constant distracting effect. */
+  @keyframes shimmer-sweep {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(120%); }
+  }
+  .shimmer-sweep {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer-sweep::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(75deg, transparent 40%, rgba(240, 217, 168, 0.12) 50%, transparent 60%);
+    animation: shimmer-sweep 5s ease-in-out infinite;
+    pointer-events: none;
   }
 }
