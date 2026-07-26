@@ -83,6 +83,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         settledStatus: (t.meta as Record<string, unknown> | null)?.settled_status as string | null ?? null,
         payCurrency: (t.meta as Record<string, unknown> | null)?.payCurrency as string | null ?? null,
         userTxRef: (t.meta as Record<string, unknown> | null)?.userTxRef as string | null ?? null,
+        processingSince: t.processing_started_at ? new Date(t.processing_started_at).getTime() : null,
+        processingBy: t.processing_by ? (emailMap.get(t.processing_by) ?? t.processing_by) : null,
       }))
 
     const withdrawalQueue = (txns ?? [])
@@ -97,10 +99,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         status: t.status,
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
-        destinationAddress: (t.meta as Record<string, unknown> | null)?.wallet as string | null ?? null,
-        walletName: (t.meta as Record<string, unknown> | null)?.walletName as string | null ?? null,
-        network: (t.meta as Record<string, unknown> | null)?.network as string | null ?? null,
-        broker: (t.meta as Record<string, unknown> | null)?.broker as string | null ?? null,
       }))
 
     const p2pQueue = (txns ?? [])
@@ -200,36 +198,27 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .eq('id', sub.user_id)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
 
-    // Welcome bonus: credited once, only on first approval, and ONLY if
-    // this user signed up via a valid referral — per the mandatory
-    // referral-at-signup rule, this should always be true for new
-    // accounts, but this check is the explicit backend guarantee rather
-    // than relying implicitly on the signup gate. Older accounts that
-    // predate the mandatory rule (referred_by is null) don't get it.
+    // Welcome bonus: credited once, only on first approval, matching the
+    // original design (bonus unlocks alongside verified access).
     if (decision === 'approved') {
-      const { data: verifiedProfile } = await db.from('profiles').select('referred_by').eq('id', sub.user_id).maybeSingle()
-      const hasReferrer = !!verifiedProfile?.referred_by
-
-      if (hasReferrer) {
-        const { data: alreadyBonused } = await db
-          .from('transactions')
-          .select('id')
-          .eq('user_id', sub.user_id)
-          .eq('type', 'yield')
-          .ilike('reference', 'welcome_bonus')
-          .maybeSingle()
-        if (!alreadyBonused) {
-          await adjustAccount(sub.user_id, { cash_balance: 35 })
-          await recordTxn(sub.user_id, {
-            type: 'yield',
-            amount: 35,
-            currency: 'USD',
-            status: 'completed',
-            reference: 'welcome_bonus',
-            processedBy: admin.id,
-            meta: { label: 'Welcome bonus — signed up via a verified referral' },
-          })
-        }
+      const { data: alreadyBonused } = await db
+        .from('transactions')
+        .select('id')
+        .eq('user_id', sub.user_id)
+        .eq('type', 'yield')
+        .ilike('reference', 'welcome_bonus')
+        .maybeSingle()
+      if (!alreadyBonused) {
+        await adjustAccount(sub.user_id, { cash_balance: 35 })
+        await recordTxn(sub.user_id, {
+          type: 'yield',
+          amount: 35,
+          currency: 'USD',
+          status: 'completed',
+          reference: 'welcome_bonus',
+          processedBy: admin.id,
+          meta: { label: 'Welcome bonus' },
+        })
       }
 
       // Honest referral rewards: points only, never yield. And a shot at
@@ -240,8 +229,9 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       const { error: kycPointsErr } = await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
       if (kycPointsErr) console.error('award_points (kyc self) failed:', kycPointsErr.message)
 
-      if (hasReferrer) {
-        const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile!.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
+      const { data: verifiedProfile } = await db.from('profiles').select('referred_by').eq('id', sub.user_id).maybeSingle()
+      if (verifiedProfile?.referred_by) {
+        const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
         if (refPointsErr) console.error('award_points (kyc referrer) failed:', refPointsErr.message)
       }
     }
@@ -263,6 +253,26 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
       .update({ kyc_status: 'none' })
       .eq('id', userId)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function markDepositProcessing(id: string, processing: boolean): Promise<AdminResult> {
+  try {
+    const admin = await requireAdminScope(['full', 'finance'])
+    const db = serviceClient()
+    const { error } = await db
+      .from('transactions')
+      .update(
+        processing
+          ? { processing_started_at: new Date().toISOString(), processing_by: admin.id }
+          : { processing_started_at: null, processing_by: null },
+      )
+      .eq('id', id)
+      .eq('status', 'pending')
+    if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
