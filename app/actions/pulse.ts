@@ -82,6 +82,10 @@ export async function requestWithdrawal(
     const snap = await getSnapshot(user.id)
     if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to withdraw' }
     if (amount > snap.cash) return { ok: false, error: 'Amount exceeds available balance' }
+    const maxWithdrawable = snap.cash * 0.8
+    if (amount > maxWithdrawable) {
+      return { ok: false, error: `You can withdraw up to 80% of your balance at a time (max $${maxWithdrawable.toFixed(2)})` }
+    }
     // Hold the funds and create a pending withdrawal for admin approval.
     await adjustAccount(user.id, { cash_balance: -amount })
     await recordTxn(user.id, {
@@ -388,10 +392,54 @@ export async function requestTransfer(recipientIdentifier: string, amount: numbe
   }
 }
 
+export async function getMyNotifications(): Promise<
+  { ok: true; rows: { id: string; title: string; body: string; kind: string; read: boolean; createdAt: number }[] } | { ok: false; error: string }
+> {
+  try {
+    const user = await requireUser()
+    const db = serviceClient()
+    const { data, error } = await db
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (error) return { ok: false, error: error.message }
+    return {
+      ok: true,
+      rows: (data ?? []).map((n) => ({
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        kind: n.kind,
+        read: n.read,
+        createdAt: new Date(n.created_at).getTime(),
+      })),
+    }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function markNotificationRead(id: string): Promise<Result> {
+  try {
+    const user = await requireUser()
+    const db = serviceClient()
+    await db.from('notifications').update({ read: true }).eq('id', id).eq('user_id', user.id)
+    return withSnapshot(user.id)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 export async function applyForCard(): Promise<Result> {
   try {
     const user = await requireUser()
     const db = serviceClient()
+    const snap = await getSnapshot(user.id)
+    if (snap.kyc !== 'verified') {
+      return { ok: false, error: 'Complete identity verification (KYC) before applying for a Pulse Card' }
+    }
     const { data: existing } = await db.from('card_applications').select('id').eq('user_id', user.id).maybeSingle()
     if (!existing) {
       const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
