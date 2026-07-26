@@ -81,10 +81,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
         settledStatus: (t.meta as Record<string, unknown> | null)?.settled_status as string | null ?? null,
-        payCurrency: (t.meta as Record<string, unknown> | null)?.payCurrency as string | null ?? null,
-        userTxRef: (t.meta as Record<string, unknown> | null)?.userTxRef as string | null ?? null,
-        processingSince: t.processing_started_at ? new Date(t.processing_started_at).getTime() : null,
-        processingBy: t.processing_by ? (emailMap.get(t.processing_by) ?? t.processing_by) : null,
       }))
 
     const withdrawalQueue = (txns ?? [])
@@ -150,7 +146,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       fullName: k.full_name,
       idNumber: k.id_number,
       dateOfBirth: k.date_of_birth,
-      nationality: k.nationality,
+      nationality: k.nationality ?? null,
       country: k.country,
       status: k.status,
       createdAt: new Date(k.created_at).getTime(),
@@ -254,26 +250,6 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
       .update({ kyc_status: 'none' })
       .eq('id', userId)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
-    return getAdminSnapshot()
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function markDepositProcessing(id: string, processing: boolean): Promise<AdminResult> {
-  try {
-    const admin = await requireAdminScope(['full', 'finance'])
-    const db = serviceClient()
-    const { error } = await db
-      .from('transactions')
-      .update(
-        processing
-          ? { processing_started_at: new Date().toISOString(), processing_by: admin.id }
-          : { processing_started_at: null, processing_by: null },
-      )
-      .eq('id', id)
-      .eq('status', 'pending')
-    if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
