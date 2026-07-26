@@ -98,6 +98,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
         destinationAddress: (t.meta as Record<string, unknown> | null)?.wallet as string | null ?? null,
+        walletName: (t.meta as Record<string, unknown> | null)?.walletName as string | null ?? null,
         network: (t.meta as Record<string, unknown> | null)?.network as string | null ?? null,
         broker: (t.meta as Record<string, unknown> | null)?.broker as string | null ?? null,
       }))
@@ -152,8 +153,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       idNumber: k.id_number,
       dateOfBirth: k.date_of_birth,
       country: k.country,
-      phone: k.phone,
-      address: k.address,
       status: k.status,
       createdAt: new Date(k.created_at).getTime(),
     }))
@@ -182,17 +181,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
   }
 }
 
-async function notify(
-  db: ReturnType<typeof serviceClient>,
-  userId: string,
-  title: string,
-  body: string,
-  kind: 'info' | 'action_required' | 'success' | 'warning' = 'info',
-) {
-  await db.from('notifications').insert({ user_id: userId, title, body, kind })
-}
-
-export async function reviewKyc(id: string, decision: 'approved' | 'rejected', note?: string): Promise<AdminResult> {
+export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
@@ -211,39 +200,36 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected', n
       .eq('id', sub.user_id)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
 
+    // Welcome bonus: credited once, only on first approval, and ONLY if
+    // this user signed up via a valid referral — per the mandatory
+    // referral-at-signup rule, this should always be true for new
+    // accounts, but this check is the explicit backend guarantee rather
+    // than relying implicitly on the signup gate. Older accounts that
+    // predate the mandatory rule (referred_by is null) don't get it.
     if (decision === 'approved') {
-      await notify(db, sub.user_id, 'Identity verified', 'Your KYC has been approved. You now have full access to deposits, withdrawals, and investing.', 'success')
-    } else {
-      await notify(
-        db,
-        sub.user_id,
-        'KYC needs another look',
-        note?.trim() ? note.trim() : 'Your submission was rejected. Please check your details and resubmit.',
-        'action_required',
-      )
-    }
+      const { data: verifiedProfile } = await db.from('profiles').select('referred_by').eq('id', sub.user_id).maybeSingle()
+      const hasReferrer = !!verifiedProfile?.referred_by
 
-    // Welcome bonus: credited once, only on first approval, matching the
-    // original design (bonus unlocks alongside verified access).
-    if (decision === 'approved') {
-      const { data: alreadyBonused } = await db
-        .from('transactions')
-        .select('id')
-        .eq('user_id', sub.user_id)
-        .eq('type', 'yield')
-        .ilike('reference', 'welcome_bonus')
-        .maybeSingle()
-      if (!alreadyBonused) {
-        await adjustAccount(sub.user_id, { cash_balance: 35 })
-        await recordTxn(sub.user_id, {
-          type: 'yield',
-          amount: 35,
-          currency: 'USD',
-          status: 'completed',
-          reference: 'welcome_bonus',
-          processedBy: admin.id,
-          meta: { label: 'Welcome bonus' },
-        })
+      if (hasReferrer) {
+        const { data: alreadyBonused } = await db
+          .from('transactions')
+          .select('id')
+          .eq('user_id', sub.user_id)
+          .eq('type', 'yield')
+          .ilike('reference', 'welcome_bonus')
+          .maybeSingle()
+        if (!alreadyBonused) {
+          await adjustAccount(sub.user_id, { cash_balance: 35 })
+          await recordTxn(sub.user_id, {
+            type: 'yield',
+            amount: 35,
+            currency: 'USD',
+            status: 'completed',
+            reference: 'welcome_bonus',
+            processedBy: admin.id,
+            meta: { label: 'Welcome bonus — signed up via a verified referral' },
+          })
+        }
       }
 
       // Honest referral rewards: points only, never yield. And a shot at
@@ -254,9 +240,8 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected', n
       const { error: kycPointsErr } = await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
       if (kycPointsErr) console.error('award_points (kyc self) failed:', kycPointsErr.message)
 
-      const { data: verifiedProfile } = await db.from('profiles').select('referred_by').eq('id', sub.user_id).maybeSingle()
-      if (verifiedProfile?.referred_by) {
-        const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
+      if (hasReferrer) {
+        const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile!.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
         if (refPointsErr) console.error('award_points (kyc referrer) failed:', refPointsErr.message)
       }
     }
@@ -299,14 +284,12 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, txn.user_id, 'Deposit approved', `$${Number(txn.amount).toFixed(2)} has been credited to your balance.`, 'success')
     } else {
       const { error } = await db
         .from('transactions')
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, txn.user_id, 'Deposit could not be verified', 'We could not match your transaction reference to a confirmed payment. Please check the TXID and try again.', 'action_required')
     }
     return getAdminSnapshot()
   } catch (e) {
