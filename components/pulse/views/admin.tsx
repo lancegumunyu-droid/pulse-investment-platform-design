@@ -48,7 +48,6 @@ export function AdminView() {
   const [busy, setBusy] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [managerIdDraft, setManagerIdDraft] = useState<Record<string, string>>({})
-  const [kycNoteDraft, setKycNoteDraft] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -255,16 +254,8 @@ export function AdminView() {
                       <p>ID: <span className="text-foreground font-mono">{k.idNumber}</span></p>
                       {k.dateOfBirth && <p>DOB: {k.dateOfBirth}</p>}
                       {k.country && <p>Country: {k.country}</p>}
-                      {k.phone && <p>Phone: <span className="text-foreground">{k.phone}</span></p>}
-                      {k.address && <p>Address: <span className="text-foreground">{k.address}</span></p>}
                       <p>Submitted: {new Date(k.createdAt).toLocaleString()}</p>
                     </div>
-                    <textarea
-                      placeholder="Note for rejection (e.g. 'ID photo unreadable, please resubmit') — optional"
-                      value={kycNoteDraft[k.id] ?? ''}
-                      onChange={(e) => setKycNoteDraft((prev) => ({ ...prev, [k.id]: e.target.value }))}
-                      className="pulse-input mb-3 min-h-16 resize-none text-xs"
-                    />
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -287,8 +278,8 @@ export function AdminView() {
                         disabled={busy}
                         onClick={() =>
                           act(async () => {
-                            const res = await reviewKyc(k.id, 'rejected', kycNoteDraft[k.id])
-                            if (res.ok) toast({ title: 'KYC rejected', description: 'User has been notified.', variant: 'info' })
+                            const res = await reviewKyc(k.id, 'rejected')
+                            if (res.ok) toast({ title: 'KYC rejected', variant: 'info' })
                             return res
                           })
                         }
@@ -313,24 +304,22 @@ export function AdminView() {
                 snap.depositQueue.map((d) => (
                   <Glass key={d.id} className="animate-rise">
                     <div className="mb-3 flex items-start justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold">${money(d.amount)}</p>
                         <p className="text-xs text-muted-foreground">{d.email ?? d.userId.slice(0, 12)}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Requested {new Date(d.createdAt).toLocaleString()}</p>
+                        {d.payCurrency && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Paid via <span className="font-medium text-foreground">{d.payCurrency.toUpperCase()}</span>
+                          </p>
+                        )}
+                        {d.userTxRef && (
+                          <p className="truncate font-mono text-xs text-gold" title={d.userTxRef}>
+                            TXID: {d.userTxRef}
+                          </p>
+                        )}
                       </div>
-                      <Pill tone={d.settledStatus === 'finished' || d.settledStatus === 'confirmed' ? 'green' : 'gold'}>
-                        {d.settledStatus ? 'payment confirmed' : 'awaiting payment'}
-                      </Pill>
-                    </div>
-                    <div className="mb-3 space-y-1.5 rounded-xl bg-white/[0.03] p-3 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Currency</span>
-                        <span className="font-semibold">{d.payCurrency === 'btc' ? 'BTC' : d.payCurrency === 'usdttrc20' ? 'USDT (TRC-20)' : '—'}</span>
-                      </div>
-                      <div className="flex justify-between gap-3">
-                        <span className="shrink-0 text-muted-foreground">TXID / reference</span>
-                        <span className="truncate font-mono">{d.userTxRef || 'Not provided'}</span>
-                      </div>
+                      <Pill tone="gold">pending</Pill>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -380,26 +369,23 @@ export function AdminView() {
                 snap.withdrawalQueue.map((w) => (
                   <Glass key={w.id} className="animate-rise">
                     <div className="mb-3 flex items-start justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold">${money(w.amount)}</p>
                         <p className="text-xs text-muted-foreground">{w.email ?? w.userId.slice(0, 12)}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(w.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Requested {new Date(w.createdAt).toLocaleString()}</p>
+                        {w.walletName && <p className="mt-1 text-xs font-medium text-foreground">{w.walletName}</p>}
+                        {w.destinationAddress && (
+                          <p className="truncate font-mono text-xs text-gold" title={w.destinationAddress}>
+                            To: {w.destinationAddress}
+                          </p>
+                        )}
+                        {(w.network || w.broker) && (
+                          <p className="text-xs text-muted-foreground">
+                            {w.network ?? 'Network not specified'} · {w.broker ?? 'Broker not specified'}
+                          </p>
+                        )}
                       </div>
                       <Pill tone="gold">pending</Pill>
-                    </div>
-                    <div className="mb-3 space-y-1.5 rounded-xl bg-white/[0.03] p-3 text-xs">
-                      <div className="flex justify-between gap-3">
-                        <span className="shrink-0 text-muted-foreground">Wallet address</span>
-                        <span className="truncate font-mono">{w.destinationAddress || 'Not provided'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Network</span>
-                        <span className="font-semibold">{w.network || '—'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Exchange / broker</span>
-                        <span className="font-semibold">{w.broker || '—'}</span>
-                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button
