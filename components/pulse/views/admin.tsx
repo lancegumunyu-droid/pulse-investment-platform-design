@@ -24,6 +24,7 @@ import {
   reviewKyc,
   reviewWithdrawal,
   reviewDeposit,
+  markDepositProcessing,
   reviewP2PTransfer,
   reviewCardApplication,
   assignManager,
@@ -319,9 +320,30 @@ export function AdminView() {
                           </p>
                         )}
                       </div>
-                      <Pill tone="gold">pending</Pill>
+                      {d.processingSince ? (
+                        <Pill tone="gold">processing · {d.processingBy}</Pill>
+                      ) : (
+                        <Pill tone="muted">pending</Pill>
+                      )}
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-white/12 bg-white/[0.03] font-medium"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await markDepositProcessing(d.id, !d.processingSince)
+                            if (res.ok) {
+                              toast({ title: d.processingSince ? 'Back to pending' : 'Marked as processing', variant: 'info' })
+                            }
+                            return res
+                          })
+                        }
+                      >
+                        {d.processingSince ? 'Unmark' : 'Start processing'}
+                      </Button>
                       <Button
                         size="sm"
                         className="flex-1 bg-green/90 font-semibold text-background hover:bg-green"
@@ -369,21 +391,10 @@ export function AdminView() {
                 snap.withdrawalQueue.map((w) => (
                   <Glass key={w.id} className="animate-rise">
                     <div className="mb-3 flex items-start justify-between">
-                      <div className="min-w-0">
+                      <div>
                         <p className="font-semibold">${money(w.amount)}</p>
                         <p className="text-xs text-muted-foreground">{w.email ?? w.userId.slice(0, 12)}</p>
-                        <p className="text-xs text-muted-foreground">Requested {new Date(w.createdAt).toLocaleString()}</p>
-                        {w.walletName && <p className="mt-1 text-xs font-medium text-foreground">{w.walletName}</p>}
-                        {w.destinationAddress && (
-                          <p className="truncate font-mono text-xs text-gold" title={w.destinationAddress}>
-                            To: {w.destinationAddress}
-                          </p>
-                        )}
-                        {(w.network || w.broker) && (
-                          <p className="text-xs text-muted-foreground">
-                            {w.network ?? 'Network not specified'} · {w.broker ?? 'Broker not specified'}
-                          </p>
-                        )}
+                        <p className="text-xs text-muted-foreground">{new Date(w.createdAt).toLocaleString()}</p>
                       </div>
                       <Pill tone="gold">pending</Pill>
                     </div>
