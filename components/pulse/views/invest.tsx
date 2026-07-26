@@ -28,7 +28,7 @@ export function InvestView() {
             <Glass
               key={tier.id}
               gold={isCurrent}
-              className={cn('animate-rise', !unlocked && 'opacity-95')}
+              className={cn('animate-rise', isCurrent && 'glow-edge shimmer-sweep', !unlocked && 'opacity-95')}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
