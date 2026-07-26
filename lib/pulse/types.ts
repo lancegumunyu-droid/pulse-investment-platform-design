@@ -99,6 +99,8 @@ export interface AdminKycRow {
   idNumber: string
   dateOfBirth: string | null
   country: string | null
+  phone: string | null
+  address: string | null
   status: string
   createdAt: number
 }
