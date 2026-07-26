@@ -25,6 +25,8 @@ import {
   getFoundersWall,
   getLeaderboard,
   getMyReferrals,
+  getMyNotifications,
+  markNotificationRead as markNotificationReadAction,
   invest as investAction,
   requestWithdrawal,
   setUsername as setUsernameAction,
@@ -103,6 +105,15 @@ function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
+export interface NotificationRow {
+  id: string
+  title: string
+  body: string
+  kind: string
+  read: boolean
+  createdAt: number
+}
+
 export interface Toast {
   id: string
   title: string
@@ -130,7 +141,7 @@ interface StoreContext {
   signOut: () => Promise<void>
   api: {
     deposit: (amount: number, currency: 'usdttrc20' | 'btc', txReference: string) => Promise<ActionResult>
-    withdraw: (amount: number, destinationAddress: string, walletName: string, network: string, broker: string) => Promise<ActionResult>
+    withdraw: (amount: number, destinationAddress: string, network: string, broker: string) => Promise<ActionResult>
     invest: (amount: number, projectId: string) => Promise<ActionResult>
     buyToken: (cost: number, pulse: number) => Promise<ActionResult>
     stake: (amount: number) => Promise<ActionResult>
@@ -144,6 +155,8 @@ interface StoreContext {
     leaderboard: () => Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }>
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
     myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
+    notifications: () => Promise<{ ok: true; rows: NotificationRow[] } | { ok: false; error: string }>
+    markNotificationRead: (id: string) => Promise<ActionResult>
     applyForCard: () => Promise<ActionResult>
     addSavedWallet: (label: string, address: string) => Promise<ActionResult>
     removeSavedWallet: (id: string) => Promise<ActionResult>
@@ -218,8 +231,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const api = useMemo<StoreContext['api']>(
     () => ({
       deposit: (amount, currency, txReference) => run(() => submitDeposit(amount, currency, txReference)),
-      withdraw: (amount, destinationAddress, walletName, network, broker) =>
-        run(() => requestWithdrawal(amount, destinationAddress, walletName, network, broker)),
+      withdraw: (amount, destinationAddress, network, broker) =>
+        run(() => requestWithdrawal(amount, destinationAddress, network, broker)),
       invest: (amount, projectId) => run(() => investAction(amount, projectId)),
       buyToken: (cost, pulse) => run(() => buyTokenAction(cost, pulse)),
       stake: (amount) => run(() => stakeAction(amount)),
@@ -233,6 +246,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       leaderboard: () => getLeaderboard(),
       foundersWall: () => getFoundersWall(),
       myReferrals: () => getMyReferrals(),
+      notifications: () => getMyNotifications(),
+      markNotificationRead: (id) => run(() => markNotificationReadAction(id)),
       applyForCard: () => run(() => applyForCardAction()),
       addSavedWallet: (label, address) => run(() => addSavedWalletAction(label, address)),
       removeSavedWallet: (id) => run(() => removeSavedWalletAction(id)),
