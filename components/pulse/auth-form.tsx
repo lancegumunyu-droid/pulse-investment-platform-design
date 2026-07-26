@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Activity, Loader2 } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
 
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
@@ -28,8 +29,43 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [refCode, setRefCode] = useState('')
+  const [refStatus, setRefStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
+  const [refError, setRefError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Prefill from a shared referral link (?ref=CODE), but still editable —
+  // someone can also just type in a code a friend told them verbally.
+  useEffect(() => {
+    const fromUrl = searchParams.get('ref')
+    if (fromUrl) setRefCode(fromUrl)
+  }, [searchParams])
+
+  // Live-validate as they type, debounced, so they find out before
+  // submitting whether the code is real and belongs to a verified user —
+  // required at signup now, per the mandatory-referral rule.
+  useEffect(() => {
+    if (!isSignUp) return
+    const code = refCode.trim()
+    if (!code) {
+      setRefStatus('idle')
+      setRefError(null)
+      return
+    }
+    setRefStatus('checking')
+    const t = setTimeout(async () => {
+      const res = await validateReferralCode(code)
+      if (res.ok) {
+        setRefStatus('valid')
+        setRefError(null)
+      } else {
+        setRefStatus('invalid')
+        setRefError(res.error)
+      }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [refCode, isSignUp])
 
   // NOTE: removed the client-side "if session exists, redirect to /app"
   // check that used to live here. It read the session via the browser
@@ -48,18 +84,22 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     const supabase = createClient()
     try {
       if (isSignUp) {
-        // CHANGED: capture ?ref=CODE from the URL (e.g. from a shared
-        // referral link) and pass it through as user metadata. The
-        // handle_new_user() database trigger reads this to set
-        // profiles.referred_by.
-        const refCode = searchParams.get('ref')
+        // Referral is now mandatory: block here with a clear message
+        // rather than letting it fail deep in a database exception.
+        // This mirrors what handle_new_user() enforces server-side —
+        // this check is just for a fast, friendly error message.
+        if (refStatus !== 'valid') {
+          setError(refError ?? 'A valid referral code from a verified Pulse user is required to sign up')
+          setLoading(false)
+          return
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo:
               process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
-            data: { full_name: fullName, ...(refCode ? { ref_code: refCode } : {}) },
+            data: { full_name: fullName, ref_code: refCode.trim() },
           },
         })
         if (error) throw error
@@ -118,16 +158,41 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
       <form onSubmit={submit} className="glass rounded-3xl p-5">
         {isSignUp ? (
-          <Field label="Full name">
-            <input
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              autoComplete="name"
-              className="pulse-input"
-              placeholder="Thabo Nkosi"
-            />
-          </Field>
+          <>
+            <Field label="Full name">
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                autoComplete="name"
+                className="pulse-input"
+                placeholder="Thabo Nkosi"
+              />
+            </Field>
+            <Field label="Referral code">
+              <input
+                value={refCode}
+                onChange={(e) => setRefCode(e.target.value)}
+                required
+                className="pulse-input"
+                placeholder="e.g. PULSE-A1B2C3D4"
+              />
+            </Field>
+            {refStatus === 'checking' && (
+              <p className="mt-1 text-xs text-muted-foreground">Checking code…</p>
+            )}
+            {refStatus === 'valid' && (
+              <p className="mt-1 text-xs text-green">Valid — you'll be connected to this Pulse member</p>
+            )}
+            {refStatus === 'invalid' && refError && (
+              <p className="mt-1 text-xs text-destructive">{refError}</p>
+            )}
+            {refStatus === 'idle' && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Ask an existing, verified Pulse member for their code — required to create an account.
+              </p>
+            )}
+          </>
         ) : null}
         <Field label="Email">
           <input
@@ -170,7 +235,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         <Button
           type="submit"
           size="lg"
-          disabled={loading}
+          disabled={loading || (isSignUp && refStatus !== 'valid')}
           className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
         >
           {loading ? <Loader2 className="size-4 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
