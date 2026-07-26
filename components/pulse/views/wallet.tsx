@@ -14,7 +14,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { money, usePulse, type Txn } from '../store'
-import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
+import { Glass, Heartbeat, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 
 const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; sign: string }> = {
@@ -45,6 +45,16 @@ const CARD_COPY: Record<'none' | 'waitlisted' | 'approved' | 'free_card_earned',
     title: 'Free card earned 🎉',
     body: 'You reached 100 verified referrals and earned a free Pulse Card. Physical card issuance and activation will appear here once it ships.',
   },
+}
+
+// Status line shown per transaction — folds in the new 3-state deposit
+// tracking (isProcessing) without needing a new status value anywhere.
+function statusLabel(t: Txn): string {
+  if (t.type === 'deposit' && t.status === 'pending') {
+    return t.isProcessing ? 'processing' : 'pending — awaiting review'
+  }
+  if (t.type === 'withdraw' && t.status === 'pending') return 'pending — usually within 3 days'
+  return t.status
 }
 
 export function WalletView() {
@@ -94,13 +104,17 @@ export function WalletView() {
   }
 
   const cardCopy = CARD_COPY[state.cardStatus]
+  const hasPendingActivity = state.txns.some((t) => t.status === 'pending')
 
   return (
     <div className="space-y-5">
       <SectionTitle title="Wallet" subtitle="Manage funds, connect a wallet, and review activity." icon={<Wallet className="size-5" />} />
 
-      <Glass gold className="animate-rise">
-        <p className="text-xs uppercase tracking-wide text-gold">Available balance</p>
+      <Glass gold className="animate-rise glow-edge">
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide text-gold">Available balance</p>
+          <Heartbeat active={hasPendingActivity} size={22} />
+        </div>
         <p className="mt-1 font-mono text-3xl font-semibold">${money(state.cash)}</p>
         <div className="mt-4 grid grid-cols-3 gap-2">
           <Button size="lg" className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90" onClick={() => openModal('deposit')}>
@@ -113,6 +127,9 @@ export function WalletView() {
             <Send className="size-4" /> Send
           </Button>
         </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Deposits are usually reviewed within 10 minutes. Withdrawals typically complete within 3 days.
+        </p>
       </Glass>
 
       <Glass className="animate-rise">
@@ -137,7 +154,8 @@ export function WalletView() {
           <div>
             <p className="text-sm font-semibold">No wallet connected</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Add the address you want withdrawals sent to — USDT (TRC-20) or BTC.
+              Add the address you want withdrawals sent to — USDT (TRC-20) or BTC. This becomes the default that
+              pre-fills your withdrawal form; you can still change it per request.
             </p>
             <input
               value={addressInput}
@@ -182,7 +200,7 @@ export function WalletView() {
         so the moment a real issuer is connected, this UI already works,
         nothing here needs to change.
       */}
-      <Glass className="animate-rise">
+      <Glass className="animate-rise glow-edge">
         <div className="mb-3 flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-xl bg-gold-soft text-gold">
             <CreditCard className="size-5" />
@@ -200,7 +218,7 @@ export function WalletView() {
         </div>
 
         {/* Visual card face — mockup only, not a real issued card */}
-        <div className="mb-3 rounded-2xl bg-gradient-to-br from-gold/25 via-gold/10 to-transparent p-4">
+        <div className="mb-3 rounded-2xl bg-gradient-to-br from-gold/25 via-champagne/10 to-transparent p-4 shimmer-sweep">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-gold">Pulse</span>
             <Wallet className="size-4 text-gold" />
@@ -231,6 +249,7 @@ export function WalletView() {
           {state.txns.map((t) => {
             const meta = txMeta[t.type]
             const Icon = meta.icon
+            const label = statusLabel(t)
             return (
               <div key={t.id} className="flex items-center gap-3 rounded-2xl glass px-4 py-3">
                 <span className="flex size-9 items-center justify-center rounded-xl bg-white/[0.04]">
@@ -239,7 +258,8 @@ export function WalletView() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{t.label}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(t.date).toLocaleDateString()} · {t.status}
+                    {new Date(t.date).toLocaleDateString()} ·{' '}
+                    <span className={t.isProcessing ? 'font-medium text-gold' : ''}>{label}</span>
                   </p>
                 </div>
                 <span className={`font-mono text-sm font-semibold ${meta.tone}`}>
