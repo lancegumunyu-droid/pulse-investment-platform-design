@@ -97,13 +97,8 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
  * brighter flash while `active` (e.g. mid-transaction: depositing,
  * withdrawing, submitting KYC).
  *
- * Self-contained on purpose: the @keyframes are defined inline via a
- * <style> tag rather than added to a Tailwind config file, since that
- * file wasn't available to edit directly — this way the component works
- * immediately wherever it's dropped in, with zero other file changes
- * required. If you'd rather have these as proper Tailwind utilities
- * (animate-pulse-slow etc.), move the two keyframes below into
- * tailwind.config.ts and this component still works unchanged.
+ * Animation classes (animate-heartbeat-ring-slow/fast,
+ * animate-heartbeat-icon-slow/fast) are defined in app/globals.css.
  *
  * Usage:
  *   <Heartbeat />                     — idle, steady beat (use in headers)
@@ -115,37 +110,23 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
 export function Heartbeat({ active = false, size = 20, className }: { active?: boolean; size?: number; className?: string }) {
   return (
     <span className={cn('relative inline-flex items-center justify-center', className)}>
-      <style>{`
-        @keyframes pulse-ring-slow {
-          0% { transform: scale(0.85); opacity: 0.55; }
-          70% { transform: scale(1.55); opacity: 0; }
-          100% { transform: scale(1.55); opacity: 0; }
-        }
-        @keyframes pulse-ring-fast {
-          0% { transform: scale(0.85); opacity: 0.75; }
-          60% { transform: scale(1.7); opacity: 0; }
-          100% { transform: scale(1.7); opacity: 0; }
-        }
-        @keyframes heartbeat-icon {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.12); }
-        }
-      `}</style>
       <span
         aria-hidden
-        className="absolute inset-0 rounded-full bg-gold/40"
-        style={{ animation: `${active ? 'pulse-ring-fast 1.1s' : 'pulse-ring-slow 2.4s'} ease-out infinite` }}
+        className={cn(
+          'absolute inset-0 rounded-full bg-gold/40',
+          active ? 'animate-heartbeat-ring-fast' : 'animate-heartbeat-ring-slow',
+        )}
       />
       <span
-        className="relative flex items-center justify-center rounded-full bg-gold-soft text-gold"
-        style={{
-          width: size,
-          height: size,
-          animation: `heartbeat-icon ${active ? '0.9s' : '1.8s'} ease-in-out infinite`,
-        }}
+        className={cn(
+          'relative flex items-center justify-center rounded-full bg-gold-soft text-gold',
+          active ? 'animate-heartbeat-icon-fast' : 'animate-heartbeat-icon-slow',
+        )}
+        style={{ width: size, height: size }}
       >
         <Activity style={{ width: size * 0.55, height: size * 0.55 }} />
       </span>
     </span>
   )
 }
+
