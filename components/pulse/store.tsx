@@ -130,7 +130,7 @@ interface StoreContext {
   signOut: () => Promise<void>
   api: {
     deposit: (amount: number, currency: 'usdttrc20' | 'btc', txReference: string) => Promise<ActionResult>
-    withdraw: (amount: number, destinationAddress: string, network: string, broker: string) => Promise<ActionResult>
+    withdraw: (amount: number, destinationAddress: string, walletName: string, network: string, broker: string) => Promise<ActionResult>
     invest: (amount: number, projectId: string) => Promise<ActionResult>
     buyToken: (cost: number, pulse: number) => Promise<ActionResult>
     stake: (amount: number) => Promise<ActionResult>
@@ -218,8 +218,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const api = useMemo<StoreContext['api']>(
     () => ({
       deposit: (amount, currency, txReference) => run(() => submitDeposit(amount, currency, txReference)),
-      withdraw: (amount, destinationAddress, network, broker) =>
-        run(() => requestWithdrawal(amount, destinationAddress, network, broker)),
+      withdraw: (amount, destinationAddress, walletName, network, broker) =>
+        run(() => requestWithdrawal(amount, destinationAddress, walletName, network, broker)),
       invest: (amount, projectId) => run(() => investAction(amount, projectId)),
       buyToken: (cost, pulse) => run(() => buyTokenAction(cost, pulse)),
       stake: (amount) => run(() => stakeAction(amount)),
