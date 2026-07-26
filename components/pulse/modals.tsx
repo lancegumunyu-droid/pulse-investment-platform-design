@@ -66,6 +66,22 @@ function KycModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(state.kyc === 'pending' ? 2 : 0)
   const [form, setForm] = useState({ name: '', country: 'Botswana', idNumber: '', dob: '', phone: '', address: '' })
 
+  // Real, but honest-scope, validation: format checks we can actually do
+  // client-side (phone shape, ID sanity, minimum age). This is NOT
+  // identity verification — confirming a document is genuine, or that
+  // its format matches what that specific country actually issues,
+  // needs a real provider (Smile Identity, Onfido, Persona). Flagging
+  // that clearly rather than letting format-looks-ok pass as "verified."
+  const phoneValid = /^\+?[0-9\s\-()]{7,16}$/.test(form.phone.trim())
+  const idValid = /^[A-Za-z0-9\-\s]{5,20}$/.test(form.idNumber.trim())
+  const ageValid = (() => {
+    if (!form.dob) return false
+    const dob = new Date(form.dob)
+    if (Number.isNaN(dob.getTime())) return false
+    const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+    return age >= 18
+  })()
+
   const submit = async () => {
     const res = await api.submitKyc({
       fullName: form.name,
@@ -88,7 +104,7 @@ function KycModal({ onClose }: { onClose: () => void }) {
     setTimeout(onClose, 1200)
   }
 
-  const canSubmit = form.name && form.idNumber && form.dob && form.phone && form.address
+  const canSubmit = form.name.trim().length >= 2 && idValid && ageValid && phoneValid && form.address.trim().length >= 5
 
   return (
     <ModalShell title="Identity verification" icon={<ShieldCheck className="size-5" />} onClose={onClose}>
@@ -139,9 +155,44 @@ function KycModal({ onClose }: { onClose: () => void }) {
                     </option>
                   ))}
                 </optgroup>
+                {/*
+                  Rest of world — deliberately excludes jurisdictions with an
+                  outright crypto ban or comprehensive financial sanctions,
+                  since Pulse settles in crypto. African countries are kept
+                  regardless of local crypto stance, per product decision.
+                  Excluded: China, Bangladesh, Nepal, Qatar, Iraq,
+                  Afghanistan (crypto banned outright), and Iran, North
+                  Korea, Syria, Cuba (comprehensive sanctions — a licensed
+                  platform can't legally onboard residents of these
+                  regardless of the crypto question).
+                  NOTE: this is a residency self-declaration, not identity
+                  verification — actually confirming someone's ID document
+                  is genuine (or that its format is even valid for their
+                  country) needs a real verification provider like Smile
+                  Identity or Onfido. That's a paid third-party integration,
+                  not something this form can do on its own — flagging so
+                  it doesn't look done when it isn't.
+                */}
+                <optgroup label="Rest of World">
+                  {[
+                    'United States', 'United Kingdom', 'Canada', 'Australia', 'New Zealand',
+                    'Ireland', 'Germany', 'France', 'Netherlands', 'Belgium', 'Switzerland',
+                    'Austria', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Portugal', 'Spain',
+                    'Italy', 'Poland', 'Czech Republic', 'Greece', 'Malta', 'Cyprus',
+                    'United Arab Emirates', 'Saudi Arabia', 'Israel', 'Turkey', 'India',
+                    'Pakistan', 'Sri Lanka', 'Philippines', 'Indonesia', 'Malaysia', 'Singapore',
+                    'Thailand', 'Vietnam', 'South Korea', 'Japan', 'Brazil', 'Mexico', 'Argentina',
+                    'Chile', 'Colombia', 'Peru', 'Jamaica', 'Trinidad and Tobago',
+                  ].map((c) => (
+                    <option key={c} value={c} className="bg-background">
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Pulse is currently open to residents of African countries only, with a focus on the SADC region.
+                Every African country is supported. Outside Africa, Pulse is available except where crypto is
+                restricted or the platform can't legally operate.
               </p>
             </Field>
             <Field label="National ID / Passport number">
@@ -151,6 +202,9 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setForm({ ...form, idNumber: e.target.value })}
                 placeholder="ID number"
               />
+              {form.idNumber && !idValid && (
+                <p className="mt-1 text-[11px] text-destructive">5–20 letters/numbers, no special characters.</p>
+              )}
             </Field>
             <Field label="Date of birth">
               <input
@@ -159,6 +213,9 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 value={form.dob}
                 onChange={(e) => setForm({ ...form, dob: e.target.value })}
               />
+              {form.dob && !ageValid && (
+                <p className="mt-1 text-[11px] text-destructive">You must be 18 or older to invest with Pulse.</p>
+              )}
             </Field>
             <Field label="Phone number">
               <input
@@ -168,6 +225,9 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="+267 71 234 567"
               />
+              {form.phone && !phoneValid && (
+                <p className="mt-1 text-[11px] text-destructive">Enter a valid phone number with country code.</p>
+              )}
             </Field>
             <Field label="Residential address">
               <input
