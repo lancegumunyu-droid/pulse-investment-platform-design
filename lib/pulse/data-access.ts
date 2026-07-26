@@ -165,7 +165,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     })),
     kyc: kycMap[profile?.kyc_status ?? 'none'] ?? 'none',
     wallet: profile?.wallet_address ?? null,
-    referralCode: profile?.referral_code ?? 'PLS-XXXX',
+    referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? profile?.referral_code ?? 'PLS-XXXX',
     fullName: profile?.full_name ?? null,
     email: profile?.email ?? null,
     tier: profile?.tier ?? 0,
