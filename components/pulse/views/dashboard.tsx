@@ -2,7 +2,7 @@
 
 import { ArrowDownRight, ArrowUpRight, Building2, ChevronRight, Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, TrendingUp, Zap } from 'lucide-react'
 import { money, usePulse } from '../store'
-import { Glass, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
+import { Glass, Heartbeat, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
 import { PROJECTS, nextTier, type ProjectSector } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -22,7 +22,10 @@ export function DashboardView() {
   return (
     <div className="space-y-5">
       <Glass gold className="animate-rise">
-        <p className="text-xs font-medium uppercase tracking-wide text-gold">Total portfolio value</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-wide text-gold">Total portfolio value</p>
+          <Heartbeat active={state.txns.some((t) => t.status === 'pending')} size={22} />
+        </div>
         <p className="mt-1 font-mono text-4xl font-semibold tracking-tight">${money(portfolioValue)}</p>
         <div className="mt-1 flex items-center gap-1.5 text-sm text-green">
           <TrendingUp className="size-4" />
