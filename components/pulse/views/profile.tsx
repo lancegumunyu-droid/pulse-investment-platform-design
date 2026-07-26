@@ -352,15 +352,17 @@ export function ProfileView() {
         </ul>
       </Glass>
 
-      <Button
-        variant="outline"
-        size="lg"
-        className="h-11 w-full border-white/12 bg-white/[0.03] font-medium"
-        onClick={openAdmin}
-      >
-        <Lock className="size-4" />
-        {state.isAdmin ? 'Admin dashboard' : 'Request admin access'}
-      </Button>
+      {state.isAdmin && (
+        <Button
+          variant="outline"
+          size="lg"
+          className="h-11 w-full border-white/12 bg-white/[0.03] font-medium"
+          onClick={openAdmin}
+        >
+          <Lock className="size-4" />
+          Admin dashboard
+        </Button>
+      )}
 
       <Button
         variant="ghost"
