@@ -92,7 +92,7 @@ export function DashboardView() {
             const Icon = sectorIcon[p.sector]
             const pct = Math.round((p.funded / p.goal) * 100)
             return (
-              <Glass key={p.id} className="animate-rise">
+              <Glass key={p.id} className="animate-rise glow-edge shimmer-sweep">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <span className="flex size-10 items-center justify-center rounded-xl bg-gold-soft text-gold">
