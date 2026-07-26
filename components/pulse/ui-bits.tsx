@@ -129,4 +129,3 @@ export function Heartbeat({ active = false, size = 20, className }: { active?: b
     </span>
   )
 }
-
