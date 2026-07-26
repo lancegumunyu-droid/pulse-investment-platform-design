@@ -1,10 +1,8 @@
 'use client'
-
-import { TriangleAlert } from 'lucide-react'
+import { Activity, TriangleAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { RISK_DISCLAIMER } from '@/lib/pulse-data'
-
 export function Glass({
   children,
   className,
@@ -18,7 +16,6 @@ export function Glass({
     <div className={cn('rounded-3xl p-5', gold ? 'glass-gold' : 'glass', className)}>{children}</div>
   )
 }
-
 export function SectionTitle({
   title,
   subtitle,
@@ -42,7 +39,6 @@ export function SectionTitle({
     </div>
   )
 }
-
 export function Pill({
   children,
   tone = 'muted',
@@ -62,7 +58,6 @@ export function Pill({
     </span>
   )
 }
-
 export function ProgressBar({ value, tone = 'gold' }: { value: number; tone?: 'gold' | 'green' }) {
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-white/8">
@@ -73,7 +68,6 @@ export function ProgressBar({ value, tone = 'gold' }: { value: number; tone?: 'g
     </div>
   )
 }
-
 export function RiskNote({ className }: { className?: string }) {
   return (
     <div
@@ -87,7 +81,6 @@ export function RiskNote({ className }: { className?: string }) {
     </div>
   )
 }
-
 export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div>
@@ -95,5 +88,64 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
       <p className="mt-1 font-mono text-lg font-semibold tracking-tight">{value}</p>
       {sub ? <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p> : null}
     </div>
+  )
+}
+
+/**
+ * Heartbeat — the "living golden heartbeat" brand mark. A pulsing ring +
+ * icon that beats steadily when idle/online, and beats faster with a
+ * brighter flash while `active` (e.g. mid-transaction: depositing,
+ * withdrawing, submitting KYC).
+ *
+ * Self-contained on purpose: the @keyframes are defined inline via a
+ * <style> tag rather than added to a Tailwind config file, since that
+ * file wasn't available to edit directly — this way the component works
+ * immediately wherever it's dropped in, with zero other file changes
+ * required. If you'd rather have these as proper Tailwind utilities
+ * (animate-pulse-slow etc.), move the two keyframes below into
+ * tailwind.config.ts and this component still works unchanged.
+ *
+ * Usage:
+ *   <Heartbeat />                     — idle, steady beat (use in headers)
+ *   <Heartbeat active />               — faster/brighter (use during a
+ *                                        pending deposit/withdrawal/etc.)
+ *   <Heartbeat size={28} />            — bigger, e.g. for a splash/loading
+ *                                        screen
+ */
+export function Heartbeat({ active = false, size = 20, className }: { active?: boolean; size?: number; className?: string }) {
+  return (
+    <span className={cn('relative inline-flex items-center justify-center', className)}>
+      <style>{`
+        @keyframes pulse-ring-slow {
+          0% { transform: scale(0.85); opacity: 0.55; }
+          70% { transform: scale(1.55); opacity: 0; }
+          100% { transform: scale(1.55); opacity: 0; }
+        }
+        @keyframes pulse-ring-fast {
+          0% { transform: scale(0.85); opacity: 0.75; }
+          60% { transform: scale(1.7); opacity: 0; }
+          100% { transform: scale(1.7); opacity: 0; }
+        }
+        @keyframes heartbeat-icon {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.12); }
+        }
+      `}</style>
+      <span
+        aria-hidden
+        className="absolute inset-0 rounded-full bg-gold/40"
+        style={{ animation: `${active ? 'pulse-ring-fast 1.1s' : 'pulse-ring-slow 2.4s'} ease-out infinite` }}
+      />
+      <span
+        className="relative flex items-center justify-center rounded-full bg-gold-soft text-gold"
+        style={{
+          width: size,
+          height: size,
+          animation: `heartbeat-icon ${active ? '0.9s' : '1.8s'} ease-in-out infinite`,
+        }}
+      >
+        <Activity style={{ width: size * 0.55, height: size * 0.55 }} />
+      </span>
+    </span>
   )
 }
