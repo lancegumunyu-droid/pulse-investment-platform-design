@@ -24,7 +24,6 @@ import {
   reviewKyc,
   reviewWithdrawal,
   reviewDeposit,
-  markDepositProcessing,
   reviewP2PTransfer,
   reviewCardApplication,
   assignManager,
@@ -254,7 +253,6 @@ export function AdminView() {
                     <div className="mb-3 space-y-1 text-xs text-muted-foreground">
                       <p>ID: <span className="text-foreground font-mono">{k.idNumber}</span></p>
                       {k.dateOfBirth && <p>DOB: {k.dateOfBirth}</p>}
-                      {k.nationality && <p>Nationality: {k.nationality}</p>}
                       {k.country && <p>Country: {k.country}</p>}
                       <p>Submitted: {new Date(k.createdAt).toLocaleString()}</p>
                     </div>
@@ -306,45 +304,16 @@ export function AdminView() {
                 snap.depositQueue.map((d) => (
                   <Glass key={d.id} className="animate-rise">
                     <div className="mb-3 flex items-start justify-between">
-                      <div className="min-w-0">
+                      <div>
                         <p className="font-semibold">${money(d.amount)}</p>
                         <p className="text-xs text-muted-foreground">{d.email ?? d.userId.slice(0, 12)}</p>
-                        <p className="text-xs text-muted-foreground">Requested {new Date(d.createdAt).toLocaleString()}</p>
-                        {d.payCurrency && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Paid via <span className="font-medium text-foreground">{d.payCurrency.toUpperCase()}</span>
-                          </p>
-                        )}
-                        {d.userTxRef && (
-                          <p className="truncate font-mono text-xs text-gold" title={d.userTxRef}>
-                            TXID: {d.userTxRef}
-                          </p>
-                        )}
+                        <p className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</p>
                       </div>
-                      {d.processingSince ? (
-                        <Pill tone="gold">processing · {d.processingBy}</Pill>
-                      ) : (
-                        <Pill tone="muted">pending</Pill>
-                      )}
+                      <Pill tone={d.settledStatus === 'finished' || d.settledStatus === 'confirmed' ? 'green' : 'gold'}>
+                        {d.settledStatus ? 'payment confirmed' : 'awaiting payment'}
+                      </Pill>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-white/12 bg-white/[0.03] font-medium"
-                        disabled={busy}
-                        onClick={() =>
-                          act(async () => {
-                            const res = await markDepositProcessing(d.id, !d.processingSince)
-                            if (res.ok) {
-                              toast({ title: d.processingSince ? 'Back to pending' : 'Marked as processing', variant: 'info' })
-                            }
-                            return res
-                          })
-                        }
-                      >
-                        {d.processingSince ? 'Unmark' : 'Start processing'}
-                      </Button>
                       <Button
                         size="sm"
                         className="flex-1 bg-green/90 font-semibold text-background hover:bg-green"
