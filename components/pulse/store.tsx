@@ -148,7 +148,7 @@ interface StoreContext {
     unstake: (amount: number) => Promise<ActionResult>
     connectWallet: (address: string) => Promise<ActionResult>
     disconnectWallet: () => Promise<ActionResult>
-    submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; nationality?: string; country?: string; phone?: string; address?: string }) => Promise<ActionResult>
+    submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string; phone?: string; address?: string }) => Promise<ActionResult>
     vote: (proposalId: string, choice: 'for' | 'against' | 'abstain') => Promise<ActionResult>
     claimAdmin: () => Promise<ActionResult>
     setUsername: (username: string) => Promise<ActionResult>
