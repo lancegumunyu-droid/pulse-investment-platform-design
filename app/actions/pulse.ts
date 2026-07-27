@@ -17,6 +17,22 @@ async function requireUser() {
 
 type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
 
+export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const clean = code.trim().replace(/^@/, '')
+  if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
+  const db = serviceClient()
+  const { data: referrer } = await db
+    .from('profiles')
+    .select('id, kyc_status')
+    .eq('referral_code', clean)
+    .maybeSingle()
+  if (!referrer) return { ok: false, error: "We couldn't find a Pulse account with that code" }
+  if (referrer.kyc_status !== 'verified') {
+    return { ok: false, error: 'That account is not yet verified — only a verified user\'s code can be used' }
+  }
+  return { ok: true }
+}
+
 async function withSnapshot(userId: string): Promise<Result> {
   return { ok: true, snapshot: await getSnapshot(userId) }
 }
