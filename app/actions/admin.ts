@@ -154,6 +154,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       country: k.country,
       status: k.status,
       createdAt: new Date(k.created_at).getTime(),
+      adminNote: k.admin_note ?? null,
     }))
 
     const snapshot: AdminSnapshot = {
@@ -175,6 +176,40 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       recentTxns,
     }
     return { ok: true, snapshot }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// A third path alongside approve/reject: the submission looks incomplete
+// or unclear, not wrong outright. Keeps status 'pending' (doesn't
+// re-queue as a fresh submission, doesn't reject them either) and sends
+// a real notification telling the user specifically what's needed.
+export async function requestKycMoreInfo(id: string, note: string): Promise<AdminResult> {
+  try {
+    const admin = await requireAdminScope(['full', 'operations'])
+    const clean = note.trim()
+    if (!clean) return { ok: false, error: 'Explain what the user needs to provide' }
+    const db = serviceClient()
+    const { data: sub } = await db.from('kyc_submissions').select('user_id').eq('id', id).single()
+    if (!sub) return { ok: false, error: 'Submission not found' }
+
+    const { error: noteErr } = await db
+      .from('kyc_submissions')
+      .update({ admin_note: clean, reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
+      .eq('id', id)
+    if (noteErr) return { ok: false, error: `kyc_submissions update failed: ${noteErr.message}` }
+
+    const { error: notifErr } = await db.from('notifications').insert({
+      user_id: sub.user_id,
+      title: 'More information needed for verification',
+      body: clean,
+      kind: 'kyc',
+      read: false,
+    })
+    if (notifErr) return { ok: false, error: `notification failed: ${notifErr.message}` }
+
+    return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
