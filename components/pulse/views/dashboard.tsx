@@ -33,7 +33,7 @@ export function DashboardView() {
         <div className="mt-5 grid grid-cols-3 gap-3">
           <MiniStat label="Cash" value={`$${money(state.cash, 0)}`} />
           <MiniStat label="Invested" value={`$${money(totalInvested, 0)}`} />
-          <MiniStat label="PULSE" value={money(state.pulse + state.staked, 0)} />
+          <MiniStat label="PULSE" value={money(state.pulse + state.staked, 0)} sub={`${money(state.pulse, 0)} liquid · ${money(state.staked, 0)} staked`} />
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -222,11 +222,12 @@ function QuickActionTile({
   )
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl bg-white/[0.03] p-3">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 font-mono text-sm font-semibold">{value}</p>
+      {sub && <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{sub}</p>}
     </div>
   )
 }
