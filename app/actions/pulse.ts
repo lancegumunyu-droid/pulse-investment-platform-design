@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, ensureAccount, getSnapshot, recordTxn } from '@/lib/pulse/data-access'
-import { tierForAmount, TIERS } from '@/lib/pulse-data'
+import { tierForAmount, TIERS, TOKEN } from '@/lib/pulse-data'
 import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
 
 async function requireUser() {
@@ -16,22 +16,6 @@ async function requireUser() {
 }
 
 type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
-
-export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const clean = code.trim().replace(/^@/, '')
-  if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
-  const db = serviceClient()
-  const { data: referrer } = await db
-    .from('profiles')
-    .select('id, kyc_status')
-    .eq('referral_code', clean)
-    .maybeSingle()
-  if (!referrer) return { ok: false, error: "We couldn't find a Pulse account with that code" }
-  if (referrer.kyc_status !== 'verified') {
-    return { ok: false, error: 'That account is not yet verified — only a verified user\'s code can be used' }
-  }
-  return { ok: true }
-}
 
 async function withSnapshot(userId: string): Promise<Result> {
   return { ok: true, snapshot: await getSnapshot(userId) }
@@ -60,11 +44,10 @@ async function syncTier(userId: string) {
 // reviewDeposit() in admin.ts once an admin approves it — same pattern as
 // requestWithdrawal below. Function name kept as simulateDeposit so no UI
 // call sites need to change.
-export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc', txReference: string): Promise<Result> {
+export async function simulateDeposit(amount: number): Promise<Result> {
   try {
     const user = await requireUser()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    if (!txReference.trim()) return { ok: false, error: 'Enter the transaction reference / TXID you sent with' }
     const snap = await getSnapshot(user.id)
     if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to deposit' }
     await recordTxn(user.id, {
@@ -72,12 +55,8 @@ export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc
       amount,
       currency: 'USD',
       status: 'pending',
-      reference: txReference.trim(),
-      meta: {
-        label: `Manual deposit — ${currency === 'btc' ? 'BTC' : 'USDT (TRC-20)'}, awaiting admin verification`,
-        payCurrency: currency,
-        userTxRef: txReference.trim(),
-      },
+      reference: 'manual',
+      meta: { label: 'Deposit request — pending admin approval' },
     })
     return withSnapshot(user.id)
   } catch (e) {
@@ -85,29 +64,13 @@ export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc
   }
 }
 
-export async function requestWithdrawal(
-  amount: number,
-  destinationAddress: string,
-  network: string,
-  broker: string,
-): Promise<Result> {
+export async function requestWithdrawal(amount: number): Promise<Result> {
   try {
     const user = await requireUser()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    // Defensive: guard against a mismatched caller passing undefined for
-    // any of these (this exact crash — "Cannot read properties of
-    // undefined (reading 'trim')" — happened live from a stale/mismatched
-    // client build). Never assume a string arg exists un-checked.
-    if (!destinationAddress?.trim()) return { ok: false, error: 'Enter the wallet address to withdraw to' }
-    const safeNetwork = network ?? ''
-    const safeBroker = broker ?? ''
     const snap = await getSnapshot(user.id)
     if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to withdraw' }
     if (amount > snap.cash) return { ok: false, error: 'Amount exceeds available balance' }
-    const maxWithdrawable = snap.cash * 0.8
-    if (amount > maxWithdrawable) {
-      return { ok: false, error: `You can withdraw up to 80% of your balance at a time (max $${maxWithdrawable.toFixed(2)})` }
-    }
     // Hold the funds and create a pending withdrawal for admin approval.
     await adjustAccount(user.id, { cash_balance: -amount })
     await recordTxn(user.id, {
@@ -115,12 +78,7 @@ export async function requestWithdrawal(
       amount,
       currency: 'USD',
       status: 'pending',
-      meta: {
-        label: 'Withdrawal to wallet — awaiting admin approval',
-        wallet: destinationAddress.trim(),
-        network: safeNetwork.trim() || 'Not specified',
-        broker: safeBroker.trim() || 'Not specified',
-      },
+      meta: { label: 'Withdrawal to wallet', wallet: snap.wallet },
     })
     return withSnapshot(user.id)
   } catch (e) {
@@ -198,6 +156,27 @@ export async function buyToken(cost: number, pulse: number): Promise<Result> {
   }
 }
 
+export async function sellToken(pulseAmount: number): Promise<Result> {
+  try {
+    const user = await requireUser()
+    if (!(pulseAmount > 0)) return { ok: false, error: 'Enter a valid amount' }
+    const snap = await getSnapshot(user.id)
+    if (pulseAmount > snap.pulse) return { ok: false, error: 'Not enough liquid PULSE — unstake first if needed' }
+    const usdValue = pulseAmount * TOKEN.salePrice
+    await adjustAccount(user.id, { token_balance: -pulseAmount, cash_balance: usdValue })
+    await recordTxn(user.id, {
+      type: 'token_purchase',
+      amount: usdValue,
+      currency: 'USD',
+      status: 'completed',
+      meta: { label: `Sold ${Math.round(pulseAmount).toLocaleString()} PULSE for cash balance`, pulseAmount, direction: 'sell' },
+    })
+    return withSnapshot(user.id)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 export async function stake(amount: number): Promise<Result> {
   try {
     const user = await requireUser()
@@ -255,7 +234,6 @@ export async function submitKyc(input: {
   fullName: string
   idNumber: string
   dateOfBirth?: string
-  nationality?: string
   country?: string
   phone?: string
   address?: string
@@ -292,7 +270,6 @@ export async function submitKyc(input: {
       full_name: input.fullName.trim(),
       id_number: input.idNumber.trim(),
       date_of_birth: input.dateOfBirth || null,
-      nationality: input.nationality || null,
       country: input.country || null,
       phone: input.phone.trim(),
       address: input.address.trim(),
@@ -416,54 +393,10 @@ export async function requestTransfer(recipientIdentifier: string, amount: numbe
   }
 }
 
-export async function getMyNotifications(): Promise<
-  { ok: true; rows: { id: string; title: string; body: string; kind: string; read: boolean; createdAt: number }[] } | { ok: false; error: string }
-> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    const { data, error } = await db
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50)
-    if (error) return { ok: false, error: error.message }
-    return {
-      ok: true,
-      rows: (data ?? []).map((n) => ({
-        id: n.id,
-        title: n.title,
-        body: n.body,
-        kind: n.kind,
-        read: n.read,
-        createdAt: new Date(n.created_at).getTime(),
-      })),
-    }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function markNotificationRead(id: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    await db.from('notifications').update({ read: true }).eq('id', id).eq('user_id', user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
 export async function applyForCard(): Promise<Result> {
   try {
     const user = await requireUser()
     const db = serviceClient()
-    const snap = await getSnapshot(user.id)
-    if (snap.kyc !== 'verified') {
-      return { ok: false, error: 'Complete identity verification (KYC) before applying for a Pulse Card' }
-    }
     const { data: existing } = await db.from('card_applications').select('id').eq('user_id', user.id).maybeSingle()
     if (!existing) {
       const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
