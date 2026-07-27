@@ -23,7 +23,7 @@ const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; s
   invest: { icon: ArrowUpRight, tone: 'text-gold', sign: '-' },
   sale: { icon: Sparkles, tone: 'text-gold', sign: '' },
   stake: { icon: Zap, tone: 'text-gold', sign: '' },
-  unstake: { icon: Coins, tone: 'text-green', sign: '' },
+  unstake: { icon: Coins, tone: 'text-green', sign: '+' },
   p2p_send: { icon: Send, tone: 'text-destructive', sign: '-' },
   p2p_receive: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
 }
