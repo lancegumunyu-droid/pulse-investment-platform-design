@@ -5,16 +5,6 @@ import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 
-async function notify(
-  db: ReturnType<typeof serviceClient>,
-  userId: string,
-  title: string,
-  body: string,
-  kind: 'info' | 'action_required' | 'success' | 'warning' = 'info',
-) {
-  await db.from('notifications').insert({ user_id: userId, title, body, kind })
-}
-
 async function requireAdmin() {
   const supabase = await createClient()
   const {
@@ -30,11 +20,11 @@ async function requireAdmin() {
 // directly, since the underlying server action only checked "is this
 // person an admin at all," not which scope. Real enforcement now lives
 // here, at the same layer that actually moves money.
-async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations'>) {
+async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations' | 'manager' | 'director'>) {
   const user = await requireAdmin()
   const db = serviceClient()
   const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
-  const scope = (data?.admin_scope as 'full' | 'finance' | 'operations' | null) ?? 'full'
+  const scope = (data?.admin_scope as 'full' | 'finance' | 'operations' | 'manager' | 'director' | null) ?? 'full'
   if (!allowed.includes(scope)) throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
   return user
 }
@@ -45,15 +35,17 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
   try {
     await requireAdmin()
     const db = serviceClient()
-    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }] = await Promise.all([
+    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] = await Promise.all([
       db.from('profiles').select('*').order('created_at', { ascending: false }),
       db.from('accounts').select('*'),
       db.from('kyc_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
       db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
+      db.from('card_applications').select('*').order('created_at', { ascending: false }),
     ])
 
     const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
     const emailMap = new Map((profiles ?? []).map((p) => [p.id, p.email]))
+    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
 
     const users = (profiles ?? []).map((p) => {
       const a = acctMap.get(p.id)
@@ -89,6 +81,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
         settledStatus: (t.meta as Record<string, unknown> | null)?.settled_status as string | null ?? null,
+        payCurrency: (t.meta as Record<string, unknown> | null)?.payCurrency as string | null ?? null,
+        userTxRef: (t.meta as Record<string, unknown> | null)?.userTxRef as string | null ?? null,
       }))
 
     const withdrawalQueue = (txns ?? [])
@@ -103,6 +97,10 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         status: t.status,
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
+        destinationAddress: (t.meta as Record<string, unknown> | null)?.wallet as string | null ?? null,
+        walletName: (t.meta as Record<string, unknown> | null)?.walletName as string | null ?? null,
+        network: (t.meta as Record<string, unknown> | null)?.network as string | null ?? null,
+        broker: (t.meta as Record<string, unknown> | null)?.broker as string | null ?? null,
       }))
 
     const p2pQueue = (txns ?? [])
@@ -132,6 +130,21 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       createdAt: new Date(t.created_at).getTime(),
     }))
 
+    const cardQueue = (cardApps ?? [])
+      .filter((c) => c.status === 'waitlisted')
+      .map((c) => {
+        const p = profileMap.get(c.user_id)
+        return {
+          id: c.id,
+          userId: c.user_id,
+          email: emailMap.get(c.user_id) ?? null,
+          fullName: p?.full_name ?? null,
+          kycStatus: p?.kyc_status ?? 'none',
+          status: c.status,
+          createdAt: new Date(c.created_at).getTime(),
+        }
+      })
+
     const kycQueue = (kyc ?? []).map((k) => ({
       id: k.id,
       userId: k.user_id,
@@ -139,6 +152,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       fullName: k.full_name,
       idNumber: k.id_number,
       dateOfBirth: k.date_of_birth,
+      nationality: k.nationality ?? null,
       country: k.country,
       status: k.status,
       createdAt: new Date(k.created_at).getTime(),
@@ -152,12 +166,14 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       pendingDeposits: depositQueue.length,
       pendingKyc: kycQueue.length,
       pendingP2P: p2pQueue.length,
+      pendingCards: cardQueue.length,
       userCount: users.length,
       users,
       kycQueue,
       withdrawalQueue,
       depositQueue,
       p2pQueue,
+      cardQueue,
       recentTxns,
     }
     return { ok: true, snapshot }
@@ -223,12 +239,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       }
     }
 
-    if (decision === 'approved') {
-      await notify(db, sub.user_id, 'Identity verified', 'Your KYC has been approved. You now have full access to deposits, withdrawals, and investing.', 'success')
-    } else {
-      await notify(db, sub.user_id, 'KYC needs another look', 'Your submission was rejected. Please check your details and resubmit.', 'action_required')
-    }
-
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -267,14 +277,12 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, txn.user_id, 'Deposit approved', `$${Number(txn.amount).toFixed(2)} has been credited to your balance.`, 'success')
     } else {
       const { error } = await db
         .from('transactions')
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, txn.user_id, 'Deposit could not be verified', 'We could not confirm your transaction reference. Please check the TXID and try again.', 'action_required')
     }
     return getAdminSnapshot()
   } catch (e) {
@@ -296,7 +304,6 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, txn.user_id, 'Withdrawal sent', `Your withdrawal of $${Number(txn.amount).toFixed(2)} has been approved and sent.`, 'success')
     } else {
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
       const { error } = await db
@@ -304,7 +311,6 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, txn.user_id, 'Withdrawal declined', `Your withdrawal of $${Number(txn.amount).toFixed(2)} was declined and refunded to your balance.`, 'action_required')
     }
     return getAdminSnapshot()
   } catch (e) {
@@ -337,8 +343,6 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, recipientId, 'Money received', `You received $${Number(txn.amount).toFixed(2)} via Pulse transfer.`, 'success')
-      await notify(db, txn.user_id, 'Transfer sent', `Your transfer of $${Number(txn.amount).toFixed(2)} was approved and delivered.`, 'success')
     } else {
       // Refund the sender — funds were held at request time.
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
@@ -347,8 +351,45 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
         .update({ status: 'cancelled', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      await notify(db, txn.user_id, 'Transfer declined', `Your transfer of $${Number(txn.amount).toFixed(2)} was declined and refunded to your balance.`, 'action_required')
     }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function reviewCardApplication(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
+  try {
+    const admin = await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { data: app } = await db.from('card_applications').select('*').eq('id', id).single()
+    if (!app || app.status !== 'waitlisted') {
+      return { ok: false, error: 'Application not found or already processed' }
+    }
+    if (decision === 'approved') {
+      const { data: profile } = await db.from('profiles').select('kyc_status').eq('id', app.user_id).maybeSingle()
+      if (profile?.kyc_status !== 'verified') {
+        return { ok: false, error: 'This applicant has not completed KYC yet — verify identity before approving a card' }
+      }
+    }
+    // NOTE: this generates a reference/tracking ID only — not a real,
+    // spendable payment card number. Issuing an actual card requires
+    // integrating a licensed card-issuing partner (e.g. Stripe Issuing,
+    // Marqeta); this framework is what that integration will plug into.
+    const cardRef =
+      decision === 'approved'
+        ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
+        : null
+    const { error } = await db
+      .from('card_applications')
+      .update({
+        status: decision === 'approved' ? 'approved' : 'rejected',
+        reviewed_by: admin.id,
+        reviewed_at: new Date().toISOString(),
+        ...(cardRef ? { card_ref: cardRef } : {}),
+      })
+      .eq('id', id)
+    if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -391,11 +432,86 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
 
 // NEW: a full admin can appoint another admin to a narrower scope
 // (finance-only or operations-only) so the dashboard splits between them.
-export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations'): Promise<AdminResult> {
+export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations' | 'manager' | 'director'): Promise<AdminResult> {
   try {
     await requireAdminScope(['full'])
     const db = serviceClient()
     const { error } = await db.from('profiles').update({ admin_scope: scope, role: 'admin' }).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// Read-only. Managers/Directors have no fund-moving or KYC-approval
+// permissions — this just totals verified investment volume for the
+// users assigned to them, so salary/commission can be calculated
+// against real, KYC'd investment activity rather than headcount.
+export async function getTeamVolumeReport(): Promise<
+  | { ok: true; scope: 'manager' | 'director'; rows: { userId: string; name: string | null; email: string | null; kycVerified: boolean; investedVolume: number }[] }
+  | AdminResult
+> {
+  try {
+    const user = await requireAdminScope(['manager', 'director', 'full'])
+    const db = serviceClient()
+    const { data: me } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
+    const scope: 'manager' | 'director' = me?.admin_scope === 'director' ? 'director' : 'manager'
+
+    let teamIds: string[] = []
+    if (scope === 'director') {
+      const { data: managers } = await db.from('profiles').select('id').eq('reports_to_director', user.id)
+      const managerIds = (managers ?? []).map((m) => m.id)
+      const { data: managed } = managerIds.length
+        ? await db.from('profiles').select('id').in('managed_by', managerIds)
+        : { data: [] as { id: string }[] }
+      teamIds = (managed ?? []).map((m) => m.id)
+    } else {
+      const { data: managed } = await db.from('profiles').select('id').eq('managed_by', user.id)
+      teamIds = (managed ?? []).map((m) => m.id)
+    }
+
+    if (teamIds.length === 0) return { ok: true, scope, rows: [] }
+
+    const [{ data: people }, { data: holdings }] = await Promise.all([
+      db.from('profiles').select('id, full_name, email, kyc_status').in('id', teamIds),
+      db.from('holdings').select('user_id, amount').in('user_id', teamIds),
+    ])
+
+    const volumeByUser = new Map<string, number>()
+    for (const h of holdings ?? []) volumeByUser.set(h.user_id, (volumeByUser.get(h.user_id) ?? 0) + Number(h.amount))
+
+    const rows = (people ?? []).map((p) => ({
+      userId: p.id,
+      name: p.full_name,
+      email: p.email,
+      kycVerified: p.kyc_status === 'verified',
+      investedVolume: volumeByUser.get(p.id) ?? 0,
+    }))
+
+    return { ok: true, scope, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function assignManager(userId: string, managerId: string): Promise<AdminResult> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { error } = await db.from('profiles').update({ managed_by: managerId || null }).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function assignDirector(managerId: string, directorId: string): Promise<AdminResult> {
+  try {
+    await requireAdminScope(['full'])
+    const db = serviceClient()
+    const { error } = await db.from('profiles').update({ reports_to_director: directorId || null }).eq('id', managerId)
     if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
