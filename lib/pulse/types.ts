@@ -1,5 +1,7 @@
 import type { TierId } from '@/lib/pulse-data'
+
 export type KycStatus = 'none' | 'pending' | 'verified' | 'rejected'
+
 export interface SnapshotHolding {
   id: string
   projectId: string
@@ -7,6 +9,7 @@ export interface SnapshotHolding {
   amount: number
   date: number
 }
+
 export interface SnapshotTxn {
   id: string
   type: 'deposit' | 'withdraw' | 'invest' | 'stake' | 'unstake' | 'sale' | 'p2p_send' | 'p2p_receive'
@@ -14,11 +17,9 @@ export interface SnapshotTxn {
   amount: number
   currency: 'USDT' | 'PULSE'
   status: 'completed' | 'pending' | 'cancelled' | 'failed'
-  // NEW: 3-state deposit visibility — true once an admin has started
-  // working the request. status itself stays 'pending' the whole time.
-  isProcessing?: boolean
   date: number
 }
+
 export interface Snapshot {
   cash: number
   pulse: number
@@ -42,33 +43,38 @@ export interface Snapshot {
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
   cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
-  cardRef: string | null
   savedWallets: SavedWallet[]
 }
+
 export interface SavedWallet {
   id: string
   label: string
   address: string
 }
+
 export interface BadgeRow {
   key: string
   earnedAt: number
 }
+
 export interface MyReferralRow {
   walletId: string | null
   displayName: string
   kycStatus: string
   createdAt: number
 }
+
 export interface LeaderboardRow {
   fullName: string
   totalPoints: number
   founderNumber: number | null
 }
+
 export interface FounderRow {
   fullName: string
   founderNumber: number
 }
+
 // Admin dashboard payload
 export interface AdminUserRow {
   id: string
@@ -83,6 +89,7 @@ export interface AdminUserRow {
   createdAt: number
   adminScope: 'full' | 'finance' | 'operations' | null
 }
+
 export interface AdminKycRow {
   id: string
   userId: string
@@ -94,8 +101,8 @@ export interface AdminKycRow {
   country: string | null
   status: string
   createdAt: number
-  adminNote: string | null
 }
+
 export interface AdminCardRow {
   id: string
   userId: string
@@ -105,6 +112,7 @@ export interface AdminCardRow {
   status: string
   createdAt: number
 }
+
 export interface AdminTxnRow {
   id: string
   userId: string
@@ -120,14 +128,15 @@ export interface AdminTxnRow {
   settledStatus?: string | null
   payCurrency?: string | null
   userTxRef?: string | null
-  // NEW: 3-state deposit tracking — status stays 'pending' the whole
-  // time, this is just "an admin has started working this one."
-  processingSince?: number | null
-  processingBy?: string | null
+  destinationAddress?: string | null
+  walletName?: string | null
+  network?: string | null
+  broker?: string | null
   // NEW: for p2p_send rows, who the money is headed to — resolved
   // server-side so the admin doesn't have to cross-reference user IDs.
   counterpartyLabel?: string | null
 }
+
 export interface AdminSnapshot {
   totalDeposits: number
   totalInvested: number
