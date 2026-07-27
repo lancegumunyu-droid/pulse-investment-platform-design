@@ -22,10 +22,10 @@ export function TopBar() {
           </span>
         </button>
         <div className="flex items-center gap-2">
-          <div className="text-right">
+          <button onClick={() => setView('wallet')} className="text-right" aria-label="View wallet">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Portfolio</p>
             <p className="font-mono text-sm font-semibold leading-none">${money(portfolioValue)}</p>
-          </div>
+          </button>
           <NotificationBell />
           {state.kyc === 'verified' ? (
             <span className="flex size-9 items-center justify-center rounded-xl bg-green-soft text-green" aria-label="KYC verified">
