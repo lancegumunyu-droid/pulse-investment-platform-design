@@ -94,6 +94,7 @@ export interface AdminKycRow {
   country: string | null
   status: string
   createdAt: number
+  adminNote: string | null
 }
 export interface AdminCardRow {
   id: string
