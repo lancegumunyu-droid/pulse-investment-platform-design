@@ -253,6 +253,7 @@ export function AdminView() {
                     <div className="mb-3 space-y-1 text-xs text-muted-foreground">
                       <p>ID: <span className="text-foreground font-mono">{k.idNumber}</span></p>
                       {k.dateOfBirth && <p>DOB: {k.dateOfBirth}</p>}
+                      {k.nationality && <p>Nationality: {k.nationality}</p>}
                       {k.country && <p>Country: {k.country}</p>}
                       <p>Submitted: {new Date(k.createdAt).toLocaleString()}</p>
                     </div>
@@ -304,14 +305,22 @@ export function AdminView() {
                 snap.depositQueue.map((d) => (
                   <Glass key={d.id} className="animate-rise">
                     <div className="mb-3 flex items-start justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold">${money(d.amount)}</p>
                         <p className="text-xs text-muted-foreground">{d.email ?? d.userId.slice(0, 12)}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Requested {new Date(d.createdAt).toLocaleString()}</p>
+                        {d.payCurrency && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Paid via <span className="font-medium text-foreground">{d.payCurrency.toUpperCase()}</span>
+                          </p>
+                        )}
+                        {d.userTxRef && (
+                          <p className="truncate font-mono text-xs text-gold" title={d.userTxRef}>
+                            TXID: {d.userTxRef}
+                          </p>
+                        )}
                       </div>
-                      <Pill tone={d.settledStatus === 'finished' || d.settledStatus === 'confirmed' ? 'green' : 'gold'}>
-                        {d.settledStatus ? 'payment confirmed' : 'awaiting payment'}
-                      </Pill>
+                      <Pill tone="muted">pending</Pill>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -361,10 +370,21 @@ export function AdminView() {
                 snap.withdrawalQueue.map((w) => (
                   <Glass key={w.id} className="animate-rise">
                     <div className="mb-3 flex items-start justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold">${money(w.amount)}</p>
                         <p className="text-xs text-muted-foreground">{w.email ?? w.userId.slice(0, 12)}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(w.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Requested {new Date(w.createdAt).toLocaleString()}</p>
+                        {w.walletName && <p className="mt-1 text-xs font-medium text-foreground">{w.walletName}</p>}
+                        {w.destinationAddress && (
+                          <p className="truncate font-mono text-xs text-gold" title={w.destinationAddress}>
+                            To: {w.destinationAddress}
+                          </p>
+                        )}
+                        {(w.network || w.broker) && (
+                          <p className="text-xs text-muted-foreground">
+                            {w.network ?? 'Network not specified'} · {w.broker ?? 'Broker not specified'}
+                          </p>
+                        )}
                       </div>
                       <Pill tone="gold">pending</Pill>
                     </div>
