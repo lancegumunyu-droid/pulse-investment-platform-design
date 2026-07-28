@@ -1,762 +1,279 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, X } from 'lucide-react'
+import { useState } from 'react'
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Coins,
+  Copy,
+  CreditCard,
+  LogOut,
+  Send,
+  Sparkles,
+  Wallet,
+  Zap,
+} from 'lucide-react'
+import { money, usePulse, type Txn } from '../store'
+import { Glass, Heartbeat, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
-import { money, usePulse } from './store'
-import { RiskNote } from './ui-bits'
-import { PLATFORM_WALLETS, PROJECTS, tierForAmount } from '@/lib/pulse-data'
-import { cn } from '@/lib/utils'
 
-const KYC_REQUIRED_ABOVE = 500
-
-// African countries only, SADC given first priority — per explicit
-// product decision. Shared between the Nationality and Country of
-// residence fields since both are African-only.
-const AFRICA_SADC = [
-  'Angola', 'Botswana', 'Comoros', 'DR Congo', 'Eswatini', 'Lesotho', 'Madagascar',
-  'Malawi', 'Mauritius', 'Mozambique', 'Namibia', 'Seychelles', 'South Africa',
-  'Tanzania', 'Zambia', 'Zimbabwe',
-]
-const AFRICA_REST = [
-  'Algeria', 'Benin', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon',
-  'Central African Republic', 'Chad', 'Republic of the Congo', "Cote d'Ivoire",
-  'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Ethiopia', 'Gabon', 'Gambia',
-  'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Liberia', 'Libya', 'Mali',
-  'Mauritania', 'Morocco', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe',
-  'Senegal', 'Sierra Leone', 'Somalia', 'South Sudan', 'Sudan', 'Togo', 'Tunisia',
-  'Uganda',
-]
-
-function ModalShell({
-  title,
-  icon,
-  children,
-  onClose,
-}: {
-  title: string
-  icon: ReactNode
-  children: ReactNode
-  onClose: () => void
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
-  }, [onClose])
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div className="animate-rise relative z-10 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl glass no-scrollbar sm:rounded-3xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/8 bg-background/95 px-5 py-4 backdrop-blur-md">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-gold-soft text-gold">{icon}</span>
-            <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex size-9 items-center justify-center rounded-full bg-white/[0.06] text-muted-foreground transition-colors hover:bg-white/[0.1] hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-        <div className="p-5 pt-4">{children}</div>
-      </div>
-    </div>
-  )
+const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; sign: string }> = {
+  deposit: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
+  withdraw: { icon: ArrowUpRight, tone: 'text-destructive', sign: '-' },
+  invest: { icon: ArrowUpRight, tone: 'text-gold', sign: '-' },
+  sale: { icon: Sparkles, tone: 'text-gold', sign: '' },
+  stake: { icon: Zap, tone: 'text-gold', sign: '' },
+  unstake: { icon: Coins, tone: 'text-green', sign: '+' },
+  p2p_send: { icon: Send, tone: 'text-destructive', sign: '-' },
+  p2p_receive: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
 }
 
-export function Modals() {
-  const { modal, closeModal } = usePulse()
-  if (!modal.type) return null
-  if (modal.type === 'kyc') return <KycModal onClose={closeModal} />
-  if (modal.type === 'invest') return <InvestModal onClose={closeModal} />
-  if (modal.type === 'deposit') return <DepositModal onClose={closeModal} />
-  if (modal.type === 'withdraw') return <WithdrawModal onClose={closeModal} />
-  if (modal.type === 'transfer') return <TransferModal onClose={closeModal} />
-  return null
+const CARD_COPY: Record<'none' | 'waitlisted' | 'approved' | 'free_card_earned', { title: string; body: string }> = {
+  none: {
+    title: 'Apply for a Pulse Card',
+    body: 'Spend directly from your Pulse Wallet — funded by your cash balance and PULSE token, no separate top-up needed. Physical cards are rolling out to the waitlist in order.',
+  },
+  waitlisted: {
+    title: "You're on the waitlist",
+    body: "We'll notify you here the moment your Pulse Card is ready to activate. No action needed in the meantime.",
+  },
+  approved: {
+    title: 'Your card is approved',
+    body: 'Your Pulse Card has been approved. Physical card issuance and activation will appear here once it ships.',
+  },
+  free_card_earned: {
+    title: 'Free card earned 🎉',
+    body: 'You reached 100 verified referrals and earned a free Pulse Card. Physical card issuance and activation will appear here once it ships.',
+  },
 }
 
-function KycModal({ onClose }: { onClose: () => void }) {
-  const { api, busy, toast, state } = usePulse()
-  const [step, setStep] = useState(state.kyc === 'pending' ? 2 : 0)
-  const [form, setForm] = useState({ name: '', nationality: 'Botswana', country: 'Botswana', idNumber: '', dob: '', phone: '', address: '' })
-
-  // Real, but honest-scope, validation: format checks we can actually do
-  // client-side (phone shape, ID sanity, minimum age). This is NOT
-  // identity verification — confirming a document is genuine, or that
-  // its format matches what that specific country actually issues,
-  // needs a real provider (Smile Identity, Onfido, Persona). Flagging
-  // that clearly rather than letting format-looks-ok pass as "verified."
-  const phoneValid = /^\+?[0-9\s\-()]{7,16}$/.test(form.phone.trim())
-  const idValid = /^[A-Za-z0-9\-\s]{5,20}$/.test(form.idNumber.trim())
-  const ageValid = (() => {
-    if (!form.dob) return false
-    const dob = new Date(form.dob)
-    if (Number.isNaN(dob.getTime())) return false
-    const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    return age >= 18
-  })()
-
-  const submit = async () => {
-    const res = await api.submitKyc({
-      fullName: form.name,
-      idNumber: form.idNumber,
-      dateOfBirth: form.dob || undefined,
-      nationality: form.nationality,
-      country: form.country,
-      phone: form.phone,
-      address: form.address,
-    })
-    if (!res.ok) {
-      toast({ title: 'Could not submit', description: res.error, variant: 'error' })
-      return
-    }
-    setStep(2)
-    toast({
-      title: 'Submitted for review',
-      description: 'Our team will verify your identity shortly.',
-      variant: 'success',
-    })
-    setTimeout(onClose, 1200)
+// Status line shown per transaction — folds in the new 3-state deposit
+// tracking (isProcessing) without needing a new status value anywhere.
+function statusLabel(t: Txn): string {
+  if (t.type === 'deposit' && t.status === 'pending') {
+    return t.isProcessing ? 'processing' : 'pending — awaiting review'
   }
-
-  const canSubmit = form.name.trim().length >= 2 && idValid && ageValid && phoneValid && form.address.trim().length >= 5
-
-  return (
-    <ModalShell title="Identity verification" icon={<ShieldCheck className="size-5" />} onClose={onClose}>
-      {step < 2 ? (
-        <>
-          <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-            KYC is required to protect investors and comply with SADC financial regulations. You must be 18 or older
-            to invest with Pulse. Your details are used only for verification.
-          </p>
-          <div className="space-y-3">
-            <Field label="Full legal name">
-              <input
-                className={inputCls}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. Thabo Nkosi"
-              />
-            </Field>
-            <Field label="Nationality">
-              <select
-                className={inputCls}
-                value={form.nationality}
-                onChange={(e) => setForm({ ...form, nationality: e.target.value })}
-              >
-                <optgroup label="SADC region">
-                  {AFRICA_SADC.map((c) => (
-                    <option key={c} value={c} className="bg-background">
-                      {c}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Rest of Africa">
-                  {AFRICA_REST.map((c) => (
-                    <option key={c} value={c} className="bg-background">
-                      {c}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-            </Field>
-            <Field label="Country of residence">
-              <select
-                className={inputCls}
-                value={form.country}
-                onChange={(e) => setForm({ ...form, country: e.target.value })}
-              >
-                <optgroup label="SADC region">
-                  {AFRICA_SADC.map((c) => (
-                    <option key={c} value={c} className="bg-background">
-                      {c}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Rest of Africa">
-                  {AFRICA_REST.map((c) => (
-                    <option key={c} value={c} className="bg-background">
-                      {c}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Pulse is currently open to residents of African countries only, with SADC given first priority.
-              </p>
-            </Field>
-            <Field label="National ID / Passport number">
-              <input
-                className={inputCls}
-                value={form.idNumber}
-                onChange={(e) => setForm({ ...form, idNumber: e.target.value })}
-                placeholder="ID number"
-              />
-              {form.idNumber && !idValid && (
-                <p className="mt-1 text-[11px] text-destructive">5–20 letters/numbers, no special characters.</p>
-              )}
-            </Field>
-            <Field label="Date of birth">
-              <input
-                type="date"
-                className={inputCls}
-                value={form.dob}
-                onChange={(e) => setForm({ ...form, dob: e.target.value })}
-              />
-              {form.dob && !ageValid && (
-                <p className="mt-1 text-[11px] text-destructive">You must be 18 or older to invest with Pulse.</p>
-              )}
-            </Field>
-            <Field label="Phone number">
-              <input
-                type="tel"
-                className={inputCls}
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="+267 71 234 567"
-              />
-              {form.phone && !phoneValid && (
-                <p className="mt-1 text-[11px] text-destructive">Enter a valid phone number with country code.</p>
-              )}
-            </Field>
-            <Field label="Residential address">
-              <input
-                className={inputCls}
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="Street, city, postal code"
-              />
-            </Field>
-          </div>
-          <Button
-            variant="default"
-            size="lg"
-            className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-            disabled={!canSubmit || busy}
-            onClick={submit}
-          >
-            Submit for verification
-          </Button>
-          <p className="mt-3 text-center text-xs text-muted-foreground">A Pulse admin reviews every submission before approval.</p>
-        </>
-      ) : (
-        <div className="flex flex-col items-center py-8 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-gold-soft text-gold">
-            <ShieldCheck className="size-7 animate-pulse" />
-          </span>
-          <p className="mt-4 font-semibold">Submitted for review</p>
-          <p className="mt-1 text-sm text-muted-foreground">You&apos;ll get full access once an admin approves your identity.</p>
-        </div>
-      )}
-    </ModalShell>
-  )
+  if (t.type === 'withdraw' && t.status === 'pending') return 'pending — usually within 3 days'
+  return t.status
 }
 
-function InvestModal({ onClose }: { onClose: () => void }) {
-  const { state, api, busy, toast, openModal, modal } = usePulse()
-  const projectId = (modal.payload?.projectId as string) || PROJECTS[0].id
-  const preset = modal.payload?.amount as number | undefined
-  const project = PROJECTS.find((p) => p.id === projectId) || PROJECTS[0]
-  const [amount, setAmount] = useState(String(preset ?? 75))
+export function WalletView() {
+  const { state, api, toast, openModal } = usePulse()
+  const [addressInput, setAddressInput] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [applyingCard, setApplyingCard] = useState(false)
 
-  const value = Number(amount) || 0
-  const tier = tierForAmount(state.holdings.reduce((s, h) => s + h.amount, 0) + value)
-  const insufficient = value > state.cash
-  const needsKyc = value > KYC_REQUIRED_ABOVE && state.kyc !== 'verified'
-
-  const confirm = async () => {
-    if (needsKyc) {
-      toast({ title: 'Verification required', description: `KYC is required for investments over $${KYC_REQUIRED_ABOVE}.`, variant: 'error' })
-      onClose()
-      openModal('kyc')
+  const connect = async () => {
+    const addr = addressInput.trim()
+    if (addr.length < 20) {
+      toast({ title: "That doesn't look like a valid address", description: 'Paste your USDT (TRC-20) or BTC receiving address.', variant: 'error' })
       return
     }
-    if (insufficient) {
-      toast({ title: 'Insufficient balance', description: 'Deposit funds before investing.', variant: 'error' })
-      onClose()
-      openModal('deposit')
-      return
-    }
-    const res = await api.invest(value, projectId)
-    if (!res.ok) {
-      toast({ title: 'Investment failed', description: res.error, variant: 'error' })
-      return
-    }
-    toast({ title: 'Investment confirmed', description: `$${money(value)} allocated to ${project.name}.`, variant: 'success' })
-    onClose()
-  }
-
-  return (
-    <ModalShell title={`Invest — ${project.name}`} icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
-      <div className="mb-4 rounded-2xl bg-white/[0.03] p-4">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{project.country} · {project.sector}</span>
-          <span className="font-medium text-green">{project.targetYield} target</span>
-        </div>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{project.summary}</p>
-      </div>
-
-      <Field label="Amount (USDT)">
-        <input
-          type="number"
-          inputMode="decimal"
-          className={inputCls}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-      </Field>
-      <div className="mt-2 flex gap-2">
-        {[75, 150, 300, 750].map((v) => (
-          <button
-            key={v}
-            onClick={() => setAmount(String(v))}
-            className="flex-1 rounded-xl border border-white/8 bg-white/[0.03] py-2 text-xs font-medium hover:border-gold/40"
-          >
-            ${v}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
-        <Row label="Available balance" value={`$${money(state.cash)}`} />
-        <Row label="Resulting tier" value={tier.name} tone="gold" />
-        <Row label="Target yield range" value={tier.yieldLabel} tone="green" />
-      </div>
-
-      {needsKyc ? (
-        <p className="mt-3 text-xs text-gold">Investments over ${KYC_REQUIRED_ABOVE} require identity verification.</p>
-      ) : null}
-
-      <Button
-        size="lg"
-        className={cn(
-          'mt-4 h-12 w-full text-base font-semibold',
-          'bg-gold text-primary-foreground hover:bg-gold/90',
-        )}
-        disabled={value <= 0 || busy}
-        onClick={confirm}
-      >
-        {insufficient ? 'Deposit to continue' : `Confirm $${money(value)} investment`}
-      </Button>
-      <RiskNote className="mt-4" />
-    </ModalShell>
-  )
-}
-
-function SavedWalletsPanel({ context }: { context?: boolean }) {
-  const { state, api, toast } = usePulse()
-  const [adding, setAdding] = useState(false)
-  const [label, setLabel] = useState('')
-  const [address, setAddress] = useState('')
-  const [busyId, setBusyId] = useState<string | null>(null)
-
-  const useWallet = async (addr: string) => {
-    setBusyId(addr)
+    setConnecting(true)
     const res = await api.connectWallet(addr)
-    setBusyId(null)
-    if (!res.ok) toast({ title: 'Could not select wallet', description: res.error, variant: 'error' })
-  }
-
-  const saveNew = async () => {
-    if (address.trim().length < 20) {
-      toast({ title: "That doesn't look like a valid address", variant: 'error' })
-      return
-    }
-    setBusyId('new')
-    const res = await api.addSavedWallet(label || 'Wallet', address.trim())
+    setConnecting(false)
     if (!res.ok) {
-      setBusyId(null)
       toast({ title: 'Could not save wallet', description: res.error, variant: 'error' })
       return
     }
-    await api.connectWallet(address.trim())
-    setBusyId(null)
-    setAdding(false)
-    setLabel('')
-    setAddress('')
-    toast({ title: 'Wallet saved and selected', variant: 'success' })
+    setAddressInput('')
+    toast({ title: 'Wallet connected', description: 'This is where your withdrawals will be sent.', variant: 'success' })
   }
 
-  const remove = async (id: string) => {
-    setBusyId(id)
-    const res = await api.removeSavedWallet(id)
-    setBusyId(null)
-    if (!res.ok) toast({ title: 'Could not remove wallet', description: res.error, variant: 'error' })
+  const disconnect = async () => {
+    const res = await api.disconnectWallet()
+    if (res.ok) toast({ title: 'Wallet disconnected', variant: 'info' })
   }
+
+  const copy = () => {
+    if (state.wallet) {
+      navigator.clipboard?.writeText(state.wallet)
+      toast({ title: 'Address copied', variant: 'info' })
+    }
+  }
+
+  const applyCard = async () => {
+    setApplyingCard(true)
+    const res = await api.applyForCard()
+    setApplyingCard(false)
+    if (!res.ok) {
+      toast({ title: 'Could not submit application', description: res.error, variant: 'error' })
+      return
+    }
+    toast({ title: "You're on the Pulse Card waitlist", variant: 'success' })
+  }
+
+  const cardCopy = CARD_COPY[state.cardStatus]
+  const hasPendingActivity = state.txns.some((t) => t.status === 'pending')
 
   return (
-    <div className="mb-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">
-          {context ? 'Your saved wallets' : 'Choose a receiving wallet'}
-        </p>
-        {!adding && (
-          <button onClick={() => setAdding(true)} className="text-xs font-medium text-gold">
-            + Add wallet
-          </button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <SectionTitle title="Wallet" subtitle="Manage funds, connect a wallet, and review activity." icon={<Wallet className="size-5" />} />
 
-      {state.savedWallets.length === 0 && !adding && (
-        <p className="rounded-xl bg-white/[0.03] px-3.5 py-3 text-xs text-muted-foreground">
-          No wallets saved yet. {context ? 'Add one so it\'s ready when you withdraw.' : 'Add the address you want withdrawals sent to.'}
+      <Glass gold className="animate-rise glow-edge">
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide text-gold">Available balance</p>
+          <Heartbeat active={hasPendingActivity} size={22} />
+        </div>
+        <p className="mt-1 font-mono text-3xl font-semibold">${money(state.cash)}</p>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Button size="lg" className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90" onClick={() => openModal('deposit')}>
+            <ArrowDownRight className="size-4" /> Deposit
+          </Button>
+          <Button size="lg" variant="outline" className="h-11 w-full border-white/12 bg-white/[0.03] font-semibold" onClick={() => openModal('withdraw')}>
+            <ArrowUpRight className="size-4" /> Withdraw
+          </Button>
+          <Button size="lg" variant="outline" className="h-11 w-full border-white/12 bg-white/[0.03] font-semibold" onClick={() => openModal('transfer')}>
+            <Send className="size-4" /> Send
+          </Button>
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Deposits are usually reviewed within 10 minutes. Withdrawals typically complete within 3 days.
         </p>
-      )}
+      </Glass>
 
-      <div className="space-y-2">
-        {state.savedWallets.map((w) => {
-          const active = state.wallet === w.address
-          return (
-            <div
-              key={w.id}
-              className={cn(
-                'flex items-center gap-2 rounded-xl border px-3.5 py-2.5',
-                active ? 'border-gold/50 bg-gold-soft' : 'border-white/8 bg-white/[0.03]',
-              )}
-            >
-              <button onClick={() => useWallet(w.address)} disabled={busyId === w.address} className="min-w-0 flex-1 text-left">
-                <p className={cn('truncate text-xs font-semibold', active && 'text-gold')}>{w.label}</p>
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
-                  {w.address.slice(0, 8)}…{w.address.slice(-6)}
-                </p>
-              </button>
-              {active && <span className="shrink-0 text-[10px] font-semibold text-gold">ACTIVE</span>}
-              <button onClick={() => remove(w.id)} disabled={busyId === w.id} className="shrink-0 text-muted-foreground hover:text-destructive" aria-label="Remove wallet">
-                <X className="size-3.5" />
-              </button>
+      <Glass className="animate-rise">
+        {state.wallet ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-green-soft text-green">
+                <Wallet className="size-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Connected</p>
+                <button onClick={copy} className="flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground">
+                  {state.wallet.slice(0, 8)}…{state.wallet.slice(-6)} <Copy className="size-3" />
+                </button>
+              </div>
             </div>
-          )
-        })}
-      </div>
-
-      {adding && (
-        <div className="mt-2 space-y-2 rounded-xl border border-white/8 bg-white/[0.03] p-3">
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Label (e.g. My Binance wallet)"
-            className={inputCls}
-          />
-          <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Address (USDT TRC-20 or BTC)"
-            className={inputCls}
-          />
-          <div className="flex gap-2">
-            <Button size="sm" className="flex-1 bg-gold font-semibold text-primary-foreground hover:bg-gold/90" disabled={busyId === 'new'} onClick={saveNew}>
-              {busyId === 'new' ? 'Saving…' : 'Save & use'}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
-              Cancel
+            <Button size="icon" variant="ghost" onClick={disconnect} aria-label="Disconnect wallet">
+              <LogOut className="size-4" />
             </Button>
           </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function DepositModal({ onClose }: { onClose: () => void }) {
-  const { api, busy, toast } = usePulse()
-  const [currency, setCurrency] = useState<'usdttrc20' | 'btc'>('usdttrc20')
-  const [amount, setAmount] = useState('100')
-  const [txRef, setTxRef] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const usd = Number(amount) || 0
-  const address = PLATFORM_WALLETS[currency]
-  const label = currency === 'btc' ? 'BTC' : 'USDT (TRC-20)'
-
-  const copyAddress = () => {
-    navigator.clipboard?.writeText(address)
-    toast({ title: 'Address copied', variant: 'info' })
-  }
-
-  const submit = async () => {
-    if (usd <= 0) {
-      toast({ title: 'Enter a valid amount', variant: 'error' })
-      return
-    }
-    if (!txRef.trim()) {
-      toast({ title: 'Enter your transaction reference / TXID', description: 'This is how we match your payment to your account.', variant: 'error' })
-      return
-    }
-    setSubmitting(true)
-    const res = await api.deposit(usd, currency, txRef.trim())
-    setSubmitting(false)
-    if (!res.ok) {
-      toast({ title: 'Deposit failed', description: res.error, variant: 'error' })
-      return
-    }
-    toast({ title: 'Deposit submitted', description: 'Pending admin verification — this can take a little while.', variant: 'info' })
-    onClose()
-  }
-
-  return (
-    <ModalShell title="Deposit funds" icon={<ArrowDownRight className="size-5" />} onClose={onClose}>
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        {(['usdttrc20', 'btc'] as const).map((c) => (
-          <button
-            key={c}
-            onClick={() => setCurrency(c)}
-            className={cn(
-              'rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors',
-              currency === c ? 'border-gold/50 bg-gold-soft text-gold' : 'border-white/8 bg-white/[0.03] text-muted-foreground',
-            )}
-          >
-            {c === 'btc' ? 'BTC' : 'USDT'}
-          </button>
-        ))}
-      </div>
-
-      <Field label="Amount (USD)">
-        <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </Field>
-
-      <div className="mt-4">
-        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Send to this address</span>
-        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
-          <span className="flex-1 truncate font-mono text-xs">{address}</span>
-          <button onClick={copyAddress} className="flex items-center gap-1 text-gold" aria-label="Copy deposit address">
-            <Copy className="size-3.5" /> Copy
-          </button>
-        </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Only send {label}. Sending on the wrong network will result in lost funds.
-        </p>
-      </div>
-
-      <Field label="Transaction reference / TXID" className="mt-4">
-        <input
-          type="text"
-          className={inputCls}
-          placeholder="Paste the transaction hash from your wallet"
-          value={txRef}
-          onChange={(e) => setTxRef(e.target.value)}
-        />
-      </Field>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        After you send the payment on your side, paste the transaction ID here so we can match it to your deposit.
-      </p>
-
-      <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
-        <Row label="Pay with" value={label} />
-        <Row label="Credited on approval" value={`$${money(usd)}`} tone="green" />
-      </div>
-
-      <p className="mt-3 text-xs text-muted-foreground">
-        Your deposit stays pending until an admin confirms your transaction on-chain and approves it.
-      </p>
-
-      <Button
-        size="lg"
-        className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || !txRef.trim() || submitting || busy}
-        onClick={submit}
-      >
-        {submitting ? 'Submitting…' : `Submit deposit — $${money(usd)}`}
-      </Button>
-    </ModalShell>
-  )
-}
-
-function WithdrawModal({ onClose }: { onClose: () => void }) {
-  const { state, api, busy, toast, openModal } = usePulse()
-  const [amount, setAmount] = useState('50')
-  const [address, setAddress] = useState(state.wallet ?? '')
-  const [network, setNetwork] = useState('USDT (TRC-20)')
-  const [broker, setBroker] = useState('')
-  const usd = Number(amount) || 0
-  const insufficient = usd > state.cash
-
-  const submit = async () => {
-    if (state.kyc !== 'verified') {
-      toast({ title: 'Verification required', description: 'Complete KYC before withdrawing.', variant: 'error' })
-      onClose()
-      openModal('kyc')
-      return
-    }
-    if (!address.trim()) {
-      toast({ title: 'Enter the wallet address you want your withdrawal sent to', variant: 'error' })
-      return
-    }
-    if (insufficient) {
-      toast({ title: 'Amount exceeds balance', variant: 'error' })
-      return
-    }
-    const res = await api.withdraw(usd, address.trim(), network, broker)
-    if (!res.ok) {
-      toast({ title: 'Withdrawal failed', description: res.error, variant: 'error' })
-      return
-    }
-    toast({ title: 'Withdrawal requested', description: 'Funds will arrive after admin approval.', variant: 'info' })
-    onClose()
-  }
-
-  return (
-    <ModalShell title="Withdraw to wallet" icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
-      <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
-        <Row label="Withdrawable balance" value={`$${money(state.cash)}`} />
-        <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
-      </div>
-
-      <SavedWalletsPanel />
-
-      <Field label="Amount (USDT)">
-        <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </Field>
-
-      <Field label="Wallet address" className="mt-4">
-        <input
-          type="text"
-          className={inputCls}
-          placeholder="Paste the receiving wallet address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-      </Field>
-
-      <Field label="Network" className="mt-4">
-        <select
-          className={inputCls}
-          value={network}
-          onChange={(e) => setNetwork(e.target.value)}
-        >
-          <option>USDT (TRC-20)</option>
-          <option>USDT (ERC-20)</option>
-          <option>USDT (BEP-20)</option>
-          <option>BTC</option>
-        </select>
-      </Field>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Choose the network your receiving wallet actually supports — sending on the wrong one loses funds and can't be
-        reversed.
-      </p>
-
-      <Field label="Exchange / broker (optional)" className="mt-4">
-        <input
-          type="text"
-          className={inputCls}
-          placeholder="e.g. Binance, Bybit, your personal wallet"
-          value={broker}
-          onChange={(e) => setBroker(e.target.value)}
-        />
-      </Field>
-
-      <Button
-        size="lg"
-        className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || busy || !address.trim()}
-        onClick={submit}
-      >
-        Request withdrawal
-      </Button>
-      <p className="mt-3 text-xs text-muted-foreground">Withdrawals are reviewed and disbursed by the platform admin.</p>
-    </ModalShell>
-  )
-}
-
-function TransferModal({ onClose }: { onClose: () => void }) {
-  const { state, api, busy, toast, openModal } = usePulse()
-  const [recipient, setRecipient] = useState('')
-  const [amount, setAmount] = useState('20')
-  const usd = Number(amount) || 0
-  const insufficient = usd > state.cash
-
-  const submit = async () => {
-    if (state.kyc !== 'verified') {
-      toast({ title: 'Verification required', description: 'Complete KYC before sending funds.', variant: 'error' })
-      onClose()
-      openModal('kyc')
-      return
-    }
-    if (!recipient.trim()) {
-      toast({ title: 'Enter a username or Pulse ID', variant: 'error' })
-      return
-    }
-    if (insufficient) {
-      toast({ title: 'Amount exceeds balance', variant: 'error' })
-      return
-    }
-    const res = await api.transfer(recipient.trim(), usd)
-    if (!res.ok) {
-      toast({ title: 'Transfer failed', description: res.error, variant: 'error' })
-      return
-    }
-    toast({ title: 'Transfer requested', description: 'Held pending admin approval, for both your safety.', variant: 'info' })
-    onClose()
-  }
-
-  return (
-    <ModalShell title="Send to another user" icon={<Send className="size-5" />} onClose={onClose}>
-      <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
-        <Row label="Available balance" value={`$${money(state.cash)}`} />
-        <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
-      </div>
-      <Field label="Recipient username or Pulse ID">
-        <input
-          className={inputCls}
-          value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
-          placeholder="@username or PLS-XXXXXX"
-        />
-      </Field>
-      <div className="mt-3">
-        <Field label="Amount (USD)">
-          <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </Field>
-      </div>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        For safety, transfers are held and reviewed by an admin before the recipient is credited — the same as
-        deposits and withdrawals. Your balance is deducted now and refunded in full if the transfer is declined.
-      </p>
-      <Button
-        size="lg"
-        className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        disabled={usd <= 0 || busy || !recipient.trim()}
-        onClick={submit}
-      >
-        Send ${money(usd)}
-      </Button>
-    </ModalShell>
-  )
-}
-
-const inputCls =
-  'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm outline-none transition-colors focus:border-gold/50 focus:ring-2 focus:ring-gold/20'
-
-function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
-  return (
-    <label className={cn('block', className)}>
-      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function Row({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'green' | 'danger' }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          'font-medium',
-          tone === 'gold' && 'text-gold',
-          tone === 'green' && 'text-green',
-          tone === 'danger' && 'text-destructive',
+        ) : (
+          <div>
+            <p className="text-sm font-semibold">No wallet connected</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add the address you want withdrawals sent to — USDT (TRC-20) or BTC. This becomes the default that
+              pre-fills your withdrawal form; you can still change it per request.
+            </p>
+            <input
+              value={addressInput}
+              onChange={(e) => setAddressInput(e.target.value)}
+              placeholder="Paste your receiving address"
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm outline-none transition-colors focus:border-gold/50 focus:ring-2 focus:ring-gold/20"
+            />
+            <Button
+              size="lg"
+              className="mt-3 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+              disabled={connecting || addressInput.trim().length < 20}
+              onClick={connect}
+            >
+              <Wallet className="size-4" /> {connecting ? 'Connecting…' : 'Connect wallet'}
+            </Button>
+          </div>
         )}
-      >
-        {value}
-      </span>
+      </Glass>
+
+      <Glass className="animate-rise">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-semibold">PULSE token</p>
+          <span className="font-mono text-sm">{money(state.pulse + state.staked, 0)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-2xl bg-white/[0.03] p-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Liquid</p>
+            <p className="mt-1 font-mono font-semibold">{money(state.pulse, 0)}</p>
+          </div>
+          <div className="rounded-2xl bg-white/[0.03] p-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Staked</p>
+            <p className="mt-1 font-mono font-semibold text-gold">{money(state.staked, 0)}</p>
+          </div>
+        </div>
+      </Glass>
+
+      {/*
+        Pulse Card — interface only, deliberately. No real card-issuer
+        integration exists yet (needs a licensed partner like Marqeta or
+        Stripe Issuing). This section shows real, live status pulled from
+        card_applications, and gives every user a way to get on the list —
+        so the moment a real issuer is connected, this UI already works,
+        nothing here needs to change.
+      */}
+      <Glass className="animate-rise glow-edge">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-gold-soft text-gold">
+            <CreditCard className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">Pulse Card</p>
+              {state.cardStatus !== 'none' && (
+                <Pill tone={state.cardStatus === 'waitlisted' ? 'muted' : 'gold'}>
+                  {state.cardStatus === 'free_card_earned' ? 'free card' : state.cardStatus}
+                </Pill>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Visual card face — mockup only, not a real issued card */}
+        <div className="mb-3 rounded-2xl bg-gradient-to-br from-gold/25 via-champagne/10 to-transparent p-4 shimmer-sweep">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gold">Pulse</span>
+            <Wallet className="size-4 text-gold" />
+          </div>
+          <p className="mt-6 font-mono text-sm tracking-widest text-muted-foreground">
+            {state.walletId ? `•••• •••• •••• ${state.walletId.slice(-4)}` : '•••• •••• •••• ••••'}
+          </p>
+          <p className="mt-2 text-[10px] text-muted-foreground">Linked to your Pulse Wallet — not yet active</p>
+        </div>
+
+        <p className="text-xs leading-relaxed text-muted-foreground">{cardCopy.body}</p>
+
+        {state.cardStatus === 'none' && (
+          <Button
+            size="lg"
+            className="mt-3 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+            disabled={applyingCard}
+            onClick={applyCard}
+          >
+            {applyingCard ? 'Submitting…' : cardCopy.title}
+          </Button>
+        )}
+      </Glass>
+
+      <div>
+        <SectionTitle title="Activity" />
+        <div className="space-y-2">
+          {state.txns.map((t) => {
+            const meta = txMeta[t.type]
+            const Icon = meta.icon
+            const label = statusLabel(t)
+            return (
+              <div key={t.id} className="flex items-center gap-3 rounded-2xl glass px-4 py-3">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-white/[0.04]">
+                  <Icon className={`size-4 ${meta.tone}`} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(t.date).toLocaleDateString()} ·{' '}
+                    <span className={t.isProcessing ? 'font-medium text-gold' : ''}>{label}</span>
+                  </p>
+                </div>
+                <span className={`font-mono text-sm font-semibold ${meta.tone}`}>
+                  {meta.sign}
+                  {t.currency === 'USDT' ? '$' : ''}
+                  {money(t.amount, t.currency === 'PULSE' ? 0 : 2)} {t.currency === 'PULSE' ? 'PULSE' : ''}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <RiskNote />
     </div>
   )
 }
