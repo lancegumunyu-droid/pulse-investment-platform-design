@@ -26,13 +26,11 @@ import {
   getFoundersWall,
   getLeaderboard,
   getMyReferrals,
-  getMyNotifications,
-  markNotificationRead as markNotificationReadAction,
   invest as investAction,
   requestWithdrawal,
   setUsername as setUsernameAction,
   setWallet as setWalletAction,
-  submitDeposit,
+  simulateDeposit,
   stake as stakeAction,
   submitKyc as submitKycAction,
   unstake as unstakeAction,
@@ -106,15 +104,6 @@ function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-export interface NotificationRow {
-  id: string
-  title: string
-  body: string
-  kind: string
-  read: boolean
-  createdAt: number
-}
-
 export interface Toast {
   id: string
   title: string
@@ -141,8 +130,8 @@ interface StoreContext {
   refresh: () => Promise<void>
   signOut: () => Promise<void>
   api: {
-    deposit: (amount: number, currency: 'usdttrc20' | 'btc', txReference: string) => Promise<ActionResult>
-    withdraw: (amount: number, destinationAddress: string, network: string, broker: string) => Promise<ActionResult>
+    deposit: (amount: number) => Promise<ActionResult>
+    withdraw: (amount: number) => Promise<ActionResult>
     invest: (amount: number, projectId: string) => Promise<ActionResult>
     buyToken: (cost: number, pulse: number) => Promise<ActionResult>
     sellToken: (pulseAmount: number) => Promise<ActionResult>
@@ -150,15 +139,13 @@ interface StoreContext {
     unstake: (amount: number) => Promise<ActionResult>
     connectWallet: (address: string) => Promise<ActionResult>
     disconnectWallet: () => Promise<ActionResult>
-    submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; nationality?: string; country?: string; phone?: string; address?: string }) => Promise<ActionResult>
+    submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string; phone?: string; address?: string }) => Promise<ActionResult>
     vote: (proposalId: string, choice: 'for' | 'against' | 'abstain') => Promise<ActionResult>
     claimAdmin: () => Promise<ActionResult>
     setUsername: (username: string) => Promise<ActionResult>
     leaderboard: () => Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }>
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
     myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
-    notifications: () => Promise<{ ok: true; rows: NotificationRow[] } | { ok: false; error: string }>
-    markNotificationRead: (id: string) => Promise<ActionResult>
     applyForCard: () => Promise<ActionResult>
     addSavedWallet: (label: string, address: string) => Promise<ActionResult>
     removeSavedWallet: (id: string) => Promise<ActionResult>
@@ -232,9 +219,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
   const api = useMemo<StoreContext['api']>(
     () => ({
-      deposit: (amount, currency, txReference) => run(() => submitDeposit(amount, currency, txReference)),
-      withdraw: (amount, destinationAddress, network, broker) =>
-        run(() => requestWithdrawal(amount, destinationAddress, network, broker)),
+      deposit: (amount) => run(() => simulateDeposit(amount)),
+      withdraw: (amount) => run(() => requestWithdrawal(amount)),
       invest: (amount, projectId) => run(() => investAction(amount, projectId)),
       buyToken: (cost, pulse) => run(() => buyTokenAction(cost, pulse)),
       sellToken: (pulseAmount) => run(() => sellTokenAction(pulseAmount)),
@@ -249,8 +235,6 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       leaderboard: () => getLeaderboard(),
       foundersWall: () => getFoundersWall(),
       myReferrals: () => getMyReferrals(),
-      notifications: () => getMyNotifications(),
-      markNotificationRead: (id) => run(() => markNotificationReadAction(id)),
       applyForCard: () => run(() => applyForCardAction()),
       addSavedWallet: (label, address) => run(() => addSavedWalletAction(label, address)),
       removeSavedWallet: (id) => run(() => removeSavedWalletAction(id)),
