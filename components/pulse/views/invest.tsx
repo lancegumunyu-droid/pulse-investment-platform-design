@@ -14,11 +14,12 @@ export function InvestView() {
         subtitle="Tiers unlock automatically as your total investment grows — no recruitment required."
         icon={<Layers className="size-5" />}
       />
-      <Glass className="animate-rise">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Your total invested</span>
-          <span className="font-mono font-semibold">${money(totalInvested)}</span>
-        </div>
+      <Glass gold className="glow-edge animate-rise">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gold">Your total invested</p>
+        <p className="mt-1.5 font-mono text-3xl font-semibold tracking-tight">${money(totalInvested)}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {currentTier.name} tier · {currentTier.yieldLabel} target
+        </p>
       </Glass>
       <div className="space-y-3">
         {TIERS.map((tier, i) => {
