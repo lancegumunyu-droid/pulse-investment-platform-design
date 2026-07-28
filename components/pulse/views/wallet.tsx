@@ -286,15 +286,38 @@ export function WalletView() {
         </div>
 
         {/* Visual card face — mockup only, not a real issued card */}
-        <div className="mb-3 rounded-2xl bg-gradient-to-br from-gold/25 via-gold/10 to-transparent p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gold">Pulse</span>
-            <Wallet className="size-4 text-gold" />
+        <div className="glow-edge relative mb-3 overflow-hidden rounded-2xl border border-gold/25 bg-gradient-to-br from-[#1a1408] via-[#0d0a04] to-black p-5">
+          {/* embossed heartbeat watermark */}
+          <svg
+            viewBox="0 0 100 60"
+            className="pointer-events-none absolute -right-3 -top-2 h-28 w-28 text-gold/[0.14]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M0 30h18l6-20 12 40 8-28 6 8h50" />
+          </svg>
+
+          <div className="relative flex items-center justify-between">
+            <span className="text-sm font-semibold uppercase tracking-[0.15em] text-gold">Pulse</span>
+            <span className="flex h-6 w-9 items-center justify-center rounded-md bg-gradient-to-br from-yellow-200 via-gold to-yellow-600" />
           </div>
-          <p className="mt-6 font-mono text-sm tracking-widest text-muted-foreground">
+
+          <p className="relative mt-7 font-mono text-base tracking-[0.2em] text-champagne">
             {state.walletId ? `•••• •••• •••• ${state.walletId.slice(-4)}` : '•••• •••• •••• ••••'}
           </p>
-          <p className="mt-2 text-[10px] text-muted-foreground">Linked to your Pulse Wallet — not yet active</p>
+
+          <div className="relative mt-4 flex items-end justify-between">
+            <div>
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                {state.fullName || 'Pulse Member'}
+              </p>
+              <p className="mt-1 text-[9px] text-muted-foreground">Linked to your Pulse Wallet — not yet active</p>
+            </div>
+            <span className="text-sm font-semibold italic tracking-wide text-gold/90">VISA</span>
+          </div>
         </div>
 
         <p className="text-xs leading-relaxed text-muted-foreground">{cardCopy.body}</p>
