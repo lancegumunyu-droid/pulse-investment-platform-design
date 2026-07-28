@@ -30,10 +30,21 @@ export function DashboardView() {
           <span className="text-muted-foreground">since you joined</span>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-3">
           <MiniStat label="Cash" value={`$${money(state.cash, 0)}`} />
           <MiniStat label="Invested" value={`$${money(totalInvested, 0)}`} />
-          <MiniStat label="PULSE" value={money(state.pulse + state.staked, 0)} sub={`${money(state.pulse, 0)} liquid · ${money(state.staked, 0)} staked`} />
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-gold/15 bg-white/[0.03] p-3.5">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">PULSE token</p>
+            <p className="font-mono text-lg font-semibold text-gold">{money(state.pulse + state.staked, 0)}</p>
+          </div>
+          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+            <span>{money(state.pulse, 0)} liquid</span>
+            <span className="h-3 w-px bg-white/10" />
+            <span className="text-gold/90">{money(state.staked, 0)} staked</span>
+          </div>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -230,4 +241,5 @@ function MiniStat({ label, value, sub }: { label: string; value: string; sub?: s
       {sub && <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{sub}</p>}
     </div>
   )
-}
+                      }
+              
