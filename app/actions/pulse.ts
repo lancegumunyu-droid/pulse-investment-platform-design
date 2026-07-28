@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, ensureAccount, getSnapshot, recordTxn } from '@/lib/pulse/data-access'
-import { tierForAmount, TIERS, TOKEN } from '@/lib/pulse-data'
+import { tierForAmount, TIERS, PROJECTS } from '@/lib/pulse-data'
 import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
 
 async function requireUser() {
@@ -16,22 +16,6 @@ async function requireUser() {
 }
 
 type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
-
-export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const clean = code.trim().replace(/^@/, '')
-  if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
-  const db = serviceClient()
-  const { data: referrer } = await db
-    .from('profiles')
-    .select('id, kyc_status')
-    .eq('referral_code', clean)
-    .maybeSingle()
-  if (!referrer) return { ok: false, error: "We couldn't find a Pulse account with that code" }
-  if (referrer.kyc_status !== 'verified') {
-    return { ok: false, error: 'That account is not yet verified — only a verified user\'s code can be used' }
-  }
-  return { ok: true }
-}
 
 async function withSnapshot(userId: string): Promise<Result> {
   return { ok: true, snapshot: await getSnapshot(userId) }
@@ -165,27 +149,6 @@ export async function buyToken(cost: number, pulse: number): Promise<Result> {
       currency: 'PULSE',
       status: 'completed',
       meta: { label: `Private sale — ${Math.round(pulse).toLocaleString()} PULSE`, usdCost: cost },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function sellToken(pulseAmount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(pulseAmount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (pulseAmount > snap.pulse) return { ok: false, error: 'Not enough liquid PULSE — unstake first if needed' }
-    const usdValue = pulseAmount * TOKEN.salePrice
-    await adjustAccount(user.id, { token_balance: -pulseAmount, cash_balance: usdValue })
-    await recordTxn(user.id, {
-      type: 'token_purchase',
-      amount: usdValue,
-      currency: 'USD',
-      status: 'completed',
-      meta: { label: `Sold ${Math.round(pulseAmount).toLocaleString()} PULSE for cash balance`, pulseAmount, direction: 'sell' },
     })
     return withSnapshot(user.id)
   } catch (e) {
@@ -420,6 +383,90 @@ export async function applyForCard(): Promise<Result> {
     }
     // already applied — treat as a no-op success, not an error
     return { ok: true, snapshot: await getSnapshot(user.id) }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export interface PulseScoreResult {
+  score: number
+  diversification: number
+  riskLabel: 'Lower' | 'Moderate' | 'Higher' | 'None'
+  topProject: { name: string; risk: string; fundedPct: number } | null
+  weakestProject: { name: string; risk: string; fundedPct: number } | null
+  beatsPercentOfUsers: number
+  totalInvested: number
+  distinctProjectsHeld: number
+  totalProjectsAvailable: number
+}
+
+// Every number here is computed from real data — no placeholder tickers, no
+// invented percentages. If you're extending this, keep it that way.
+export async function getPulseScore(): Promise<{ ok: true; result: PulseScoreResult } | { ok: false; error: string }> {
+  try {
+    const user = await requireUser()
+    const db = serviceClient()
+    const snap = await getSnapshot(user.id)
+
+    const heldProjectIds = new Set(snap.holdings.map((h) => h.projectId))
+    const distinctProjectsHeld = heldProjectIds.size
+    const totalProjectsAvailable = PROJECTS.length
+
+    const diversification = totalProjectsAvailable > 0 ? Math.round((distinctProjectsHeld / totalProjectsAvailable) * 100) : 0
+
+    // Weighted risk exposure across only the real projects actually held.
+    const riskWeight = { Lower: 1, Moderate: 2, Higher: 3 } as const
+    let weightedRisk = 0
+    let totalHeldAmount = 0
+    const perProject = new Map<string, { amount: number; project: (typeof PROJECTS)[number] }>()
+    for (const h of snap.holdings) {
+      const project = PROJECTS.find((p) => p.id === h.projectId)
+      if (!project) continue
+      totalHeldAmount += h.amount
+      weightedRisk += riskWeight[project.risk] * h.amount
+      const existing = perProject.get(project.id)
+      perProject.set(project.id, { amount: (existing?.amount ?? 0) + h.amount, project })
+    }
+    const avgRisk = totalHeldAmount > 0 ? weightedRisk / totalHeldAmount : 0
+    const riskLabel: PulseScoreResult['riskLabel'] = totalHeldAmount === 0 ? 'None' : avgRisk < 1.5 ? 'Lower' : avgRisk < 2.5 ? 'Moderate' : 'Higher'
+
+    // Real top/weakest project by actual live funding percentage — not fabricated returns.
+    const ranked = Array.from(perProject.values())
+      .map((p) => ({ name: p.project.name, risk: p.project.risk, fundedPct: Math.round((p.project.funded / p.project.goal) * 100) }))
+      .sort((a, b) => b.fundedPct - a.fundedPct)
+    const topProject = ranked[0] ?? null
+    const weakestProject = ranked.length > 1 ? ranked[ranked.length - 1] : null
+
+    // Real percentile: compare this user's totalInvested against every other real account.
+    const { data: allAccounts } = await db.from('accounts').select('invested_balance')
+    const others = (allAccounts ?? []).map((a) => Number(a.invested_balance) || 0)
+    const totalInvested = snap.holdings.reduce((s, h) => s + h.amount, 0)
+    const below = others.filter((v) => v < totalInvested).length
+    const beatsPercentOfUsers = others.length > 0 ? Math.round((below / others.length) * 100) : 0
+
+    // Composite score: KYC (25) + diversification (25) + tier progress (25) + account activity (25).
+    const kycPoints = snap.kyc === 'verified' ? 25 : 0
+    const diversificationPoints = Math.round((diversification / 100) * 25)
+    const tier = tierForAmount(totalInvested)
+    const tierIndex = TIERS.findIndex((t) => t.id === tier.id)
+    const tierPoints = TIERS.length > 1 ? Math.round((tierIndex / (TIERS.length - 1)) * 25) : 0
+    const activityPoints = Math.min(25, snap.txns.length * 2)
+    const score = kycPoints + diversificationPoints + tierPoints + activityPoints
+
+    return {
+      ok: true,
+      result: {
+        score,
+        diversification,
+        riskLabel,
+        topProject,
+        weakestProject,
+        beatsPercentOfUsers,
+        totalInvested,
+        distinctProjectsHeld,
+        totalProjectsAvailable,
+      },
+    }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
