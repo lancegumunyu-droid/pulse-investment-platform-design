@@ -241,5 +241,4 @@ function MiniStat({ label, value, sub }: { label: string; value: string; sub?: s
       {sub && <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{sub}</p>}
     </div>
   )
-                      }
-              
+}
