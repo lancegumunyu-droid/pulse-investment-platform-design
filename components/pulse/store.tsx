@@ -280,5 +280,4 @@ export function usePulse() {
 
 export function money(n: number, digits = 2) {
   return (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
-    }
-    
+}
