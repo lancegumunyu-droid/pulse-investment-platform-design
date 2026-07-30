@@ -276,5 +276,4 @@ export function WalletView() {
       <RiskNote />
     </div>
   )
-    }
-        
+}
