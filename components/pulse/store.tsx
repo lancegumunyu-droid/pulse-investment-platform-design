@@ -30,7 +30,7 @@ import {
   requestWithdrawal,
   setUsername as setUsernameAction,
   setWallet as setWalletAction,
-  simulateDeposit,
+  submitDeposit,
   stake as stakeAction,
   submitKyc as submitKycAction,
   unstake as unstakeAction,
@@ -130,8 +130,8 @@ interface StoreContext {
   refresh: () => Promise<void>
   signOut: () => Promise<void>
   api: {
-    deposit: (amount: number) => Promise<ActionResult>
-    withdraw: (amount: number) => Promise<ActionResult>
+    deposit: (amount: number, currency: 'usdttrc20' | 'btc', txReference: string) => Promise<ActionResult>
+    withdraw: (amount: number, destinationAddress: string, network: string, broker: string) => Promise<ActionResult>
     invest: (amount: number, projectId: string) => Promise<ActionResult>
     buyToken: (cost: number, pulse: number) => Promise<ActionResult>
     sellToken: (pulseAmount: number) => Promise<ActionResult>
@@ -219,8 +219,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
   const api = useMemo<StoreContext['api']>(
     () => ({
-      deposit: (amount) => run(() => simulateDeposit(amount)),
-      withdraw: (amount) => run(() => requestWithdrawal(amount)),
+      deposit: (amount, currency, txReference) => run(() => submitDeposit(amount, currency, txReference)),
+      withdraw: (amount, destinationAddress, network, broker) => run(() => requestWithdrawal(amount, destinationAddress, network, broker)),
       invest: (amount, projectId) => run(() => investAction(amount, projectId)),
       buyToken: (cost, pulse) => run(() => buyTokenAction(cost, pulse)),
       sellToken: (pulseAmount) => run(() => sellTokenAction(pulseAmount)),
