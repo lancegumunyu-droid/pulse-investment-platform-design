@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, Building2, ChevronRight, Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, TrendingUp, Zap } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
@@ -15,9 +16,24 @@ const sectorIcon: Record<ProjectSector, typeof Sun> = {
 }
 
 export function DashboardView() {
-  const { state, totalInvested, currentTier, portfolioValue, openModal, setView, toast } = usePulse()
+  const { state, api, totalInvested, currentTier, portfolioValue, openModal, setView, toast } = usePulse()
   const upcoming = nextTier(currentTier.id)
   const progress = upcoming ? Math.min(100, (totalInvested / upcoming.minInvest) * 100) : 100
+
+  // Real-time project funding: starts from the static seed numbers in
+  // pulse-data.ts, then overlays real summed investment from every user's
+  // holdings once it loads. Falls back to the static numbers if the fetch
+  // fails, so the page never breaks — it just won't be "live" that moment.
+  const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    api.liveProjectFunding().then((res) => {
+      if (!cancelled && res.ok) setLiveFunding(res.funding)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [api])
 
   return (
     <div className="space-y-5">
@@ -98,7 +114,14 @@ export function DashboardView() {
         <div className="space-y-3">
           {PROJECTS.map((p) => {
             const Icon = sectorIcon[p.sector]
-            const pct = Math.round((p.funded / p.goal) * 100)
+            // liveFunding holds the REAL sum of every user's holdings for this
+            // project, fetched from the database. p.funded is just the static
+            // seed value in pulse-data.ts. Once liveFunding loads, we show the
+            // real, current total — this is what makes the number move as
+            // actual investments come in, instead of only changing when
+            // someone edits the source file.
+            const funded = liveFunding ? p.funded + (liveFunding[p.id] ?? 0) : p.funded
+            const pct = Math.min(100, Math.round((funded / p.goal) * 100))
             return (
               <Glass key={p.id} className="animate-rise glow-edge shimmer-sweep">
                 <div className="flex items-start justify-between gap-3">
@@ -117,7 +140,7 @@ export function DashboardView() {
                 <div className="mt-3">
                   <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
                     <span>{pct}% funded</span>
-                    <span>${money(p.funded, 0)} / ${money(p.goal, 0)}</span>
+                    <span>${money(funded, 0)} / ${money(p.goal, 0)}</span>
                   </div>
                   <ProgressBar value={pct} tone="green" />
                 </div>
