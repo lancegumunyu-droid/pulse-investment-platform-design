@@ -16,7 +16,22 @@ async function requireUser() {
 }
 
 type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
-
+export async function getLiveProjectFunding(): Promise<
+  { ok: true; funding: Record<string, number> } | { ok: false; error: string }
+> {
+  try {
+    const db = serviceClient()
+    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
+    if (error) return { ok: false, error: error.message }
+    const funding: Record<string, number> = {}
+    for (const r of rows ?? []) {
+      funding[r.project_id] = (funding[r.project_id] ?? 0) + Number(r.amount)
+    }
+    return { ok: true, funding }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
 export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const clean = code.trim().replace(/^@/, '')
   if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
