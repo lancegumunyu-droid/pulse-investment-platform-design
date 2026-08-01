@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, Building2, ChevronRight, Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, TrendingUp, Zap } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
-import { PROJECTS, nextTier, isProjectClosed, type ProjectSector } from '@/lib/pulse-data'
+import { PROJECTS, nextTier, isProjectClosed, PROJECT_DEADLINES, type ProjectSector } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -117,13 +117,18 @@ export function DashboardView() {
               const project = PROJECTS.find((p) => p.id === h.projectId)
               const closed = isProjectClosed(h.projectId)
               return (
-                <Glass key={h.id} className="animate-rise">
+                <Glass key={h.id} gold={!closed} className="animate-rise glow-edge shimmer-sweep">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold leading-tight">{project?.name ?? 'Project'}</p>
                       <p className="text-xs text-muted-foreground">${money(h.amount, 0)} invested</p>
+                      {PROJECT_DEADLINES[h.projectId] && (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {closed ? 'Closed' : 'Closes'} {new Date(PROJECT_DEADLINES[h.projectId]).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      )}
                     </div>
-                    <Pill tone={closed ? 'muted' : 'green'}>{closed ? 'Closed' : 'Open'}</Pill>
+                    <Pill tone={closed ? 'muted' : 'gold'}>{closed ? 'Closed' : 'Open'}</Pill>
                   </div>
                   <Button
                     size="sm"
