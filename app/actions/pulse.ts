@@ -163,7 +163,24 @@ export async function invest(amount: number, projectId: string): Promise<Result>
       body: `Your $${amount.toFixed(2)} investment has been added to your portfolio.`,
       kind: 'success',
     })
-
+// Add this to app/actions/pulse.ts, near getLiveProjectFunding. Public read
+// (no requireUser needed) — everyone needs to see real project status.
+export async function getProjectStatusOverrides(): Promise<
+  { ok: true; overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> } | { ok: false; error: string }
+> {
+  try {
+    const db = serviceClient()
+    const { data, error } = await db.from('project_admin_status').select('*')
+    if (error) return { ok: false, error: error.message }
+    const overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> = {}
+    for (const r of data ?? []) {
+      overrides[r.project_id] = { closed: r.closed, deadlineOverride: r.deadline_override }
+    }
+    return { ok: true, overrides }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
     // Honest referral reward: points only, awarded once, on the referred
     // user's first investment. First-investment points apply to everyone;
     // the referrer bonus only applies if this user was actually referred.
