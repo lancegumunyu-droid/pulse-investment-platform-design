@@ -211,3 +211,22 @@ export function isProjectClosed(projectId: string): boolean {
 export function projectStatusLabel(projectId: string): 'Open' | 'Closed' {
   return isProjectClosed(projectId) ? 'Closed' : 'Open'
 }
+// Project deadlines — additive, doesn't touch the PROJECTS array above.
+// Status is computed live from these dates whenever displayed — no
+// scheduled job needed, no separate "status" field to keep in sync.
+export const PROJECT_DEADLINES: Record<string, string> = {
+  'kalahari-solar': '2026-09-15',
+  'copperbelt-royalty': '2026-08-30',
+  'zambezi-agri': '2026-10-01',
+  'maputo-logistics': '2026-09-20',
+}
+
+export function isProjectClosed(projectId: string): boolean {
+  const deadline = PROJECT_DEADLINES[projectId]
+  if (!deadline) return false
+  return new Date() > new Date(deadline)
+}
+
+export function projectStatusLabel(projectId: string): 'Open' | 'Closed' {
+  return isProjectClosed(projectId) ? 'Closed' : 'Open'
+}
