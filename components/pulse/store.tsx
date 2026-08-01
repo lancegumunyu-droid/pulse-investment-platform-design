@@ -35,6 +35,7 @@ import {
   submitKyc as submitKycAction,
   unstake as unstakeAction,
   getLiveProjectFunding,
+  closeInvestment,
 } from '@/app/actions/pulse'
 
 export type View = 'dashboard' | 'invest' | 'sale' | 'stake' | 'signals' | 'wallet' | 'profile' | 'admin'
@@ -152,6 +153,7 @@ interface StoreContext {
     removeSavedWallet: (id: string) => Promise<ActionResult>
     transfer: (recipientIdentifier: string, amount: number) => Promise<ActionResult>
     liveProjectFunding: () => Promise<{ ok: true; funding: Record<string, number> } | { ok: false; error: string }>
+    closeInvestment: (holdingId: string) => Promise<ActionResult>
   }
 }
 
@@ -242,6 +244,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       removeSavedWallet: (id) => run(() => removeSavedWalletAction(id)),
       transfer: (recipientIdentifier, amount) => run(() => requestTransferAction(recipientIdentifier, amount)),
       liveProjectFunding: () => getLiveProjectFunding(),
+      closeInvestment: (holdingId) => run(() => closeInvestment(holdingId)),
     }),
     [run],
   )
