@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, Building2, ChevronRight, Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, TrendingUp, Zap } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
-import { PROJECTS, nextTier, type ProjectSector } from '@/lib/pulse-data'
+import { PROJECTS, nextTier, isProjectClosed, type ProjectSector } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -108,6 +108,41 @@ export function DashboardView() {
           View all tiers <ChevronRight className="size-4" />
         </button>
       </Glass>
+
+      {state.holdings.length > 0 && (
+        <div>
+          <SectionTitle title="My investments" subtitle="Your active holdings. Closing early applies a $15 fee." />
+          <div className="space-y-3">
+            {state.holdings.map((h) => {
+              const project = PROJECTS.find((p) => p.id === h.projectId)
+              const closed = isProjectClosed(h.projectId)
+              return (
+                <Glass key={h.id} className="animate-rise">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold leading-tight">{project?.name ?? 'Project'}</p>
+                      <p className="text-xs text-muted-foreground">${money(h.amount, 0)} invested</p>
+                    </div>
+                    <Pill tone={closed ? 'muted' : 'green'}>{closed ? 'Closed' : 'Open'}</Pill>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 w-full border-white/12 bg-white/[0.03] text-xs font-medium"
+                    onClick={async () => {
+                      const res = await api.closeInvestment(h.id)
+                      if (res.ok) toast({ title: 'Investment closed', description: '$15 fee applied, remainder refunded to cash.', variant: 'info' })
+                      else toast({ title: 'Could not close investment', description: res.error, variant: 'error' })
+                    }}
+                  >
+                    Close early ($15 fee)
+                  </Button>
+                </Glass>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         <SectionTitle title="Live projects" subtitle="Real SADC ventures you can hold shares in." />
