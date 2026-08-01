@@ -16,22 +16,7 @@ async function requireUser() {
 }
 
 type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
-export async function getLiveProjectFunding(): Promise<
-  { ok: true; funding: Record<string, number> } | { ok: false; error: string }
-> {
-  try {
-    const db = serviceClient()
-    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
-    if (error) return { ok: false, error: error.message }
-    const funding: Record<string, number> = {}
-    for (const r of rows ?? []) {
-      funding[r.project_id] = (funding[r.project_id] ?? 0) + Number(r.amount)
-    }
-    return { ok: true, funding }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
+
 export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const clean = code.trim().replace(/^@/, '')
   if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
@@ -172,6 +157,12 @@ export async function invest(amount: number, projectId: string): Promise<Result>
       meta: { label: 'Project share purchase', projectId },
     })
     await syncTier(user.id)
+    await db.from('notifications').insert({
+      user_id: user.id,
+      title: 'Investment confirmed',
+      body: `Your $${amount.toFixed(2)} investment has been added to your portfolio.`,
+      kind: 'success',
+    })
 
     // Honest referral reward: points only, awarded once, on the referred
     // user's first investment. First-investment points apply to everyone;
@@ -604,6 +595,72 @@ export async function claimAdmin(): Promise<Result> {
     await db.from('profiles').update({ role: 'admin' }).eq('id', user.id)
     await db.from('admin_allowlist').upsert({ email: user.email }, { onConflict: 'email' })
     return withSnapshot(user.id)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// Early close: investor exits a holding before the project's natural end.
+// Flat $15 penalty, rest refunded to cash. The holding row is deleted (not
+// soft-closed with a status flag) — simplest reliable approach given the
+// current schema; if a status/history trail is wanted later, that's a
+// bigger, separate change, not something to guess into an existing table.
+export async function closeInvestment(holdingId: string): Promise<Result> {
+  try {
+    const user = await requireUser()
+    const db = serviceClient()
+    const { data: holding, error: fetchErr } = await db
+      .from('holdings')
+      .select('id, user_id, project_id, amount')
+      .eq('id', holdingId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (fetchErr) return { ok: false, error: fetchErr.message }
+    if (!holding) return { ok: false, error: 'Investment not found' }
+
+    const penalty = 15
+    const refund = Math.max(0, Number(holding.amount) - penalty)
+
+    const { error: delErr } = await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
+    if (delErr) return { ok: false, error: delErr.message }
+
+    await adjustAccount(user.id, { cash_balance: refund, invested_balance: -Number(holding.amount) })
+    await recordTxn(user.id, {
+      type: 'withdrawal',
+      amount: refund,
+      currency: 'USD',
+      status: 'completed',
+      meta: { label: `Closed investment early — $${penalty} penalty applied`, projectId: holding.project_id, penalty },
+    })
+    await db.from('notifications').insert({
+      user_id: user.id,
+      title: 'Investment closed early',
+      body: `A $${penalty} early-close fee was applied. $${refund.toFixed(2)} has been returned to your cash balance.`,
+      kind: 'info',
+    })
+    await syncTier(user.id)
+    return withSnapshot(user.id)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// Real-time project funding: sums every user's real investment amount per
+// project directly from the holdings table. Used by Dashboard/Signals to
+// overlay real, current funding totals on top of the static seed numbers in
+// pulse-data.ts, so the % funded actually moves as real investments happen.
+export async function getLiveProjectFunding(): Promise<
+  { ok: true; funding: Record<string, number> } | { ok: false; error: string }
+> {
+  try {
+    const db = serviceClient()
+    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
+    if (error) return { ok: false, error: error.message }
+    const funding: Record<string, number> = {}
+    for (const r of rows ?? []) {
+      funding[r.project_id] = (funding[r.project_id] ?? 0) + Number(r.amount)
+    }
+    return { ok: true, funding }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
