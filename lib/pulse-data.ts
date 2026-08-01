@@ -192,3 +192,22 @@ export const TOKEN = {
 
 export const RISK_DISCLAIMER =
   "Risk Warning: Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. The possibility exists that you could sustain a loss of some or all of your initial investment and therefore you should not invest money that you cannot afford to lose."
+// Project deadlines — additive, doesn't touch the PROJECTS array above.
+// Status is computed live from these dates whenever displayed — no
+// scheduled job needed, no separate "status" field to keep in sync.
+export const PROJECT_DEADLINES: Record<string, string> = {
+  'kalahari-solar': '2026-09-15',
+  'copperbelt-royalty': '2026-08-30',
+  'zambezi-agri': '2026-10-01',
+  'maputo-logistics': '2026-09-20',
+}
+
+export function isProjectClosed(projectId: string): boolean {
+  const deadline = PROJECT_DEADLINES[projectId]
+  if (!deadline) return false
+  return new Date() > new Date(deadline)
+}
+
+export function projectStatusLabel(projectId: string): 'Open' | 'Closed' {
+  return isProjectClosed(projectId) ? 'Closed' : 'Open'
+}
