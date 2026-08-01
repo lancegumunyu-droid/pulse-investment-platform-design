@@ -14,38 +14,7 @@ async function requireAdmin() {
   if (!(await isUserAdmin(user.id))) throw new Error('Admin access required')
   return user
 }
-BEGIN;
 
--- Lets admin manually close a project or change its deadline without
--- editing code and redeploying. Falls back to the hardcoded dates in
--- lib/pulse-data.ts (PROJECT_DEADLINES) if no override row exists yet.
-CREATE TABLE IF NOT EXISTS public.project_admin_status (
-  project_id TEXT PRIMARY KEY,
-  closed BOOLEAN NOT NULL DEFAULT false,
-  deadline_override DATE,
-  updated_by UUID REFERENCES public.profiles(id),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.project_admin_status ENABLE ROW LEVEL SECURITY;
-
--- Anyone can read (needed so the app can show real-time status to all users)
-DROP POLICY IF EXISTS "Anyone can read project status" ON public.project_admin_status;
-CREATE POLICY "Anyone can read project status"
-  ON public.project_admin_status FOR SELECT
-  USING (true);
-
--- Only writes happen via the service-role client from admin.ts, which
--- bypasses RLS — no public write policy needed.
-
-NOTIFY pgrst, 'reload schema';
-
-COMMIT;
-// Scope was previously enforced only by which tabs the admin dashboard
-// showed — a finance-scoped admin could still call reviewKyc() etc.
-// directly, since the underlying server action only checked "is this
-// person an admin at all," not which scope. Real enforcement now lives
-// here, at the same layer that actually moves money.
 async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations' | 'manager' | 'director'>) {
   const user = await requireAdmin()
   const db = serviceClient()
