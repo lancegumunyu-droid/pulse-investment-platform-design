@@ -211,6 +211,3 @@ export function isProjectClosed(projectId: string): boolean {
 export function projectStatusLabel(projectId: string): 'Open' | 'Closed' {
   return isProjectClosed(projectId) ? 'Closed' : 'Open'
 }
-// Project deadlines — additive, doesn't touch the PROJECTS array above.
-// Status is computed live from these dates whenever displayed — no
-// scheduled job needed, no separate "status" field to keep in sync.
