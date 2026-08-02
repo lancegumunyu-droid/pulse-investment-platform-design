@@ -206,3 +206,10 @@ export function isProjectClosed(projectId: string): boolean {
 export function projectStatusLabel(projectId: string): 'Open' | 'Closed' {
   return isProjectClosed(projectId) ? 'Closed' : 'Open'
 }
+
+// Real receiving wallets — shown to users on the deposit screen. Luno BTC
+// and Binance USDT-TRC20, both confirmed real addresses.
+export const PLATFORM_WALLETS: Record<'usdttrc20' | 'btc', string> = {
+  usdttrc20: 'THB24HhGT515q2kT8qJRBdXMbGCu4uyAKZ',
+  btc: '35oZ6ywxKnhVA5r2EccdUb1Jy7qJrU2mH8',
+}
