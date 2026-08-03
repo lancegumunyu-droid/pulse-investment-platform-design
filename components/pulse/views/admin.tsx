@@ -32,10 +32,13 @@ import {
   appointAdminScope,
   resetKyc,
   deleteUser,
+  getProjectAdminStatuses,
+  setProjectStatus,
 } from '@/app/actions/admin'
 import type { AdminSnapshot } from '@/lib/pulse/types'
+import { PROJECTS } from '@/lib/pulse-data'
 
-type Tab = 'overview' | 'kyc' | 'deposits' | 'withdrawals' | 'transfers' | 'cards' | 'users' | 'settings'
+type Tab = 'overview' | 'kyc' | 'deposits' | 'withdrawals' | 'transfers' | 'cards' | 'users' | 'projects' | 'settings'
 
 export function AdminView() {
   const { state, setView, toast } = usePulse()
@@ -48,6 +51,8 @@ export function AdminView() {
   const [busy, setBusy] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [managerIdDraft, setManagerIdDraft] = useState<Record<string, string>>({})
+  const [projectStatuses, setProjectStatuses] = useState<Record<string, { closed: boolean; deadlineOverride: string | null }>>({})
+  const [projectDeadlineDraft, setProjectDeadlineDraft] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -57,7 +62,17 @@ export function AdminView() {
     setLoading(false)
   }, [toast])
 
+  const loadProjectStatuses = useCallback(async () => {
+    const res = await getProjectAdminStatuses()
+    if (res.ok) {
+      const map: Record<string, { closed: boolean; deadlineOverride: string | null }> = {}
+      for (const r of res.rows) map[r.projectId] = { closed: r.closed, deadlineOverride: r.deadlineOverride }
+      setProjectStatuses(map)
+    }
+  }, [])
+
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadProjectStatuses() }, [loadProjectStatuses])
 
   if (!state.isAdmin) {
     return (
@@ -75,10 +90,6 @@ export function AdminView() {
     )
   }
 
-  // A full admin (the default for any admin promoted before this feature
-  // existed) sees every tab. A scoped admin only sees the tabs relevant to
-  // what they were appointed to monitor, so the dashboard actually splits
-  // between people instead of just labeling who's who.
   const scope = state.adminScope ?? 'full'
   const allTabs: { id: Tab; label: string; scopes: Array<'full' | 'finance' | 'operations'> }[] = [
     { id: 'overview', label: 'Overview', scopes: ['full', 'finance', 'operations'] },
@@ -87,6 +98,7 @@ export function AdminView() {
     { id: 'withdrawals', label: `Withdrawals${snap ? ` (${snap.pendingWithdrawals})` : ''}`, scopes: ['full', 'finance'] },
     { id: 'transfers', label: `Transfers${snap ? ` (${snap.pendingP2P})` : ''}`, scopes: ['full', 'finance'] },
     { id: 'cards', label: `Cards${snap ? ` (${snap.pendingCards})` : ''}`, scopes: ['full', 'operations'] },
+    { id: 'projects', label: 'Projects', scopes: ['full', 'operations'] },
     { id: 'users', label: 'Users', scopes: ['full', 'operations'] },
     { id: 'settings', label: 'Settings', scopes: ['full'] },
   ]
@@ -540,6 +552,85 @@ export function AdminView() {
                   )
                 })
               )}
+            </div>
+          )}
+
+          {tab === 'projects' && (
+            <div className="space-y-3 animate-rise">
+              <Glass className="border-gold/20 bg-gold/[0.04]">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Set a real deadline or manually close a project right here — no code changes or
+                  redeploy needed. Leaving the date blank keeps the platform default.
+                </p>
+              </Glass>
+              {PROJECTS.map((p) => {
+                const override = projectStatuses[p.id]
+                const isClosed = override?.closed ?? false
+                return (
+                  <Glass key={p.id} className="animate-rise">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold leading-tight">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.country} · {p.sector}</p>
+                      </div>
+                      <Pill tone={isClosed ? 'muted' : 'green'}>{isClosed ? 'Closed' : 'Open'}</Pill>
+                    </div>
+                    <div className="mt-3">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Deadline override</span>
+                      <input
+                        type="date"
+                        value={projectDeadlineDraft[p.id] ?? override?.deadlineOverride ?? ''}
+                        onChange={(e) => setProjectDeadlineDraft((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
+                      />
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn(
+                          'flex-1 border-white/12 text-xs font-semibold',
+                          !isClosed && 'border-gold/40 bg-gold/10 text-gold',
+                        )}
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await setProjectStatus(p.id, false, projectDeadlineDraft[p.id] ?? override?.deadlineOverride ?? null)
+                            if (res.ok) {
+                              toast({ title: `${p.name} set to Open`, variant: 'success' })
+                              await loadProjectStatuses()
+                            }
+                            return res.ok ? { ok: true, snapshot: undefined } : res
+                          })
+                        }
+                      >
+                        Keep open
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn(
+                          'flex-1 border-white/12 text-xs font-semibold',
+                          isClosed && 'border-destructive/40 bg-destructive/10 text-destructive',
+                        )}
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await setProjectStatus(p.id, true, projectDeadlineDraft[p.id] ?? override?.deadlineOverride ?? null)
+                            if (res.ok) {
+                              toast({ title: `${p.name} closed`, variant: 'info' })
+                              await loadProjectStatuses()
+                            }
+                            return res.ok ? { ok: true, snapshot: undefined } : res
+                          })
+                        }
+                      >
+                        Close now
+                      </Button>
+                    </div>
+                  </Glass>
+                )
+              })}
             </div>
           )}
 
