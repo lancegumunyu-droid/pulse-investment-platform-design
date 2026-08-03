@@ -645,6 +645,23 @@ export async function closeInvestment(holdingId: string): Promise<Result> {
   }
 }
 
+export async function getProjectStatusOverrides(): Promise<
+  { ok: true; overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> } | { ok: false; error: string }
+> {
+  try {
+    const db = serviceClient()
+    const { data, error } = await db.from('project_admin_status').select('*')
+    if (error) return { ok: false, error: error.message }
+    const overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> = {}
+    for (const r of data ?? []) {
+      overrides[r.project_id] = { closed: r.closed, deadlineOverride: r.deadline_override }
+    }
+    return { ok: true, overrides }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 // Real-time project funding: sums every user's real investment amount per
 // project directly from the holdings table. Used by Dashboard/Signals to
 // overlay real, current funding totals on top of the static seed numbers in
@@ -661,25 +678,6 @@ export async function getLiveProjectFunding(): Promise<
       funding[r.project_id] = (funding[r.project_id] ?? 0) + Number(r.amount)
     }
     return { ok: true, funding }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-// Add this to app/actions/pulse.ts, near getLiveProjectFunding. Public read
-// (no requireUser needed) — everyone needs to see real project status.
-export async function getProjectStatusOverrides(): Promise<
-  { ok: true; overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> } | { ok: false; error: string }
-> {
-  try {
-    const db = serviceClient()
-    const { data, error } = await db.from('project_admin_status').select('*')
-    if (error) return { ok: false, error: error.message }
-    const overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> = {}
-    for (const r of data ?? []) {
-      overrides[r.project_id] = { closed: r.closed, deadlineOverride: r.deadline_override }
-    }
-    return { ok: true, overrides }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
