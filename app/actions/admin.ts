@@ -5,60 +5,6 @@ import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 
-// Add these two functions anywhere in app/actions/admin.ts (near the other
-// exported admin functions). Additive only — doesn't touch anything else.
-
-export interface AdminProjectStatusRow {
-  projectId: string
-  closed: boolean
-  deadlineOverride: string | null
-  updatedAt: number | null
-}
-
-export async function getProjectAdminStatuses(): Promise<
-  { ok: true; rows: AdminProjectStatusRow[] } | { ok: false; error: string }
-> {
-  try {
-    await requireAdminScope(['full', 'operations'])
-    const db = serviceClient()
-    const { data, error } = await db.from('project_admin_status').select('*')
-    if (error) return { ok: false, error: error.message }
-    const rows: AdminProjectStatusRow[] = (data ?? []).map((r) => ({
-      projectId: r.project_id,
-      closed: r.closed,
-      deadlineOverride: r.deadline_override,
-      updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
-    }))
-    return { ok: true, rows }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function setProjectStatus(
-  projectId: string,
-  closed: boolean,
-  deadlineOverride: string | null,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  try {
-    const admin = await requireAdminScope(['full', 'operations'])
-    const db = serviceClient()
-    const { error } = await db.from('project_admin_status').upsert(
-      {
-        project_id: projectId,
-        closed,
-        deadline_override: deadlineOverride,
-        updated_by: admin.id,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'project_id' },
-    )
-    if (error) return { ok: false, error: error.message }
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
 async function requireAdmin() {
   const supabase = await createClient()
   const {
@@ -135,6 +81,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
         settledStatus: (t.meta as Record<string, unknown> | null)?.settled_status as string | null ?? null,
+        payCurrency: (t.meta as Record<string, unknown> | null)?.payCurrency as string | null ?? null,
+        userTxRef: (t.meta as Record<string, unknown> | null)?.userTxRef as string | null ?? null,
       }))
 
     const withdrawalQueue = (txns ?? [])
@@ -149,6 +97,10 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         status: t.status,
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
+        destinationAddress: (t.meta as Record<string, unknown> | null)?.wallet as string | null ?? null,
+        walletName: (t.meta as Record<string, unknown> | null)?.walletName as string | null ?? null,
+        network: (t.meta as Record<string, unknown> | null)?.network as string | null ?? null,
+        broker: (t.meta as Record<string, unknown> | null)?.broker as string | null ?? null,
       }))
 
     const p2pQueue = (txns ?? [])
@@ -200,6 +152,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       fullName: k.full_name,
       idNumber: k.id_number,
       dateOfBirth: k.date_of_birth,
+      nationality: k.nationality ?? null,
       country: k.country,
       status: k.status,
       createdAt: new Date(k.created_at).getTime(),
