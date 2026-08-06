@@ -1,17 +1,17 @@
 'use client'
 
-import { House, Layers, Radio, Sparkles, User, Wallet, Zap } from 'lucide-react'
+import { House, Layers, Radio, Sparkles, User, Wallet, Zap, ShieldCheck } from 'lucide-react'
 import { usePulse, type View } from './store'
 import { cn } from '@/lib/utils'
 
 const ITEMS: { view: View; label: string; icon: typeof House }[] = [
-  { view: 'dashboard', label: 'Home', icon: House },
-  { view: 'invest', label: 'Invest', icon: Layers },
-  { view: 'sale', label: 'Sale', icon: Sparkles },
-  { view: 'stake', label: 'Stake', icon: Zap },
+  { view: 'home', label: 'Welcome', icon: House },
+  { view: 'dashboard', label: 'Dashboard', icon: Layers },
+  { view: 'invest', label: 'Invest', icon: Sparkles },
   { view: 'signals', label: 'Signals', icon: Radio },
   { view: 'wallet', label: 'Wallet', icon: Wallet },
   { view: 'profile', label: 'Profile', icon: User },
+  { view: 'admin', label: 'Admin', icon: ShieldCheck },
 ]
 
 export function BottomNav() {

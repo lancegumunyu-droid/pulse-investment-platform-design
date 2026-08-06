@@ -89,6 +89,9 @@ const initialState: State = {
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'SET_VIEW':
+      // SET_VIEW is handled by useContext, not state reducer
+      return state
     case 'DEPOSIT':
       return {
         ...state,
