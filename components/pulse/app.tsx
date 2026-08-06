@@ -5,6 +5,7 @@ import { TopBar } from './top-bar'
 import { BottomNav } from './bottom-nav'
 import { Toaster } from './toaster'
 import { Modals } from './modals'
+import { HomeView } from './views/home'
 import { DashboardView } from './views/dashboard'
 import { InvestView } from './views/invest'
 import { SaleView } from './views/sale'
@@ -18,6 +19,7 @@ function Screen() {
   const { view } = usePulse()
   return (
     <div key={view} className="animate-rise">
+      {view === 'home' && <HomeView />}
       {view === 'dashboard' && <DashboardView />}
       {view === 'invest' && <InvestView />}
       {view === 'sale' && <SaleView />}

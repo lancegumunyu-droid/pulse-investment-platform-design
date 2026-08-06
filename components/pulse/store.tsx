@@ -11,7 +11,7 @@ import {
 } from 'react'
 import { tierForAmount, TIERS, type TierId } from '@/lib/pulse-data'
 
-export type View = 'dashboard' | 'invest' | 'sale' | 'stake' | 'signals' | 'wallet' | 'profile' | 'admin'
+export type View = 'home' | 'dashboard' | 'invest' | 'sale' | 'stake' | 'signals' | 'wallet' | 'profile' | 'admin'
 export type KycStatus = 'none' | 'pending' | 'verified'
 
 export interface Holding {
@@ -49,6 +49,7 @@ interface State {
 }
 
 type Action =
+  | { type: 'SET_VIEW'; view: View }
   | { type: 'DEPOSIT'; amount: number; currency: 'USDT' }
   | { type: 'WITHDRAW'; amount: number }
   | { type: 'INVEST'; amount: number; projectId: string }
