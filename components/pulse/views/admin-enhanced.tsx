@@ -219,34 +219,84 @@ export function AdminEnhancedView() {
           </Glass>
 
           <Glass className="space-y-3">
-            <p className="font-semibold mb-4">Active signals ({signals.length})</p>
+            <p className="font-semibold mb-2">Active signals ({signals.length})</p>
             {signals.map((signal) => (
-              <div key={signal.id} className="flex items-start justify-between rounded-lg bg-white/[0.03] p-3">
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{signal.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{signal.detail.substring(0, 50)}...</p>
-                  <div className="flex gap-2 mt-2">
-                    <Pill tone="gold">{signal.targetYield}</Pill>
-                    <Pill tone={signal.urgency === 'Closing soon' ? 'danger' : 'muted'}>{signal.urgency}</Pill>
+              <div key={signal.id}>
+                {editingSignal === signal.id ? (
+                  <div className="space-y-2 rounded-lg border border-gold/30 bg-white/[0.03] p-3">
+                    <input
+                      defaultValue={signal.title}
+                      onBlur={(e) => setSignals(signals.map((s) => s.id === signal.id ? { ...s, title: e.target.value } : s))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      placeholder="Signal title"
+                    />
+                    <textarea
+                      defaultValue={signal.detail}
+                      onBlur={(e) => setSignals(signals.map((s) => s.id === signal.id ? { ...s, detail: e.target.value } : s))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      rows={2}
+                    />
+                    <input
+                      defaultValue={signal.targetYield}
+                      onBlur={(e) => setSignals(signals.map((s) => s.id === signal.id ? { ...s, targetYield: e.target.value } : s))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      placeholder="Target yield"
+                    />
+                    <input
+                      defaultValue={signal.window}
+                      onBlur={(e) => setSignals(signals.map((s) => s.id === signal.id ? { ...s, window: e.target.value } : s))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      placeholder="Window (e.g. Closes in 5 days)"
+                    />
+                    <select
+                      defaultValue={signal.urgency}
+                      onChange={(e) => setSignals(signals.map((s) => s.id === signal.id ? { ...s, urgency: e.target.value as any } : s))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                    >
+                      <option value="New">New</option>
+                      <option value="Open">Open</option>
+                      <option value="Closing soon">Closing soon</option>
+                    </select>
+                    <Button
+                      size="sm"
+                      className="w-full bg-gold hover:bg-gold/90"
+                      onClick={() => {
+                        setEditingSignal(null)
+                        toast({ title: 'Signal updated', variant: 'success' })
+                      }}
+                    >
+                      <Save className="size-4 mr-2" /> Save changes
+                    </Button>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setEditingSignal(signal.id)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="size-4 text-muted-foreground" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSignals(signals.filter((s) => s.id !== signal.id))
-                      toast({ title: 'Signal deleted', variant: 'success' })
-                    }}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="size-4 text-red-500/60" />
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-start justify-between rounded-lg bg-white/[0.03] p-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{signal.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{signal.window}</p>
+                      <div className="flex gap-2 mt-2">
+                        <Pill tone="gold">{signal.targetYield}</Pill>
+                        <Pill tone={signal.urgency === 'Closing soon' ? 'danger' : 'muted'}>{signal.urgency}</Pill>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingSignal(signal.id)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="size-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSignals(signals.filter((s) => s.id !== signal.id))
+                          toast({ title: 'Signal deleted', variant: 'success' })
+                        }}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="size-4 text-red-500/60" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </Glass>
@@ -336,37 +386,86 @@ export function AdminEnhancedView() {
           </Glass>
 
           <Glass className="space-y-3">
-            <p className="font-semibold mb-4">Active projects ({projects.length})</p>
+            <p className="font-semibold mb-2">Active projects ({projects.length})</p>
             {projects.map((project) => (
-              <div key={project.id} className="rounded-lg bg-white/[0.03] p-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{project.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{project.country} · {project.sector}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{project.summary.substring(0, 60)}...</p>
-                    <div className="flex gap-2 mt-2">
-                      <Pill tone="gold">{project.targetYield}</Pill>
-                      <Pill tone={project.risk === 'Lower' ? 'green' : project.risk === 'Higher' ? 'danger' : 'muted'}>{project.risk} risk</Pill>
+              <div key={project.id}>
+                {editingProject === project.id ? (
+                  <div className="space-y-2 rounded-lg border border-gold/30 bg-white/[0.03] p-3">
+                    <input
+                      defaultValue={project.name}
+                      onBlur={(e) => setProjects(projects.map((p) => p.id === project.id ? { ...p, name: e.target.value } : p))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      placeholder="Project name"
+                    />
+                    <input
+                      defaultValue={project.country}
+                      onBlur={(e) => setProjects(projects.map((p) => p.id === project.id ? { ...p, country: e.target.value } : p))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      placeholder="Country"
+                    />
+                    <input
+                      defaultValue={project.targetYield}
+                      onBlur={(e) => setProjects(projects.map((p) => p.id === project.id ? { ...p, targetYield: e.target.value } : p))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      placeholder="Target yield"
+                    />
+                    <select
+                      defaultValue={project.risk}
+                      onChange={(e) => setProjects(projects.map((p) => p.id === project.id ? { ...p, risk: e.target.value as any } : p))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                    >
+                      <option value="Lower">Lower risk</option>
+                      <option value="Moderate">Moderate risk</option>
+                      <option value="Higher">Higher risk</option>
+                    </select>
+                    <textarea
+                      defaultValue={project.summary}
+                      onBlur={(e) => setProjects(projects.map((p) => p.id === project.id ? { ...p, summary: e.target.value } : p))}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
+                      rows={2}
+                      placeholder="Summary"
+                    />
+                    <Button
+                      size="sm"
+                      className="w-full bg-gold hover:bg-gold/90"
+                      onClick={() => {
+                        setEditingProject(null)
+                        toast({ title: 'Project updated', variant: 'success' })
+                      }}
+                    >
+                      <Save className="size-4 mr-2" /> Save changes
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between rounded-lg bg-white/[0.03] p-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{project.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{project.country} · {project.sector}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{project.summary.substring(0, 60)}...</p>
+                      <div className="flex gap-2 mt-2">
+                        <Pill tone="gold">{project.targetYield}</Pill>
+                        <Pill tone={project.risk === 'Lower' ? 'green' : project.risk === 'Higher' ? 'danger' : 'muted'}>{project.risk} risk</Pill>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingProject(project.id)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="size-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProjects(projects.filter((p) => p.id !== project.id))
+                          toast({ title: 'Project deleted', variant: 'success' })
+                        }}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="size-4 text-red-500/60" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditingProject(project.id)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="size-4 text-muted-foreground" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setProjects(projects.filter((p) => p.id !== project.id))
-                        toast({ title: 'Project deleted', variant: 'success' })
-                      }}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="size-4 text-red-500/60" />
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             ))}
           </Glass>

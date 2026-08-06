@@ -6,7 +6,7 @@ import { Glass, Pill } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 
 export function HomeView() {
-  const { dispatch } = usePulse()
+  const { setView } = usePulse()
 
   return (
     <div className="space-y-8 pb-20">
@@ -25,7 +25,7 @@ export function HomeView() {
           <Button
             size="lg"
             className="flex-1 h-12 bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
-            onClick={() => dispatch({ type: 'SET_VIEW', view: 'signals' })}
+            onClick={() => setView('signals')}
           >
             Explore Opportunities
             <ArrowRight className="ml-2 size-4" />
@@ -34,7 +34,7 @@ export function HomeView() {
             size="lg"
             variant="outline"
             className="flex-1 h-12 border-white/10 hover:bg-white/5"
-            onClick={() => dispatch({ type: 'SET_VIEW', view: 'dashboard' })}
+            onClick={() => setView('dashboard')}
           >
             Your Dashboard
           </Button>
@@ -165,7 +165,7 @@ export function HomeView() {
         <Button
           size="lg"
           className="w-full h-12 bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
-          onClick={() => dispatch({ type: 'SET_VIEW', view: 'dashboard' })}
+          onClick={() => setView('dashboard')}
         >
           Create Your Account
         </Button>

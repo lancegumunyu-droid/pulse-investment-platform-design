@@ -1,6 +1,6 @@
 'use client'
 
-import { House, Layers, Radio, Sparkles, User, Wallet, Zap, ShieldCheck } from 'lucide-react'
+import { House, Layers, Radio, Sparkles, User, Wallet, ShieldCheck } from 'lucide-react'
 import { usePulse, type View } from './store'
 import { cn } from '@/lib/utils'
 
@@ -19,7 +19,10 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/8 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-md items-stretch justify-between px-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-1.5">
+      <div
+        className="mx-auto flex max-w-md items-stretch overflow-x-auto scrollbar-none px-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-1.5"
+        style={{ scrollbarWidth: 'none' }}
+      >
         {ITEMS.map(({ view: v, label, icon: Icon }) => {
           const active = view === v
           return (
@@ -27,7 +30,7 @@ export function BottomNav() {
               key={v}
               onClick={() => setView(v)}
               className={cn(
-                'flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[10px] font-medium transition-colors',
+                'flex min-w-[64px] flex-shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium transition-colors',
                 active ? 'text-gold' : 'text-muted-foreground hover:text-foreground',
               )}
               aria-current={active ? 'page' : undefined}
