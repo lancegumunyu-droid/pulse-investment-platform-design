@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Activity, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
+import { Activity, Loader2, AlertCircle, CheckCircle2, Clock, Info } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
@@ -32,10 +32,10 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [refCode, setRefCode] = useState('')
   const [refStatus, setRefStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
   const [refError, setRefError] = useState<string | null>(null)
-  const [error, setError] = useState<{ type: 'error' | 'warning' | 'success'; message: string } | null>(null)
+  const [error, setError] = useState<{ type: 'error' | 'warning' | 'success' | 'info'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
+  const [emailCooldown, setEmailCooldown] = useState(0)
   const [debugLog, setDebugLog] = useState<string[]>([])
 
   // Add debug log
@@ -45,12 +45,12 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     console.log(msg)
   }
 
-  // Countdown timer for rate limit cooldown
+  // Countdown timer for email rate limit cooldown
   useEffect(() => {
-    if (rateLimitCooldown <= 0) return
-    const timer = setTimeout(() => setRateLimitCooldown((prev) => Math.max(0, prev - 1)), 1000)
+    if (emailCooldown <= 0) return
+    const timer = setTimeout(() => setEmailCooldown((prev) => Math.max(0, prev - 1)), 1000)
     return () => clearTimeout(timer)
-  }, [rateLimitCooldown])
+  }, [emailCooldown])
 
   // Prefill from a shared referral link (?ref=CODE)
   useEffect(() => {
@@ -103,9 +103,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       return
     }
 
-    // ===== CRITICAL FIX #2: Check rate limit cooldown =====
-    if (rateLimitCooldown > 0) {
-      log(`✗ Rate limit active: ${rateLimitCooldown}s remaining (BLOCKED)`)
+    // ===== CRITICAL FIX #2: Check email rate limit cooldown =====
+    if (emailCooldown > 0) {
+      log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)
       return
     }
 
@@ -162,23 +162,25 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         if (authError) {
           log(`✗ Auth error: ${authError.message} (code: ${authError.status})`)
 
-          // ===== CRITICAL FIX #4: Detect all error types =====
+          // ===== CRITICAL FIX #4: Detect EMAIL RATE LIMIT (429) =====
           const errorLower = authError.message?.toLowerCase() || ''
           const errorCode = authError.status || 0
-
-          if (
+          const isEmailRateLimit =
             errorCode === 429 ||
             errorLower.includes('429') ||
             errorLower.includes('rate limit') ||
+            errorLower.includes('email rate') ||
             errorLower.includes('too many requests') ||
-            errorLower.includes('please try again')
-          ) {
-            log('→ Rate limit detected, activating 120s cooldown')
+            errorLower.includes('please try again') ||
+            errorLower.includes('rate_limit_exceeded')
+
+          if (isEmailRateLimit) {
+            log('✗ EMAIL RATE LIMIT DETECTED - Activating 300s (5 min) cooldown')
             setError({
               type: 'warning',
-              message: '⏳ Too many signup attempts. Please wait 2 minutes before trying again. If the issue persists, wait 5 minutes.',
+              message: '⏱️ Too many signup attempts. Please wait 5 minutes before trying again. This is a Supabase email service limit, not an error with your account.',
             })
-            setRateLimitCooldown(120)
+            setEmailCooldown(300) // 5-minute cooldown for email service
           } else if (errorLower.includes('already registered') || errorLower.includes('already exists')) {
             log('✗ Email already registered')
             setError({
@@ -207,7 +209,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             log(`✗ Unknown error: ${authError.message}`)
             setError({
               type: 'error',
-              message: `❌ ${authError.message || 'Failed to sign up. Please try again.'} If this continues, contact support.`,
+              message: `❌ ${authError.message || 'Failed to sign up. Please try again.'} If this continues, contact support@pulse.africa`,
             })
           }
 
@@ -220,18 +222,18 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           log(`✓ Account created successfully: ${data.user.id}`)
           setError({
             type: 'success',
-            message: '✓ Account created! Check your email to confirm your address.',
+            message: '✓ Account created! Check your email to confirm your address. Check spam/promotions folder too.',
           })
-          // Wait 1 second for success message to be visible, then redirect
+          // Wait 2 seconds for success message to be visible, then redirect
           setTimeout(() => {
             router.push('/auth/sign-up-success')
-          }, 1000)
+          }, 2000)
           return
         } else {
-          log('✗ No user returned from signup')
+          log('→ User data received, redirecting...')
           setError({
-            type: 'warning',
-            message: '⏳ Signup processing... Redirecting shortly.',
+            type: 'success',
+            message: '✓ Signup processing... Redirecting shortly.',
           })
           setTimeout(() => {
             router.push('/auth/sign-up-success')
@@ -250,18 +252,20 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         if (authError) {
           log(`✗ Login error: ${authError.message}`)
           const errorLower = authError.message?.toLowerCase() || ''
+          const errorCode = authError.status || 0
 
-          if (errorLower.includes('invalid') || errorLower.includes('credentials')) {
+          if (errorCode === 429 || errorLower.includes('rate limit')) {
+            log('✗ Login rate limit - activating 60s cooldown')
+            setError({
+              type: 'warning',
+              message: '⏱️ Too many login attempts. Please wait 60 seconds and try again.',
+            })
+            setEmailCooldown(60)
+          } else if (errorLower.includes('invalid') || errorLower.includes('credentials')) {
             setError({
               type: 'error',
               message: '🔐 Invalid email or password. Please check and try again.',
             })
-          } else if (errorLower.includes('rate limit') || errorLower.includes('429')) {
-            setError({
-              type: 'warning',
-              message: '⏳ Too many login attempts. Please wait a minute and try again.',
-            })
-            setRateLimitCooldown(60)
           } else {
             setError({
               type: 'error',
@@ -286,7 +290,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       log(`✗ Caught exception: ${errorMessage}`)
       setError({
         type: 'error',
-        message: `⚠️ ${errorMessage || 'An unexpected error occurred. Please refresh and try again.'}`,
+        message: `⚠️ ${errorMessage || 'An unexpected error occurred. Please refresh and try again.'} Contact support if this persists.`,
       })
     } finally {
       setLoading(false)
@@ -313,12 +317,26 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     )
   }
 
-  const isFormDisabled = isSubmitting || rateLimitCooldown > 0 || loading
-  const isSubmitDisabled =
-    loading || isSubmitting || rateLimitCooldown > 0 || (isSignUp && refStatus !== 'valid')
+  const isFormDisabled = isSubmitting || emailCooldown > 0 || loading
+  const isSubmitDisabled = loading || isSubmitting || emailCooldown > 0 || (isSignUp && refStatus !== 'valid')
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
+      {/* EMAIL RATE LIMIT WARNING */}
+      {emailCooldown > 0 && (
+        <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4">
+          <div className="flex items-start gap-3">
+            <Info className="size-5 flex-shrink-0 text-gold mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-gold">Email Service Rate Limit</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                You can retry in <span className="font-mono font-semibold text-gold">{emailCooldown}s</span>. This protects our email service from abuse.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 flex flex-col items-center text-center">
         <span className="mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
           <Activity className="size-7 text-gold" />
@@ -420,12 +438,15 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                 ? 'border-destructive/30 bg-destructive/10 text-destructive'
                 : error.type === 'success'
                   ? 'border-green/30 bg-green/10 text-green'
-                  : 'border-gold/30 bg-gold/10 text-gold'
+                  : error.type === 'warning'
+                    ? 'border-gold/30 bg-gold/10 text-gold'
+                    : 'border-blue/30 bg-blue/10 text-blue'
             }`}
           >
             {error.type === 'error' && <AlertCircle className="size-4 flex-shrink-0 mt-0.5" />}
             {error.type === 'warning' && <Clock className="size-4 flex-shrink-0 mt-0.5" />}
             {error.type === 'success' && <CheckCircle2 className="size-4 flex-shrink-0 mt-0.5" />}
+            {error.type === 'info' && <Info className="size-4 flex-shrink-0 mt-0.5" />}
             <span>{error.message}</span>
           </div>
         )}
@@ -440,9 +461,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             <>
               <Loader2 className="size-4 animate-spin mr-2" /> Processing...
             </>
-          ) : rateLimitCooldown > 0 ? (
+          ) : emailCooldown > 0 ? (
             <>
-              <Clock className="size-4 mr-2" /> Wait {rateLimitCooldown}s
+              <Clock className="size-4 mr-2" /> Wait {emailCooldown}s
             </>
           ) : isSignUp ? (
             'Create account'
