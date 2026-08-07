@@ -34,6 +34,7 @@ import {
   deleteUser,
   getProjectAdminStatuses,
   setProjectStatus,
+  processProjectPayout,
 } from '@/app/actions/admin'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 import { PROJECTS } from '@/lib/pulse-data'
@@ -810,6 +811,36 @@ export function AdminView() {
                         }
                       >
                         {status.closed ? 'Reopen project' : 'Close project'}
+                      </Button>
+                      {status.deadlineOverride && new Date(status.deadlineOverride) < new Date() && !status.closed && (
+                        <p className="mt-2 rounded-lg bg-gold/[0.08] px-2.5 py-1.5 text-[11px] text-gold">
+                          Deadline has passed — close the project, then process payout to credit investors.
+                        </p>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 w-full border-gold/30 bg-gold-soft font-semibold text-gold hover:bg-gold/20"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await processProjectPayout(p.id)
+                            if (res.ok) {
+                              if (res.investorCount === 0) {
+                                toast({ title: 'Nothing to pay out', description: 'Every investor in this project is already settled.', variant: 'info' })
+                              } else {
+                                toast({
+                                  title: `Paid ${res.investorCount} investor${res.investorCount === 1 ? '' : 's'}`,
+                                  description: `$${money(res.totalPaid)} disbursed · $${money(res.vaultRetained)} retained (30% of yield only)`,
+                                  variant: 'success',
+                                })
+                              }
+                            }
+                            return res.ok ? { ok: true } : res
+                          })
+                        }
+                      >
+                        Process payout
                       </Button>
                     </Glass>
                   )
