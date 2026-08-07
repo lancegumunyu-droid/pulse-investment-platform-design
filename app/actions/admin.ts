@@ -554,6 +554,87 @@ export interface AdminProjectStatusRow {
   updatedAt: number | null
 }
 
+// Pays out every investor in a project at once: principal back in full,
+// plus 70% of the yield their tier earned over however long they actually
+// held the position (prorated by days, not a flat bonus regardless of
+// timing). The other 30% of yield — never principal — stays with the
+// platform and is logged to platform_vault for a transparent record of
+// what was actually retained and why. This never runs twice on the same
+// holding (settled_at guards that), so it's safe to click more than once
+// if new investors joined the project since the last payout.
+export async function processProjectPayout(projectId: string): Promise<
+  { ok: true; investorCount: number; totalPaid: number; vaultRetained: number } | { ok: false; error: string }
+> {
+  try {
+    const admin = await requireAdminScope(['full', 'finance'])
+    const db = serviceClient()
+    const { data: holdings, error: hErr } = await db
+      .from('holdings')
+      .select('*')
+      .eq('project_id', projectId)
+      .is('settled_at', null)
+    if (hErr) return { ok: false, error: hErr.message }
+    if (!holdings || holdings.length === 0) {
+      return { ok: true, investorCount: 0, totalPaid: 0, vaultRetained: 0 }
+    }
+
+    let totalPrincipal = 0
+    let totalYieldPaid = 0
+    let totalVaultRetained = 0
+    const now = new Date()
+    const nowIso = now.toISOString()
+
+    for (const h of holdings) {
+      const principal = Number(h.amount)
+      const yieldRate = (Number(h.target_yield_low) + Number(h.target_yield_high)) / 2 / 100
+      const heldMs = now.getTime() - new Date(h.created_at).getTime()
+      const heldYears = Math.max(0, heldMs / (365.25 * 24 * 60 * 60 * 1000))
+      const totalYield = principal * yieldRate * heldYears
+      const investorYield = totalYield * 0.7
+      const vaultYield = totalYield * 0.3
+      const payout = principal + investorYield
+
+      await adjustAccount(h.user_id, { cash_balance: payout, invested_balance: -principal })
+      await recordTxn(h.user_id, {
+        type: 'sale',
+        amount: payout,
+        currency: 'USD',
+        status: 'completed',
+        processedBy: admin.id,
+        meta: {
+          label: 'Project closed — principal + yield returned',
+          projectId,
+          principal,
+          yieldPaid: investorYield,
+        },
+      })
+      await db.from('holdings').update({ settled_at: nowIso }).eq('id', h.id)
+
+      totalPrincipal += principal
+      totalYieldPaid += investorYield
+      totalVaultRetained += vaultYield
+    }
+
+    await db.from('platform_vault').insert({
+      project_id: projectId,
+      amount: totalVaultRetained,
+      investor_count: holdings.length,
+      total_principal: totalPrincipal,
+      total_yield_paid: totalYieldPaid,
+      processed_by: admin.id,
+    })
+
+    return {
+      ok: true,
+      investorCount: holdings.length,
+      totalPaid: totalPrincipal + totalYieldPaid,
+      vaultRetained: totalVaultRetained,
+    }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 export async function getProjectAdminStatuses(): Promise<
   { ok: true; rows: AdminProjectStatusRow[] } | { ok: false; error: string }
 > {
