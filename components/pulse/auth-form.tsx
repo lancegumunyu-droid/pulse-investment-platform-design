@@ -34,6 +34,15 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [refError, setRefError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
+
+  // Countdown timer for rate limit cooldown
+  useEffect(() => {
+    if (rateLimitCooldown <= 0) return
+    const timer = setTimeout(() => setRateLimitCooldown((prev) => Math.max(0, prev - 1)), 1000)
+    return () => clearTimeout(timer)
+  }, [rateLimitCooldown])
 
   // Prefill from a shared referral link (?ref=CODE), but still editable —
   // someone can also just type in a code a friend told them verbally.
@@ -79,8 +88,25 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // CRITICAL FIX #1: Prevent duplicate signup requests
+    // This is the #1 cause of "429 too many requests" errors.
+    // Once a user clicks submit, block any subsequent attempts.
+    if (isSubmitting) {
+      console.warn('Submission already in progress — ignoring duplicate request')
+      return
+    }
+
+    // CRITICAL FIX #2: If user is under rate limit cooldown, block submission
+    if (rateLimitCooldown > 0) {
+      console.warn('Rate limit cooldown active — submission blocked')
+      return
+    }
+
     setError(null)
     setLoading(true)
+    setIsSubmitting(true)
+
     const supabase = createClient()
     try {
       if (isSignUp) {
@@ -89,24 +115,67 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         // This mirrors what handle_new_user() enforces server-side —
         // this check is just for a fast, friendly error message.
         if (refStatus !== 'valid') {
-          setError(refError ?? 'A valid referral code from a verified Pulse user is required to sign up')
+          const message = refStatus === 'invalid' && refError ? refError : 'A valid referral code from a verified Pulse user is required to sign up'
+          setError(message)
           setLoading(false)
+          setIsSubmitting(false)
           return
         }
+
+        const cleanEmail = email.trim().toLowerCase()
         const { error } = await supabase.auth.signUp({
-          email,
+          email: cleanEmail,
           password,
           options: {
             emailRedirectTo:
               process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
-            data: { full_name: fullName, ref_code: refCode.trim() },
+            data: { full_name: fullName.trim(), ref_code: refCode.trim() },
           },
         })
-        if (error) throw error
+
+        if (error) {
+          // CRITICAL FIX #3: Handle rate limiting with extended cooldown
+          if (
+            error.message?.includes('429') ||
+            error.message?.includes('rate limit') ||
+            error.message?.includes('too many requests') ||
+            error.message?.includes('Too many requests')
+          ) {
+            setError(
+              'Too many signup attempts right now. Please wait at least 60 seconds before trying again. If this continues, wait a few minutes and retry.'
+            )
+            // Set 120-second cooldown for rate limit (Supabase enforces this)
+            setRateLimitCooldown(120)
+            console.error('Rate limit error detected. Cooldown activated for 120s.')
+          } else if (error.message?.includes('already registered')) {
+            setError('This email is already registered. Please sign in instead.')
+          } else if (error.message?.includes('invalid email')) {
+            setError('Please enter a valid email address.')
+          } else {
+            setError(error.message || 'Failed to sign up. Please try again.')
+          }
+          setLoading(false)
+          setIsSubmitting(false)
+          return
+        }
+
+        // Success: redirect to confirmation page
         router.push('/auth/sign-up-success')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        // Login flow
+        const cleanEmail = email.trim().toLowerCase()
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        })
+
+        if (error) {
+          setError(error.message || 'Failed to sign in. Please check your credentials.')
+          setLoading(false)
+          setIsSubmitting(false)
+          return
+        }
+
         // CHANGED: was router.push('/app') + router.refresh(). A client-side
         // navigation can outrun the auth cookie actually being readable by
         // the server on the next request — a full navigation guarantees
@@ -116,9 +185,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         return
       }
     } catch (err) {
-      setError((err as Error).message)
-    } finally {
+      const errorMessage = (err as Error).message
+      console.error('Auth error:', errorMessage)
+      setError(errorMessage || 'An unexpected error occurred. Please try again.')
       setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -139,6 +210,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       </div>
     )
   }
+
+  const isFormDisabled = isSubmitting || rateLimitCooldown > 0
+  const isSubmitDisabled = loading || isSubmitting || rateLimitCooldown > 0 || (isSignUp && refStatus !== 'valid')
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
@@ -167,6 +241,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                 autoComplete="name"
                 className="pulse-input"
                 placeholder="Thabo Nkosi"
+                disabled={isFormDisabled}
               />
             </Field>
             <Field label="Referral code">
@@ -176,18 +251,19 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                 required
                 className="pulse-input"
                 placeholder="e.g. PULSE-A1B2C3D4"
+                disabled={isFormDisabled}
               />
             </Field>
             {refStatus === 'checking' && (
               <p className="mt-1 text-xs text-muted-foreground">Checking code…</p>
             )}
             {refStatus === 'valid' && (
-              <p className="mt-1 text-xs text-green">Valid — you'll be connected to this Pulse member</p>
+              <p className="mt-1 text-xs text-green">✓ Valid — you'll be connected to this Pulse member</p>
             )}
             {refStatus === 'invalid' && refError && (
-              <p className="mt-1 text-xs text-destructive">{refError}</p>
+              <p className="mt-1 text-xs text-destructive">✗ {refError}</p>
             )}
-            {refStatus === 'idle' && (
+            {refStatus === 'idle' && refCode === '' && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Ask an existing, verified Pulse member for their code — required to create an account.
               </p>
@@ -203,6 +279,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             autoComplete="email"
             className="pulse-input"
             placeholder="you@example.com"
+            disabled={isFormDisabled}
           />
         </Field>
         <Field label="Password">
@@ -215,6 +292,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             autoComplete={isSignUp ? 'new-password' : 'current-password'}
             className="pulse-input"
             placeholder="••••••••"
+            disabled={isFormDisabled}
           />
         </Field>
 
@@ -229,16 +307,25 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         {error ? (
           <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
+            {rateLimitCooldown > 0 && ` (Try again in ${rateLimitCooldown}s)`}
           </p>
         ) : null}
 
         <Button
           type="submit"
           size="lg"
-          disabled={loading || (isSignUp && refStatus !== 'valid')}
-          className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
+          disabled={isSubmitDisabled}
+          className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? <Loader2 className="size-4 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
+          {loading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : rateLimitCooldown > 0 ? (
+            `Wait ${rateLimitCooldown}s before retrying`
+          ) : isSignUp ? (
+            'Create account'
+          ) : (
+            'Sign in'
+          )}
         </Button>
       </form>
 
