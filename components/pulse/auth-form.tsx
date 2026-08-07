@@ -1,15 +1,14 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { Activity, Loader2, AlertCircle, CheckCircle2, Clock, Info } from 'lucide-react'
+import { Activity, AlertCircle, Info } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
-import { useEffect, useState, Suspense, useRef } from 'react'
+
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
-  return (const inFlightRef = useRef(false)
+  return (
     <Suspense
       fallback={
         <div className="flex min-h-dvh items-center justify-center bg-background">
@@ -26,6 +25,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isSignUp = mode === 'sign-up'
+
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -34,34 +34,28 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [refError, setRefError] = useState<string | null>(null)
   const [error, setError] = useState<{ type: 'error' | 'warning' | 'success' | 'info'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting, setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting] = useState(false)
   const [emailCooldown, setEmailCooldown] = useState(0)
-  const [debugLog, setDebugLog] = useState<string[]>([])
 
-  // Add debug log
-  const log = (msg: string) => {
-    const timestamp = new Date().toLocaleTimeString()
-    setDebugLog((prev) => [...prev.slice(-5), `[${timestamp}] ${msg}`])
-    console.log(msg)
-  }
+  // Single-flight guard on a ref, not state — state updates are async and
+  // batched, so two fast taps on submit can both read isSubmitting as
+  // false before either setState lands. A ref updates synchronously, so
+  // this actually blocks the second call instead of just discouraging it.
+  const inFlightRef = useRef(false)
 
-  // Countdown timer for email rate limit cooldown
+  // Countdown for the email-service rate limit cooldown.
   useEffect(() => {
     if (emailCooldown <= 0) return
     const timer = setTimeout(() => setEmailCooldown((prev) => Math.max(0, prev - 1)), 1000)
     return () => clearTimeout(timer)
   }, [emailCooldown])
 
-  // Prefill from a shared referral link (?ref=CODE)
+  // Prefill from a shared referral link (?ref=CODE), still editable.
   useEffect(() => {
     const fromUrl = searchParams.get('ref')
-    if (fromUrl) {
-      setRefCode(fromUrl)
-      log(`✓ Referral code prefilled: ${fromUrl}`)
-    }
+    if (fromUrl) setRefCode(fromUrl)
   }, [searchParams])
 
-  // Live-validate referral code
+  // Live-validate the referral code as the user types, debounced.
   useEffect(() => {
     if (!isSignUp) return
     const code = refCode.trim()
@@ -71,21 +65,17 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       return
     }
     setRefStatus('checking')
-    log(`→ Validating referral code: ${code}`)
     const t = setTimeout(async () => {
       try {
         const res = await validateReferralCode(code)
         if (res.ok) {
           setRefStatus('valid')
           setRefError(null)
-          log(`✓ Referral code valid: ${code}`)
         } else {
           setRefStatus('invalid')
           setRefError(res.error)
-          log(`✗ Referral code invalid: ${res.error}`)
         }
-      } catch (err) {
-        log(`✗ Validation error: ${(err as Error).message}`)
+      } catch {
         setRefStatus('invalid')
         setRefError('Error validating code')
       }
@@ -93,54 +83,37 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     return () => clearTimeout(t)
   }, [refCode, isSignUp])
 
-  const const submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } } = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    log('→ Form submission started')
 
-    // ===== CRITICAL FIX #1: Prevent duplicate requests =====
-    if (isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting) {
-      log('✗ Submission already in progress (BLOCKED)')
-      return
-    }
+    if (inFlightRef.current) return
+    if (emailCooldown > 0) return
 
-    // ===== CRITICAL FIX #2: Check email rate limit cooldown =====
-    if (emailCooldown > 0) {
-      log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)
-      return
-    }
-
-    // ===== CRITICAL FIX #3: Validate ALL fields before API call =====
     if (!email.trim()) {
       setError({ type: 'error', message: 'Please enter your email address' })
-      log('✗ Email is empty')
       return
     }
-
     if (!password) {
       setError({ type: 'error', message: 'Please enter a password (minimum 6 characters)' })
-      log('✗ Password is empty')
       return
     }
-
     if (isSignUp) {
       if (!fullName.trim()) {
         setError({ type: 'error', message: 'Please enter your full name' })
-        log('✗ Full name is empty')
         return
       }
-
       if (refStatus !== 'valid') {
-        const message = refStatus === 'invalid' && refError ? refError : 'Please enter a valid referral code from an existing Pulse member'
-        setError({ type: 'error', message })
-        log(`✗ Invalid referral code: ${message}`)
+        setError({
+          type: 'error',
+          message: refStatus === 'invalid' && refError ? refError : 'Please enter a valid referral code from an existing Pulse member',
+        })
         return
       }
     }
 
     setError(null)
+    inFlightRef.current = true
     setLoading(true)
-    setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(true)
-    log('→ API request starting...')
 
     const supabase = createClient()
     try {
@@ -149,7 +122,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         const cleanName = fullName.trim()
         const cleanCode = refCode.trim()
 
-        log(`→ Creating account: ${cleanEmail}`)
         const { data, error: authError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
@@ -160,141 +132,74 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         })
 
         if (authError) {
-          log(`✗ Auth error: ${authError.message} (code: ${authError.status})`)
-
-          // ===== CRITICAL FIX #4: Detect EMAIL RATE LIMIT (429) =====
           const errorLower = authError.message?.toLowerCase() || ''
           const errorCode = authError.status || 0
           const isEmailRateLimit =
             errorCode === 429 ||
-            errorLower.includes('429') ||
             errorLower.includes('rate limit') ||
             errorLower.includes('email rate') ||
             errorLower.includes('too many requests') ||
-            errorLower.includes('please try again') ||
             errorLower.includes('rate_limit_exceeded')
 
           if (isEmailRateLimit) {
-            log('✗ EMAIL RATE LIMIT DETECTED - Activating 300s (5 min) cooldown')
             setError({
               type: 'warning',
-              message: '⏱️ Too many signup attempts. Please wait 5 minutes before trying again. This is a Supabase email service limit, not an error with your account.',
+              message: 'Too many signup attempts. Please wait 5 minutes before trying again — this is an email-service limit, not a problem with your account.',
             })
-            setEmailCooldown(300) // 5-minute cooldown for email service
+            setEmailCooldown(300)
           } else if (errorLower.includes('already registered') || errorLower.includes('already exists')) {
-            log('✗ Email already registered')
-            setError({
-              type: 'error',
-              message: '📧 This email is already registered. Please sign in instead.',
-            })
+            setError({ type: 'error', message: 'This email is already registered. Please sign in instead.' })
           } else if (errorLower.includes('invalid email')) {
-            log('✗ Invalid email format')
-            setError({
-              type: 'error',
-              message: '✉️ Please enter a valid email address.',
-            })
+            setError({ type: 'error', message: 'Please enter a valid email address.' })
           } else if (errorLower.includes('password') && errorLower.includes('weak')) {
-            log('✗ Weak password')
-            setError({
-              type: 'error',
-              message: '🔐 Password is too weak. Use at least 6 characters with mix of letters and numbers.',
-            })
+            setError({ type: 'error', message: 'Password is too weak. Use at least 6 characters with a mix of letters and numbers.' })
           } else if (errorLower.includes('network') || errorLower.includes('connection')) {
-            log('✗ Network error')
-            setError({
-              type: 'error',
-              message: '🌐 Connection error. Please check your internet and try again.',
-            })
+            setError({ type: 'error', message: 'Connection error. Please check your internet and try again.' })
           } else {
-            log(`✗ Unknown error: ${authError.message}`)
-            setError({
-              type: 'error',
-              message: `❌ ${authError.message || 'Failed to sign up. Please try again.'} If this continues, contact support@pulse.africa`,
-            })
+            setError({ type: 'error', message: authError.message || 'Failed to sign up. Please try again.' })
           }
-
-          setLoading(false)
-          setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(false)
           return
         }
 
         if (data?.user) {
-          log(`✓ Account created successfully: ${data.user.id}`)
-          setError({
-            type: 'success',
-            message: '✓ Account created! Check your email to confirm your address. Check spam/promotions folder too.',
-          })
-          // Wait 2 seconds for success message to be visible, then redirect
-          setTimeout(() => {
-            router.push('/auth/sign-up-success')
-          }, 2000)
-          return
+          setError({ type: 'success', message: 'Account created! Check your email to confirm your address — check spam/promotions too.' })
+          setTimeout(() => router.push('/auth/sign-up-success'), 2000)
         } else {
-          log('→ User data received, redirecting...')
-          setError({
-            type: 'success',
-            message: '✓ Signup processing... Redirecting shortly.',
-          })
-          setTimeout(() => {
-            router.push('/auth/sign-up-success')
-          }, 2000)
+          setError({ type: 'success', message: 'Signup processing… redirecting shortly.' })
+          setTimeout(() => router.push('/auth/sign-up-success'), 2000)
         }
       } else {
-        // ===== LOGIN FLOW =====
         const cleanEmail = email.trim().toLowerCase()
-        log(`→ Signing in: ${cleanEmail}`)
-
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        })
+        const { data, error: authError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password })
 
         if (authError) {
-          log(`✗ Login error: ${authError.message}`)
           const errorLower = authError.message?.toLowerCase() || ''
           const errorCode = authError.status || 0
-
           if (errorCode === 429 || errorLower.includes('rate limit')) {
-            log('✗ Login rate limit - activating 60s cooldown')
-            setError({
-              type: 'warning',
-              message: '⏱️ Too many login attempts. Please wait 60 seconds and try again.',
-            })
+            setError({ type: 'warning', message: 'Too many login attempts. Please wait 60 seconds and try again.' })
             setEmailCooldown(60)
           } else if (errorLower.includes('invalid') || errorLower.includes('credentials')) {
-            setError({
-              type: 'error',
-              message: '🔐 Invalid email or password. Please check and try again.',
-            })
+            setError({ type: 'error', message: 'Invalid email or password. Please check and try again.' })
           } else {
-            setError({
-              type: 'error',
-              message: authError.message || 'Failed to sign in. Please try again.',
-            })
+            setError({ type: 'error', message: authError.message || 'Failed to sign in. Please try again.' })
           }
-          setLoading(false)
-          setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(false)
           return
         }
 
         if (data?.user) {
-          log(`✓ Login successful: ${data.user.id}`)
-          log('→ Redirecting to /app')
-          // Full page navigation to ensure session cookie is sent
+          // Full page navigation, not router.push, so the session cookie
+          // is definitely sent along with the request to /app.
           window.location.href = '/app'
-          return
         }
       }
     } catch (err) {
-      const errorMessage = (err as Error).message
-      log(`✗ Caught exception: ${errorMessage}`)
       setError({
         type: 'error',
-        message: `⚠️ ${errorMessage || 'An unexpected error occurred. Please refresh and try again.'} Contact support if this persists.`,
+        message: `${(err as Error).message || 'An unexpected error occurred.'} Please refresh and try again.`,
       })
     } finally {
+      inFlightRef.current = false
       setLoading(false)
-      setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(false)
     }
   }
 
@@ -317,52 +222,48 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     )
   }
 
-  const isFormDisabled = isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting || emailCooldown > 0 || loading
-  const isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }Disabled = loading || isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting || emailCooldown > 0 || (isSignUp && refStatus !== 'valid')
+  const isFormDisabled = loading || emailCooldown > 0
+  const isSubmitDisabled = loading || emailCooldown > 0 || (isSignUp && refStatus !== 'valid')
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-      {/* EMAIL RATE LIMIT WARNING */}
       {emailCooldown > 0 && (
         <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4">
           <div className="flex items-start gap-3">
-            <Info className="size-5 flex-shrink-0 text-gold mt-0.5" />
+            <Info className="mt-0.5 size-5 shrink-0 text-gold" />
             <div className="text-sm">
-              <p className="font-semibold text-gold">Email Service Rate Limit</p>
+              <p className="font-semibold text-gold">Email service rate limit</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                You can retry in <span className="font-mono font-semibold text-gold">{emailCooldown}s</span>. This protects our email service from abuse.
+                You can retry in <span className="font-mono font-semibold text-gold">{emailCooldown}s</span>. This protects our email service
+                from abuse.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      <div className="mb-8 flex flex-col items-center text-center">
-        <span className="mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
-          <Activity className="size-7 text-gold" />
+      <div className="mb-6 text-center">
+        <span className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl glass-gold">
+          <Activity className="size-6 text-gold" />
         </span>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {isSignUp ? 'Create your Pulse account' : 'Welcome back'}
-        </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground text-pretty">
-          {isSignUp
-            ? 'Invest in real African projects. Grow responsibly.'
-            : 'Sign in to access your Pulse portfolio.'}
+        <h1 className="text-xl font-semibold tracking-tight">{isSignUp ? 'Create your account' : 'Welcome back'}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isSignUp ? 'Join Pulse — real African investment, transparently tracked.' : 'Sign in to continue growing.'}
         </p>
       </div>
 
-      <form onconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }={const submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }} className="glass rounded-3xl p-5">
-        {isSignUp ? (
+      <form onSubmit={submit} className="space-y-3.5">
+        {isSignUp && (
           <>
             <Field label="Full name">
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
+                disabled={isFormDisabled}
                 autoComplete="name"
                 className="pulse-input"
                 placeholder="Thabo Nkosi"
-                disabled={isFormDisabled}
               />
             </Field>
             <Field label="Referral code">
@@ -370,132 +271,94 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                 value={refCode}
                 onChange={(e) => setRefCode(e.target.value)}
                 required
+                disabled={isFormDisabled}
                 className="pulse-input"
                 placeholder="e.g. PULSE-A1B2C3D4"
-                disabled={isFormDisabled}
               />
             </Field>
-            <div className="mt-2 mb-3">
-              {refStatus === 'checking' && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Activity className="size-3 animate-spin" /> Validating code...
-                </p>
-              )}
-              {refStatus === 'valid' && (
-                <p className="text-xs text-green flex items-center gap-1.5">
-                  <CheckCircle2 className="size-3" /> Valid referral code
-                </p>
-              )}
-              {refStatus === 'invalid' && refError && (
-                <p className="text-xs text-destructive flex items-center gap-1.5">
-                  <AlertCircle className="size-3" /> {refError}
-                </p>
-              )}
-              {refStatus === 'idle' && refCode === '' && (
-                <p className="text-xs text-muted-foreground">Ask an existing verified member for their code</p>
-              )}
-            </div>
+            {refStatus === 'checking' && <p className="text-xs text-muted-foreground">Checking code…</p>}
+            {refStatus === 'valid' && <p className="text-xs text-green">Valid — you&apos;ll be connected to this Pulse member</p>}
+            {refStatus === 'invalid' && refError && <p className="text-xs text-destructive">{refError}</p>}
+            {refStatus === 'idle' && (
+              <p className="text-xs text-muted-foreground">Ask an existing, verified Pulse member for their code — required to create an account.</p>
+            )}
           </>
-        ) : null}
+        )}
+
         <Field label="Email">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={isFormDisabled}
             autoComplete="email"
             className="pulse-input"
             placeholder="you@example.com"
-            disabled={isFormDisabled}
           />
         </Field>
+
         <Field label="Password">
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            disabled={isFormDisabled}
             autoComplete={isSignUp ? 'new-password' : 'current-password'}
             className="pulse-input"
             placeholder="••••••••"
-            disabled={isFormDisabled}
           />
         </Field>
 
         {!isSignUp && (
-          <div className="mt-2 text-right">
-            <Link href="/auth/forgot-password" className="text-xs font-medium text-gold">
+          <div className="text-right">
+            <a href="/auth/forgot-password" className="text-xs font-medium text-gold">
               Forgot password?
-            </Link>
+            </a>
           </div>
         )}
 
         {error && (
           <div
-            className={`mt-3 rounded-xl border px-3 py-2 text-xs flex items-start gap-2 ${
-              error.type === 'error'
-                ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                : error.type === 'success'
-                  ? 'border-green/30 bg-green/10 text-green'
-                  : error.type === 'warning'
-                    ? 'border-gold/30 bg-gold/10 text-gold'
-                    : 'border-blue/30 bg-blue/10 text-blue'
+            className={`rounded-xl border p-3 text-xs leading-relaxed ${
+              error.type === 'success'
+                ? 'border-green/30 bg-green/10 text-green'
+                : error.type === 'warning'
+                  ? 'border-gold/30 bg-gold/10 text-gold'
+                  : 'border-destructive/30 bg-destructive/10 text-destructive'
             }`}
           >
-            {error.type === 'error' && <AlertCircle className="size-4 flex-shrink-0 mt-0.5" />}
-            {error.type === 'warning' && <Clock className="size-4 flex-shrink-0 mt-0.5" />}
-            {error.type === 'success' && <CheckCircle2 className="size-4 flex-shrink-0 mt-0.5" />}
-            {error.type === 'info' && <Info className="size-4 flex-shrink-0 mt-0.5" />}
-            <span>{error.message}</span>
+            {error.message}
           </div>
         )}
 
         <Button
-          type="const submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }"
+          type="submit"
           size="lg"
-          disabled={isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }Disabled}
-          className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitDisabled}
+          className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
         >
-          {loading ? (
-            <>
-              <Loader2 className="size-4 animate-spin mr-2" /> Processing...
-            </>
-          ) : emailCooldown > 0 ? (
-            <>
-              <Clock className="size-4 mr-2" /> Wait {emailCooldown}s
-            </>
-          ) : isSignUp ? (
-            'Create account'
-          ) : (
-            'Sign in'
-          )}
+          {loading ? <Activity className="size-4 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
         </Button>
       </form>
 
-      <p className="mt-5 text-center text-sm text-muted-foreground">
-        {isSignUp ? 'Already have an account?' : 'New to Pulse?'}{' '}
-        <Link href={isSignUp ? '/auth/login' : '/auth/sign-up'} className="font-semibold text-gold">
-          {isSignUp ? 'Sign in' : 'Create an account'}
-        </Link>
-      </p>
-
-      {/* Debug log (only in dev) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-8 p-3 rounded-lg bg-white/[0.05] border border-white/[0.08]">
-          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wide mb-2">Debug Log</p>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {debugLog.map((log, i) => (
-              <p key={i} className="text-[10px] font-mono text-muted-foreground">
-                {log}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground text-pretty">
-        Disclaimer: Investing involves substantial risk. Capital is at risk. See our Risk Disclaimer for details.
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        {isSignUp ? (
+          <>
+            Already have an account?{' '}
+            <a href="/auth/login" className="font-semibold text-gold">
+              Sign in
+            </a>
+          </>
+        ) : (
+          <>
+            Don&apos;t have an account?{' '}
+            <a href="/auth/sign-up" className="font-semibold text-gold">
+              Sign up
+            </a>
+          </>
+        )}
       </p>
     </div>
   )
@@ -503,9 +366,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="mb-3 block">
+    <label className="block">
       <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   )
-}
+            }
