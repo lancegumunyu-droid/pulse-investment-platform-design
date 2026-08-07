@@ -7,9 +7,9 @@ import { Activity, Loader2, AlertCircle, CheckCircle2, Clock, Info } from 'lucid
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
-
+import { useEffect, useState, Suspense, useRef } from 'react'
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
-  return (
+  return (const inFlightRef = useRef(false)
     <Suspense
       fallback={
         <div className="flex min-h-dvh items-center justify-center bg-background">
@@ -34,7 +34,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [refError, setRefError] = useState<string | null>(null)
   const [error, setError] = useState<{ type: 'error' | 'warning' | 'success' | 'info'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting, setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting] = useState(false)
   const [emailCooldown, setEmailCooldown] = useState(0)
   const [debugLog, setDebugLog] = useState<string[]>([])
 
@@ -93,12 +93,12 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     return () => clearTimeout(t)
   }, [refCode, isSignUp])
 
-  const submit = async (e: React.FormEvent) => {
+  const const submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } } = async (e: React.FormEvent) => {
     e.preventDefault()
     log('→ Form submission started')
 
     // ===== CRITICAL FIX #1: Prevent duplicate requests =====
-    if (isSubmitting) {
+    if (isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting) {
       log('✗ Submission already in progress (BLOCKED)')
       return
     }
@@ -139,7 +139,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
     setError(null)
     setLoading(true)
-    setIsSubmitting(true)
+    setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(true)
     log('→ API request starting...')
 
     const supabase = createClient()
@@ -214,7 +214,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           }
 
           setLoading(false)
-          setIsSubmitting(false)
+          setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(false)
           return
         }
 
@@ -273,7 +273,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             })
           }
           setLoading(false)
-          setIsSubmitting(false)
+          setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(false)
           return
         }
 
@@ -294,7 +294,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       })
     } finally {
       setLoading(false)
-      setIsSubmitting(false)
+      setIsconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting(false)
     }
   }
 
@@ -317,8 +317,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     )
   }
 
-  const isFormDisabled = isSubmitting || emailCooldown > 0 || loading
-  const isSubmitDisabled = loading || isSubmitting || emailCooldown > 0 || (isSignUp && refStatus !== 'valid')
+  const isFormDisabled = isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting || emailCooldown > 0 || loading
+  const isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }Disabled = loading || isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }ting || emailCooldown > 0 || (isSignUp && refStatus !== 'valid')
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
@@ -351,7 +351,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         </p>
       </div>
 
-      <form onSubmit={submit} className="glass rounded-3xl p-5">
+      <form onconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }={const submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }} className="glass rounded-3xl p-5">
         {isSignUp ? (
           <>
             <Field label="Full name">
@@ -452,9 +452,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         )}
 
         <Button
-          type="submit"
+          type="const submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }"
           size="lg"
-          disabled={isSubmitDisabled}
+          disabled={isconst submit = async (e: React.FormEvent) => {   e.preventDefault()   log('→ Form submission started')    // Single-flight guard (ref, not state)   if (inFlightRef.current) {     log('✗ Submission already in progress (REF BLOCKED)')     return   }    // cooldown guard   if (emailCooldown > 0) {     log(`✗ Email rate limit active: ${emailCooldown}s remaining (BLOCKED)`)     return   }    inFlightRef.current = true   setIsSubmitting(true)   setLoading(true)    try {     // ... keep the rest of your code (signUp / signIn) ...   } catch (err) {     // ... keep your catch ...   } finally {     inFlightRef.current = false     setLoading(false)     setIsSubmitting(false)   } }Disabled}
           className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
