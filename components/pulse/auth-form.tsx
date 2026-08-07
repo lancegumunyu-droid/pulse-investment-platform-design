@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Activity, Loader2 } from 'lucide-react'
+import { Activity, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
@@ -32,10 +32,18 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [refCode, setRefCode] = useState('')
   const [refStatus, setRefStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
   const [refError, setRefError] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ type: 'error' | 'warning' | 'success'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
+  const [debugLog, setDebugLog] = useState<string[]>([])
+
+  // Add debug log
+  const log = (msg: string) => {
+    const timestamp = new Date().toLocaleTimeString()
+    setDebugLog((prev) => [...prev.slice(-5), `[${timestamp}] ${msg}`])
+    console.log(msg)
+  }
 
   // Countdown timer for rate limit cooldown
   useEffect(() => {
@@ -44,16 +52,16 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     return () => clearTimeout(timer)
   }, [rateLimitCooldown])
 
-  // Prefill from a shared referral link (?ref=CODE), but still editable —
-  // someone can also just type in a code a friend told them verbally.
+  // Prefill from a shared referral link (?ref=CODE)
   useEffect(() => {
     const fromUrl = searchParams.get('ref')
-    if (fromUrl) setRefCode(fromUrl)
+    if (fromUrl) {
+      setRefCode(fromUrl)
+      log(`✓ Referral code prefilled: ${fromUrl}`)
+    }
   }, [searchParams])
 
-  // Live-validate as they type, debounced, so they find out before
-  // submitting whether the code is real and belongs to a verified user —
-  // required at signup now, per the mandatory-referral rule.
+  // Live-validate referral code
   useEffect(() => {
     if (!isSignUp) return
     const code = refCode.trim()
@@ -63,131 +71,224 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       return
     }
     setRefStatus('checking')
+    log(`→ Validating referral code: ${code}`)
     const t = setTimeout(async () => {
-      const res = await validateReferralCode(code)
-      if (res.ok) {
-        setRefStatus('valid')
-        setRefError(null)
-      } else {
+      try {
+        const res = await validateReferralCode(code)
+        if (res.ok) {
+          setRefStatus('valid')
+          setRefError(null)
+          log(`✓ Referral code valid: ${code}`)
+        } else {
+          setRefStatus('invalid')
+          setRefError(res.error)
+          log(`✗ Referral code invalid: ${res.error}`)
+        }
+      } catch (err) {
+        log(`✗ Validation error: ${(err as Error).message}`)
         setRefStatus('invalid')
-        setRefError(res.error)
+        setRefError('Error validating code')
       }
     }, 500)
     return () => clearTimeout(t)
   }, [refCode, isSignUp])
 
-  // NOTE: removed the client-side "if session exists, redirect to /app"
-  // check that used to live here. It read the session via the browser
-  // client (localStorage/cookies), which can disagree with what the
-  // server-side middleware sees on a custom domain — the client would
-  // say "logged in, go to /app," middleware would say "not logged in,
-  // go to /auth/login," and those two disagreeing checks is exactly
-  // what produced the infinite redirect loop. Middleware alone is now
-  // the single source of truth for redirecting authenticated users
-  // away from /auth pages.
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    log('→ Form submission started')
 
-    // CRITICAL FIX #1: Prevent duplicate signup requests
-    // This is the #1 cause of "429 too many requests" errors.
-    // Once a user clicks submit, block any subsequent attempts.
+    // ===== CRITICAL FIX #1: Prevent duplicate requests =====
     if (isSubmitting) {
-      console.warn('Submission already in progress — ignoring duplicate request')
+      log('✗ Submission already in progress (BLOCKED)')
       return
     }
 
-    // CRITICAL FIX #2: If user is under rate limit cooldown, block submission
+    // ===== CRITICAL FIX #2: Check rate limit cooldown =====
     if (rateLimitCooldown > 0) {
-      console.warn('Rate limit cooldown active — submission blocked')
+      log(`✗ Rate limit active: ${rateLimitCooldown}s remaining (BLOCKED)`)
       return
+    }
+
+    // ===== CRITICAL FIX #3: Validate ALL fields before API call =====
+    if (!email.trim()) {
+      setError({ type: 'error', message: 'Please enter your email address' })
+      log('✗ Email is empty')
+      return
+    }
+
+    if (!password) {
+      setError({ type: 'error', message: 'Please enter a password (minimum 6 characters)' })
+      log('✗ Password is empty')
+      return
+    }
+
+    if (isSignUp) {
+      if (!fullName.trim()) {
+        setError({ type: 'error', message: 'Please enter your full name' })
+        log('✗ Full name is empty')
+        return
+      }
+
+      if (refStatus !== 'valid') {
+        const message = refStatus === 'invalid' && refError ? refError : 'Please enter a valid referral code from an existing Pulse member'
+        setError({ type: 'error', message })
+        log(`✗ Invalid referral code: ${message}`)
+        return
+      }
     }
 
     setError(null)
     setLoading(true)
     setIsSubmitting(true)
+    log('→ API request starting...')
 
     const supabase = createClient()
     try {
       if (isSignUp) {
-        // Referral is now mandatory: block here with a clear message
-        // rather than letting it fail deep in a database exception.
-        // This mirrors what handle_new_user() enforces server-side —
-        // this check is just for a fast, friendly error message.
-        if (refStatus !== 'valid') {
-          const message = refStatus === 'invalid' && refError ? refError : 'A valid referral code from a verified Pulse user is required to sign up'
-          setError(message)
+        const cleanEmail = email.trim().toLowerCase()
+        const cleanName = fullName.trim()
+        const cleanCode = refCode.trim()
+
+        log(`→ Creating account: ${cleanEmail}`)
+        const { data, error: authError } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
+            data: { full_name: cleanName, ref_code: cleanCode },
+          },
+        })
+
+        if (authError) {
+          log(`✗ Auth error: ${authError.message} (code: ${authError.status})`)
+
+          // ===== CRITICAL FIX #4: Detect all error types =====
+          const errorLower = authError.message?.toLowerCase() || ''
+          const errorCode = authError.status || 0
+
+          if (
+            errorCode === 429 ||
+            errorLower.includes('429') ||
+            errorLower.includes('rate limit') ||
+            errorLower.includes('too many requests') ||
+            errorLower.includes('please try again')
+          ) {
+            log('→ Rate limit detected, activating 120s cooldown')
+            setError({
+              type: 'warning',
+              message: '⏳ Too many signup attempts. Please wait 2 minutes before trying again. If the issue persists, wait 5 minutes.',
+            })
+            setRateLimitCooldown(120)
+          } else if (errorLower.includes('already registered') || errorLower.includes('already exists')) {
+            log('✗ Email already registered')
+            setError({
+              type: 'error',
+              message: '📧 This email is already registered. Please sign in instead.',
+            })
+          } else if (errorLower.includes('invalid email')) {
+            log('✗ Invalid email format')
+            setError({
+              type: 'error',
+              message: '✉️ Please enter a valid email address.',
+            })
+          } else if (errorLower.includes('password') && errorLower.includes('weak')) {
+            log('✗ Weak password')
+            setError({
+              type: 'error',
+              message: '🔐 Password is too weak. Use at least 6 characters with mix of letters and numbers.',
+            })
+          } else if (errorLower.includes('network') || errorLower.includes('connection')) {
+            log('✗ Network error')
+            setError({
+              type: 'error',
+              message: '🌐 Connection error. Please check your internet and try again.',
+            })
+          } else {
+            log(`✗ Unknown error: ${authError.message}`)
+            setError({
+              type: 'error',
+              message: `❌ ${authError.message || 'Failed to sign up. Please try again.'} If this continues, contact support.`,
+            })
+          }
+
           setLoading(false)
           setIsSubmitting(false)
           return
         }
 
+        if (data?.user) {
+          log(`✓ Account created successfully: ${data.user.id}`)
+          setError({
+            type: 'success',
+            message: '✓ Account created! Check your email to confirm your address.',
+          })
+          // Wait 1 second for success message to be visible, then redirect
+          setTimeout(() => {
+            router.push('/auth/sign-up-success')
+          }, 1000)
+          return
+        } else {
+          log('✗ No user returned from signup')
+          setError({
+            type: 'warning',
+            message: '⏳ Signup processing... Redirecting shortly.',
+          })
+          setTimeout(() => {
+            router.push('/auth/sign-up-success')
+          }, 2000)
+        }
+      } else {
+        // ===== LOGIN FLOW =====
         const cleanEmail = email.trim().toLowerCase()
-        const { error } = await supabase.auth.signUp({
+        log(`→ Signing in: ${cleanEmail}`)
+
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
-          options: {
-            emailRedirectTo:
-              process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
-            data: { full_name: fullName.trim(), ref_code: refCode.trim() },
-          },
         })
 
-        if (error) {
-          // CRITICAL FIX #3: Handle rate limiting with extended cooldown
-          if (
-            error.message?.includes('429') ||
-            error.message?.includes('rate limit') ||
-            error.message?.includes('too many requests') ||
-            error.message?.includes('Too many requests')
-          ) {
-            setError(
-              'Too many signup attempts right now. Please wait at least 60 seconds before trying again. If this continues, wait a few minutes and retry.'
-            )
-            // Set 120-second cooldown for rate limit (Supabase enforces this)
-            setRateLimitCooldown(120)
-            console.error('Rate limit error detected. Cooldown activated for 120s.')
-          } else if (error.message?.includes('already registered')) {
-            setError('This email is already registered. Please sign in instead.')
-          } else if (error.message?.includes('invalid email')) {
-            setError('Please enter a valid email address.')
+        if (authError) {
+          log(`✗ Login error: ${authError.message}`)
+          const errorLower = authError.message?.toLowerCase() || ''
+
+          if (errorLower.includes('invalid') || errorLower.includes('credentials')) {
+            setError({
+              type: 'error',
+              message: '🔐 Invalid email or password. Please check and try again.',
+            })
+          } else if (errorLower.includes('rate limit') || errorLower.includes('429')) {
+            setError({
+              type: 'warning',
+              message: '⏳ Too many login attempts. Please wait a minute and try again.',
+            })
+            setRateLimitCooldown(60)
           } else {
-            setError(error.message || 'Failed to sign up. Please try again.')
+            setError({
+              type: 'error',
+              message: authError.message || 'Failed to sign in. Please try again.',
+            })
           }
           setLoading(false)
           setIsSubmitting(false)
           return
         }
 
-        // Success: redirect to confirmation page
-        router.push('/auth/sign-up-success')
-      } else {
-        // Login flow
-        const cleanEmail = email.trim().toLowerCase()
-        const { error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        })
-
-        if (error) {
-          setError(error.message || 'Failed to sign in. Please check your credentials.')
-          setLoading(false)
-          setIsSubmitting(false)
+        if (data?.user) {
+          log(`✓ Login successful: ${data.user.id}`)
+          log('→ Redirecting to /app')
+          // Full page navigation to ensure session cookie is sent
+          window.location.href = '/app'
           return
         }
-
-        // CHANGED: was router.push('/app') + router.refresh(). A client-side
-        // navigation can outrun the auth cookie actually being readable by
-        // the server on the next request — a full navigation guarantees
-        // the browser sends the fresh cookie and middleware sees a real,
-        // settled session instead of racing against it.
-        window.location.href = '/app'
-        return
       }
     } catch (err) {
       const errorMessage = (err as Error).message
-      console.error('Auth error:', errorMessage)
-      setError(errorMessage || 'An unexpected error occurred. Please try again.')
+      log(`✗ Caught exception: ${errorMessage}`)
+      setError({
+        type: 'error',
+        message: `⚠️ ${errorMessage || 'An unexpected error occurred. Please refresh and try again.'}`,
+      })
+    } finally {
       setLoading(false)
       setIsSubmitting(false)
     }
@@ -198,21 +299,23 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10 text-center">
         <div className="glass rounded-3xl p-8">
           <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
-            <Activity className="size-7 text-gold" />
+            <AlertCircle className="size-7 text-gold" />
           </span>
-          <h1 className="text-lg font-semibold">Supabase not configured</h1>
+          <h1 className="text-lg font-semibold">Configuration Required</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
-            Add <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in{' '}
-            <strong>Settings → Vars</strong> to enable authentication.
+            Supabase is not configured. Add{' '}
+            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to your environment
+            variables.
           </p>
         </div>
       </div>
     )
   }
 
-  const isFormDisabled = isSubmitting || rateLimitCooldown > 0
-  const isSubmitDisabled = loading || isSubmitting || rateLimitCooldown > 0 || (isSignUp && refStatus !== 'valid')
+  const isFormDisabled = isSubmitting || rateLimitCooldown > 0 || loading
+  const isSubmitDisabled =
+    loading || isSubmitting || rateLimitCooldown > 0 || (isSignUp && refStatus !== 'valid')
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
@@ -254,20 +357,26 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                 disabled={isFormDisabled}
               />
             </Field>
-            {refStatus === 'checking' && (
-              <p className="mt-1 text-xs text-muted-foreground">Checking code…</p>
-            )}
-            {refStatus === 'valid' && (
-              <p className="mt-1 text-xs text-green">✓ Valid — you'll be connected to this Pulse member</p>
-            )}
-            {refStatus === 'invalid' && refError && (
-              <p className="mt-1 text-xs text-destructive">✗ {refError}</p>
-            )}
-            {refStatus === 'idle' && refCode === '' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ask an existing, verified Pulse member for their code — required to create an account.
-              </p>
-            )}
+            <div className="mt-2 mb-3">
+              {refStatus === 'checking' && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Activity className="size-3 animate-spin" /> Validating code...
+                </p>
+              )}
+              {refStatus === 'valid' && (
+                <p className="text-xs text-green flex items-center gap-1.5">
+                  <CheckCircle2 className="size-3" /> Valid referral code
+                </p>
+              )}
+              {refStatus === 'invalid' && refError && (
+                <p className="text-xs text-destructive flex items-center gap-1.5">
+                  <AlertCircle className="size-3" /> {refError}
+                </p>
+              )}
+              {refStatus === 'idle' && refCode === '' && (
+                <p className="text-xs text-muted-foreground">Ask an existing verified member for their code</p>
+              )}
+            </div>
           </>
         ) : null}
         <Field label="Email">
@@ -304,12 +413,22 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           </div>
         )}
 
-        {error ? (
-          <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {error}
-            {rateLimitCooldown > 0 && ` (Try again in ${rateLimitCooldown}s)`}
-          </p>
-        ) : null}
+        {error && (
+          <div
+            className={`mt-3 rounded-xl border px-3 py-2 text-xs flex items-start gap-2 ${
+              error.type === 'error'
+                ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                : error.type === 'success'
+                  ? 'border-green/30 bg-green/10 text-green'
+                  : 'border-gold/30 bg-gold/10 text-gold'
+            }`}
+          >
+            {error.type === 'error' && <AlertCircle className="size-4 flex-shrink-0 mt-0.5" />}
+            {error.type === 'warning' && <Clock className="size-4 flex-shrink-0 mt-0.5" />}
+            {error.type === 'success' && <CheckCircle2 className="size-4 flex-shrink-0 mt-0.5" />}
+            <span>{error.message}</span>
+          </div>
+        )}
 
         <Button
           type="submit"
@@ -318,9 +437,13 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
-            <Loader2 className="size-4 animate-spin" />
+            <>
+              <Loader2 className="size-4 animate-spin mr-2" /> Processing...
+            </>
           ) : rateLimitCooldown > 0 ? (
-            `Wait ${rateLimitCooldown}s before retrying`
+            <>
+              <Clock className="size-4 mr-2" /> Wait {rateLimitCooldown}s
+            </>
           ) : isSignUp ? (
             'Create account'
           ) : (
@@ -336,13 +459,22 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         </Link>
       </p>
 
+      {/* Debug log (only in dev) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-8 p-3 rounded-lg bg-white/[0.05] border border-white/[0.08]">
+          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wide mb-2">Debug Log</p>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {debugLog.map((log, i) => (
+              <p key={i} className="text-[10px] font-mono text-muted-foreground">
+                {log}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground text-pretty">
-        Disclaimer: Investing involves substantial risk and is not suitable for every investor. The information
-        provided on this platform is for educational and informational purposes only. There are no guarantees of
-        profit nor of avoiding losses when investing. Each individual's results depend on their unique
-        circumstances and numerous other factors. Any past performance, hypothetical or otherwise, is not
-        indicative of future results. You should fully understand the risks and seek advice from a qualified
-        financial advisor before investing.
+        Disclaimer: Investing involves substantial risk. Capital is at risk. See our Risk Disclaimer for details.
       </p>
     </div>
   )
