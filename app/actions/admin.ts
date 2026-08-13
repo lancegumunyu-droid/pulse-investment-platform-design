@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type { AdminSnapshot } from '@/lib/pulse/types'
+import type { Project, Signal } from '@/lib/pulse/pulse-data'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -15,11 +16,6 @@ async function requireAdmin() {
   return user
 }
 
-// Scope was previously enforced only by which tabs the admin dashboard
-// showed — a finance-scoped admin could still call reviewKyc() etc.
-// directly, since the underlying server action only checked "is this
-// person an admin at all," not which scope. Real enforcement now lives
-// here, at the same layer that actually moves money.
 async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations' | 'manager' | 'director'>) {
   const user = await requireAdmin()
   const db = serviceClient()
@@ -66,7 +62,11 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       }
     })
 
-    const totalDeposits = (accounts ?? []).reduce((s, a) => s + Number(a.cash_balance), 0)
+    // FIXED: Calculate real total deposits from verified/completed deposit transactions
+    const totalDeposits = (txns ?? [])
+      .filter((t) => t.type === 'deposit' && t.status === 'completed')
+      .reduce((s, t) => s + Number(t.amount), 0)
+
     const totalInvested = (accounts ?? []).reduce((s, a) => s + Number(a.invested_balance), 0)
     const totalStaked = (accounts ?? []).reduce((s, a) => s + Number(a.staked_balance), 0)
 
@@ -464,34 +464,127 @@ export async function deleteUser(userId: string): Promise<AdminResult> {
   }
 }
 
-export async function getProjectAdminStatuses(): Promise<
-  | { ok: true; rows: { projectId: string; closed: boolean; deadlineOverride: string | null }[] }
-  | { ok: false; error: string }
-> {
+// ==========================================
+// PROJECT MANAGEMENT ACTIONS (NEW)
+// ==========================================
+
+export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project[]; error?: string }> {
   try {
-    await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const { data, error } = await db.from('project_statuses').select('*')
+    const { data, error } = await db.from('projects').select('*').order('created_at', { ascending: false })
     if (error) return { ok: false, error: error.message }
-    const rows = (data ?? []).map((p) => ({
-      projectId: p.project_id,
-      closed: p.closed,
-      deadlineOverride: p.deadline_override,
+    
+    const projects: Project[] = (data ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      country: p.country,
+      sector: p.sector,
+      targetYield: p.target_yield,
+      funded: Number(p.funded),
+      goal: Number(p.goal),
+      risk: p.risk,
+      summary: p.summary,
+      status: p.status,
+      deadline: p.deadline,
     }))
-    return { ok: true, rows }
+    return { ok: true, projects }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
 }
 
-export async function setProjectStatus(projectId: string, closed: boolean, deadlineOverride: string | null): Promise<{ ok: boolean; error?: string }> {
+export async function upsertProject(project: Project): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const { error } = await db.from('project_statuses').upsert(
-      { project_id: projectId, closed, deadline_override: deadlineOverride },
-      { onConflict: 'project_id' }
+    const { error } = await db.from('projects').upsert(
+      {
+        id: project.id,
+        name: project.name,
+        country: project.country,
+        sector: project.sector,
+        target_yield: project.targetYield,
+        funded: project.funded,
+        goal: project.goal,
+        risk: project.risk,
+        summary: project.summary,
+        status: project.status ?? 'Open',
+        deadline: project.deadline ?? null,
+      },
+      { onConflict: 'id' }
     )
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function deleteProject(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { error } = await db.from('projects').delete().eq('id', id)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// ==========================================
+// SIGNAL MANAGEMENT ACTIONS (NEW)
+// ==========================================
+
+export async function fetchSignals(): Promise<{ ok: boolean; signals?: Signal[]; error?: string }> {
+  try {
+    const db = serviceClient()
+    const { data, error } = await db.from('signals').select('*').order('created_at', { ascending: false })
+    if (error) return { ok: false, error: error.message }
+
+    const signals: Signal[] = (data ?? []).map((s) => ({
+      id: s.id,
+      projectId: s.project_id,
+      title: s.title,
+      window: s.window_label,
+      detail: s.detail,
+      targetYield: s.target_yield,
+      urgency: s.urgency,
+    }))
+    return { ok: true, signals }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function upsertSignal(signal: Signal): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { error } = await db.from('signals').upsert(
+      {
+        id: signal.id,
+        project_id: signal.projectId,
+        title: signal.title,
+        window_label: signal.window,
+        detail: signal.detail,
+        target_yield: signal.targetYield,
+        urgency: signal.urgency,
+      },
+      { onConflict: 'id' }
+    )
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function deleteSignal(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { error } = await db.from('signals').delete().eq('id', id)
     if (error) return { ok: false, error: error.message }
     return { ok: true }
   } catch (e) {
