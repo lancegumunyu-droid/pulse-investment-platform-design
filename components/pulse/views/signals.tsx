@@ -16,6 +16,8 @@ interface Signal {
   target_yield: string
   urgency: string
   window: string
+  created_at?: string
+  updated_at?: string
 }
 
 export function SignalsView() {
@@ -46,6 +48,7 @@ export function SignalsView() {
     }
   }, [supabase])
 
+  // Fetch live project funding
   const fetchFunding = useCallback(async () => {
     setIsRefreshing(true)
     try {
@@ -56,12 +59,37 @@ export function SignalsView() {
     }
   }, [api])
 
-  useEffect(() => {
+  // Manual trigger for both Signals and Funding
+  const handleRefresh = useCallback(() => {
     loadSignals()
     fetchFunding()
-    const interval = setInterval(fetchFunding, 10_000)
-    return () => clearInterval(interval)
   }, [loadSignals, fetchFunding])
+
+  useEffect(() => {
+    // Initial fetch
+    loadSignals()
+    fetchFunding()
+
+    // Realtime subscription for live signal updates (dates, urgency, yields)
+    const channel = supabase
+      .channel('public:signals')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'signals' },
+        () => {
+          loadSignals()
+        }
+      )
+      .subscribe()
+
+    // Funding polling interval
+    const interval = setInterval(fetchFunding, 10_000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(interval)
+    }
+  }, [loadSignals, fetchFunding, supabase])
 
   return (
     <div className="space-y-5">
@@ -76,10 +104,10 @@ export function SignalsView() {
           size="sm"
           variant="ghost"
           className="text-muted-foreground hover:text-foreground"
-          disabled={isRefreshing}
-          onClick={() => fetchFunding()}
+          disabled={isRefreshing || loading}
+          onClick={handleRefresh}
         >
-          <RotateCcw className={`size-4 ${isRefreshing ? 'animate-spin text-gold' : ''}`} />
+          <RotateCcw className={`size-4 ${isRefreshing || loading ? 'animate-spin text-gold' : ''}`} />
         </Button>
       </div>
 
@@ -91,6 +119,16 @@ export function SignalsView() {
             const project = INITIAL_PROJECTS.find((p) => p.id === s.project_id)
             const funded = project ? (liveFunding ? project.funded + (liveFunding[project.id] ?? 0) : project.funded) : 0
             const pct = project ? Math.min(100, Math.round((funded / project.goal) * 100)) : 0
+            
+            // Format updated/created date
+            const rawDate = s.updated_at || s.created_at
+            const formattedDate = rawDate
+              ? new Date(rawDate).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : null
 
             return (
               <Glass key={s.id} className="animate-rise space-y-3">
@@ -120,9 +158,16 @@ export function SignalsView() {
                   </p>
                 )}
 
-                {/* Public Actions */}
+                {/* Public Actions & Rendered Date */}
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs text-muted-foreground">{s.window}</span>
+                  <div className="flex flex-col text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/90">{s.window}</span>
+                    {formattedDate && (
+                      <span className="text-[10px] opacity-70">
+                        Updated: {formattedDate}
+                      </span>
+                    )}
+                  </div>
                   <Button
                     size="sm"
                     className="bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
