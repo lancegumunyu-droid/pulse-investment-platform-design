@@ -149,6 +149,15 @@ export const FALLBACK_PROJECTS: Project[] = [
 // Backward compatibility export
 export const PROJECTS = FALLBACK_PROJECTS
 
+// Added missing export required by dashboard.tsx
+export const PROJECT_DEADLINES: Record<string, string> = PROJECTS.reduce(
+  (acc, p) => {
+    if (p.deadline) acc[p.id] = p.deadline
+    return acc
+  },
+  {} as Record<string, string>
+)
+
 export interface Signal {
   id: string
   projectId: string
@@ -201,7 +210,7 @@ export const TOKEN = {
 }
 
 export const RISK_DISCLAIMER =
-  "Risk Warning: Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. The possibility exists that you could sustain a loss of some or all of your initial investment and therefore you should not invest money that you cannot afford to lose."
+  'Risk Warning: Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. The possibility exists that you could sustain a loss of some or all of your initial investment and therefore you should not invest money that you cannot afford to lose.'
 
 export function isProjectClosed(p: Project): boolean {
   if (p.status === 'Closed') return true
