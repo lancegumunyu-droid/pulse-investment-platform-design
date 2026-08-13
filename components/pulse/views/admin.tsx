@@ -5,7 +5,6 @@ import {
   Activity,
   BadgeCheck,
   Check,
-  ChevronRight,
   Coins,
   Lock,
   RotateCcw,
@@ -13,6 +12,7 @@ import {
   Trash2,
   TriangleAlert,
   User,
+  UserPlus,
   X,
 } from 'lucide-react'
 import { usePulse, money } from '../store'
@@ -39,7 +39,18 @@ import {
 import type { AdminSnapshot } from '@/lib/pulse/types'
 import { PROJECTS } from '@/lib/pulse-data'
 
-type Tab = 'overview' | 'kyc' | 'deposits' | 'withdrawals' | 'transfers' | 'cards' | 'users' | 'projects' | 'settings'
+type Tab =
+  | 'overview'
+  | 'kyc'
+  | 'deposits'
+  | 'withdrawals'
+  | 'transfers'
+  | 'cards'
+  | 'users'
+  | 'projects'
+  | 'settings'
+
+type AdminScopeType = 'full' | 'finance' | 'operations'
 
 export function AdminView() {
   const { state, setView, toast } = usePulse()
@@ -49,6 +60,7 @@ export function AdminView() {
   const [disburseUser, setDisburseUser] = useState('')
   const [disburseAmt, setDisburseAmt] = useState('')
   const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [newAdminScope, setNewAdminScope] = useState<AdminScopeType>('operations')
   const [busy, setBusy] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [managerIdDraft, setManagerIdDraft] = useState<Record<string, string>>({})
@@ -59,42 +71,33 @@ export function AdminView() {
   const load = useCallback(async () => {
     setLoading(true)
     const res = await getAdminSnapshot()
-    if (res.ok) setSnap(res.snapshot)
-    else toast({ title: 'Admin load failed', description: res.error, variant: 'error' })
+    if (res.ok && res.snapshot) {
+      setSnap(res.snapshot)
+    } else {
+      toast({ title: 'Admin load failed', description: res.error, variant: 'error' })
+    }
     setLoading(false)
   }, [toast])
 
-  useEffect(() => { load() }, [load])
-
-  if (!state.isAdmin) {
-    return (
-      <div className="space-y-5">
-        <SectionTitle title="Admin dashboard" subtitle="Restricted access." icon={<Lock className="size-5" />} />
-        <Glass className="animate-rise flex flex-col items-center py-8 text-center">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-gold-soft text-gold">
-            <ShieldCheck className="size-6" />
-          </span>
-          <p className="mt-3 font-semibold">Admin access required</p>
-          <p className="mt-1 text-sm text-muted-foreground">Your account does not have admin privileges.</p>
-          <p className="mt-2 text-xs text-muted-foreground">Ask an existing admin to add your email.</p>
-        </Glass>
-      </div>
-    )
-  }
+  useEffect(() => {
+    load()
+  }, [load])
 
   const scope = state.adminScope ?? 'full'
-  const allTabs: { id: Tab; label: string; scopes: Array<'full' | 'finance' | 'operations'> }[] = [
+
+  const allTabs: { id: Tab; label: string; scopes: AdminScopeType[] }[] = [
     { id: 'overview', label: 'Overview', scopes: ['full', 'finance', 'operations'] },
-    { id: 'kyc', label: `KYC${snap ? ` (${snap.pendingKyc})` : ''}`, scopes: ['full', 'operations'] },
-    { id: 'deposits', label: `Deposits${snap ? ` (${snap.pendingDeposits})` : ''}`, scopes: ['full', 'finance'] },
-    { id: 'withdrawals', label: `Withdrawals${snap ? ` (${snap.pendingWithdrawals})` : ''}`, scopes: ['full', 'finance'] },
-    { id: 'transfers', label: `Transfers${snap ? ` (${snap.pendingP2P})` : ''}`, scopes: ['full', 'finance'] },
-    { id: 'cards', label: `Cards${snap ? ` (${snap.pendingCards})` : ''}`, scopes: ['full', 'operations'] },
+    { id: 'kyc', label: `KYC${snap?.pendingKyc ? ` (${snap.pendingKyc})` : ''}`, scopes: ['full', 'operations'] },
+    { id: 'deposits', label: `Deposits${snap?.pendingDeposits ? ` (${snap.pendingDeposits})` : ''}`, scopes: ['full', 'finance'] },
+    { id: 'withdrawals', label: `Withdrawals${snap?.pendingWithdrawals ? ` (${snap.pendingWithdrawals})` : ''}`, scopes: ['full', 'finance'] },
+    { id: 'transfers', label: `Transfers${snap?.pendingP2P ? ` (${snap.pendingP2P})` : ''}`, scopes: ['full', 'finance'] },
+    { id: 'cards', label: `Cards${snap?.pendingCards ? ` (${snap.pendingCards})` : ''}`, scopes: ['full', 'operations'] },
     { id: 'users', label: 'Users', scopes: ['full', 'operations'] },
     { id: 'projects', label: 'Projects', scopes: ['full', 'operations'] },
     { id: 'settings', label: 'Settings', scopes: ['full'] },
   ]
-  const tabs = allTabs.filter((t) => t.scopes.includes(scope as 'full' | 'finance' | 'operations'))
+
+  const tabs = allTabs.filter((t) => t.scopes.includes(scope as AdminScopeType))
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'overview'
 
   useEffect(() => {
@@ -102,9 +105,11 @@ export function AdminView() {
     setLoadingProjects(true)
     getProjectAdminStatuses().then((res) => {
       setLoadingProjects(false)
-      if (res.ok) {
+      if (res.ok && res.rows) {
         const map: Record<string, { closed: boolean; deadlineOverride: string | null }> = {}
-        for (const r of res.rows) map[r.projectId] = { closed: r.closed, deadlineOverride: r.deadlineOverride }
+        for (const r of res.rows) {
+          map[r.projectId] = { closed: r.closed, deadlineOverride: r.deadlineOverride }
+        }
         setProjectStatuses(map)
       } else {
         toast({ title: 'Could not load project statuses', description: res.error, variant: 'error' })
@@ -124,8 +129,25 @@ export function AdminView() {
     }
   }
 
+  if (!state.isAdmin) {
+    return (
+      <div className="space-y-5">
+        <SectionTitle title="Admin dashboard" subtitle="Restricted access." icon={<Lock className="size-5" />} />
+        <Glass className="animate-rise flex flex-col items-center py-8 text-center">
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-gold-soft text-gold">
+            <ShieldCheck className="size-6" />
+          </span>
+          <p className="mt-3 font-semibold">Admin access required</p>
+          <p className="mt-1 text-sm text-muted-foreground">Your account does not have admin privileges.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Ask an existing admin to add your email.</p>
+        </Glass>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
+      {/* Top Header */}
       <div className="flex items-center justify-between">
         <SectionTitle
           title="Admin"
@@ -137,6 +159,7 @@ export function AdminView() {
         </Button>
       </div>
 
+      {/* Nav Tabs */}
       <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
         {tabs.map((t) => (
           <button
@@ -144,7 +167,7 @@ export function AdminView() {
             onClick={() => setTab(t.id)}
             className={cn(
               'shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
-              tab === t.id
+              activeTab === t.id
                 ? 'bg-gold text-primary-foreground'
                 : 'bg-white/[0.05] text-muted-foreground hover:bg-white/[0.09]',
             )}
@@ -155,7 +178,7 @@ export function AdminView() {
       </div>
 
       {loading && (
-        <Glass className="flex items-center justify-center py-10 animate-rise">
+        <Glass className="animate-rise flex items-center justify-center py-10">
           <Activity className="size-5 animate-spin text-gold" />
           <span className="ml-2 text-sm text-muted-foreground">Loading…</span>
         </Glass>
@@ -163,10 +186,11 @@ export function AdminView() {
 
       {!loading && snap && (
         <>
-          {tab === 'overview' && (
+          {/* TAB: OVERVIEW */}
+          {activeTab === 'overview' && (
             <div className="space-y-4 animate-rise">
               <Glass>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <Stat label="Total cash balances" value={`$${money(snap.totalDeposits, 0)}`} />
                   <Stat label="Total invested" value={`$${money(snap.totalInvested, 0)}`} />
                   <Stat label="Total staked (PULSE)" value={`${money(snap.totalStaked, 0)}`} />
@@ -174,6 +198,7 @@ export function AdminView() {
                   <Stat label="Pending KYC" value={snap.pendingKyc} />
                   <Stat label="Pending deposits" value={snap.pendingDeposits} />
                   <Stat label="Pending withdrawals" value={snap.pendingWithdrawals} />
+                  <Stat label="Pending transfers" value={snap.pendingP2P} />
                 </div>
               </Glass>
 
@@ -189,7 +214,7 @@ export function AdminView() {
                           <span className="block truncate font-medium">{t.email ?? t.userId.slice(0, 8)}</span>
                           <span className="text-muted-foreground">{t.type}</span>
                         </div>
-                        <div className="ml-3 text-right shrink-0">
+                        <div className="ml-3 shrink-0 text-right">
                           <span className="block font-mono font-semibold">${money(t.amount)}</span>
                           <Pill tone={t.status === 'completed' ? 'green' : 'gold'}>{t.status}</Pill>
                         </div>
@@ -254,7 +279,8 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'kyc' && (
+          {/* TAB: KYC */}
+          {activeTab === 'kyc' && (
             <div className="space-y-3 animate-rise">
               {snap.kycQueue.length === 0 ? (
                 <Glass className="py-8 text-center">
@@ -270,7 +296,7 @@ export function AdminView() {
                       <p className="text-xs text-muted-foreground">{k.email ?? k.userId.slice(0, 12)}</p>
                     </div>
                     <div className="mb-3 space-y-1 text-xs text-muted-foreground">
-                      <p>ID: <span className="text-foreground font-mono">{k.idNumber}</span></p>
+                      <p>ID: <span className="font-mono text-foreground">{k.idNumber}</span></p>
                       {k.dateOfBirth && <p>DOB: {k.dateOfBirth}</p>}
                       {k.nationality && <p>Nationality: {k.nationality}</p>}
                       {k.country && <p>Country: {k.country}</p>}
@@ -313,7 +339,8 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'deposits' && (
+          {/* TAB: DEPOSITS */}
+          {activeTab === 'deposits' && (
             <div className="space-y-3 animate-rise">
               {snap.depositQueue.length === 0 ? (
                 <Glass className="py-8 text-center">
@@ -378,7 +405,8 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'withdrawals' && (
+          {/* TAB: WITHDRAWALS */}
+          {activeTab === 'withdrawals' && (
             <div className="space-y-3 animate-rise">
               {snap.withdrawalQueue.length === 0 ? (
                 <Glass className="py-8 text-center">
@@ -444,7 +472,8 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'transfers' && (
+          {/* TAB: TRANSFERS */}
+          {activeTab === 'transfers' && (
             <div className="space-y-3 animate-rise">
               {snap.p2pQueue.length === 0 ? (
                 <Glass className="py-8 text-center">
@@ -501,7 +530,8 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'cards' && (
+          {/* TAB: CARDS */}
+          {activeTab === 'cards' && (
             <div className="space-y-3 animate-rise">
               {snap.cardQueue.length === 0 ? (
                 <Glass className="py-8 text-center">
@@ -557,7 +587,8 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'projects' && (
+          {/* TAB: PROJECTS */}
+          {activeTab === 'projects' && (
             <div className="space-y-3 animate-rise">
               {loadingProjects ? (
                 <Glass className="flex items-center justify-center py-8">
@@ -586,7 +617,7 @@ export function AdminView() {
                           type="date"
                           value={deadlineDraft[p.id] ?? status?.deadlineOverride ?? ''}
                           onChange={(e) => setDeadlineDraft({ ...deadlineDraft, [p.id]: e.target.value })}
-                          className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none"
+                          className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
                         />
                         <Button
                           size="sm"
@@ -645,7 +676,8 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'users' && (
+          {/* TAB: USERS */}
+          {activeTab === 'users' && (
             <div className="space-y-3 animate-rise">
               {snap.users.length === 0 ? (
                 <Glass className="py-8 text-center">
@@ -670,36 +702,48 @@ export function AdminView() {
                           )}
                         </div>
                       </div>
+
                       {confirmDeleteId === u.id ? (
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1">
                           <Button
                             size="sm"
                             variant="destructive"
+                            className="h-7 px-2 text-xs font-semibold"
                             disabled={busy}
                             onClick={() =>
                               act(async () => {
                                 const res = await deleteUser(u.id)
-                                if (res.ok) toast({ title: 'User deleted', variant: 'success' })
                                 setConfirmDeleteId(null)
+                                if (res.ok) toast({ title: 'User deleted', variant: 'success' })
                                 return res
                               })
                             }
                           >
                             Confirm
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setConfirmDeleteId(null)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => setConfirmDeleteId(null)}
+                          >
                             Cancel
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteId(u.id)}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => setConfirmDeleteId(u.id)}
+                        >
                           <Trash2 className="size-4" />
                         </Button>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
-                      <div className="flex-1 min-w-[140px] flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
+                      <div className="flex flex-1 items-center gap-1.5 min-w-[200px]">
                         <input
                           type="text"
                           placeholder="Manager ID"
@@ -710,6 +754,7 @@ export function AdminView() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-7 shrink-0 text-xs"
                           disabled={busy || !managerIdDraft[u.id]}
                           onClick={() =>
                             act(async () => {
@@ -726,12 +771,12 @@ export function AdminView() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-xs text-muted-foreground hover:text-foreground"
+                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
                         disabled={busy}
                         onClick={() =>
                           act(async () => {
                             const res = await resetKyc(u.id)
-                            if (res.ok) toast({ title: 'KYC reset to unverified', variant: 'info' })
+                            if (res.ok) toast({ title: 'KYC reset for user', variant: 'info' })
                             return res
                           })
                         }
@@ -745,71 +790,56 @@ export function AdminView() {
             </div>
           )}
 
-          {tab === 'settings' && (
+          {/* TAB: SETTINGS */}
+          {activeTab === 'settings' && (
             <div className="space-y-4 animate-rise">
-              <Glass className="space-y-3">
-                <p className="text-sm font-semibold">Add New Admin</p>
-                <p className="text-xs text-muted-foreground">
-                  Promote a user to admin by entering their registered account email address.
+              <Glass>
+                <p className="mb-1 text-sm font-semibold">Grant Admin Privileges</p>
+                <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+                  Grant operational or financial administration access to team members by user email.
                 </p>
-                <input
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={newAdminEmail}
-                  onChange={(e) => setNewAdminEmail(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
-                />
-                <Button
-                  className="w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
-                  disabled={!newAdminEmail || busy}
-                  onClick={() =>
-                    act(async () => {
-                      const res = await addAdminByEmail(newAdminEmail)
-                      if (res.ok) {
-                        toast({ title: 'Admin added successfully', variant: 'success' })
-                        setNewAdminEmail('')
-                      }
-                      return res
-                    })
-                  }
-                >
-                  Add Admin
-                </Button>
-              </Glass>
+                <div className="space-y-3">
+                  <div>
+                    <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Admin Email</span>
+                    <input
+                      type="email"
+                      value={newAdminEmail}
+                      onChange={(e) => setNewAdminEmail(e.target.value)}
+                      placeholder="colleague@example.com"
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
+                    />
+                  </div>
 
-              <Glass className="space-y-3">
-                <p className="text-sm font-semibold">Appoint Admin Scopes</p>
-                <p className="text-xs text-muted-foreground">
-                  Restrict an admin&apos;s visibility strictly to Finance or Operations tasks.
-                </p>
-                <div className="space-y-2">
-                  {snap.users
-                    .filter((u) => u.isAdmin)
-                    .map((adminUser) => (
-                      <div key={adminUser.id} className="flex items-center justify-between text-xs pt-1">
-                        <span className="font-medium truncate max-w-[150px]">{adminUser.email ?? adminUser.id.slice(0, 10)}</span>
-                        <div className="flex gap-1">
-                          {(['full', 'finance', 'operations'] as const).map((s) => (
-                            <Button
-                              key={s}
-                              size="sm"
-                              variant={adminUser.adminScope === s ? 'default' : 'outline'}
-                              className={cn('px-2 py-0.5 text-[10px] h-7', adminUser.adminScope === s && 'bg-gold text-primary-foreground')}
-                              disabled={busy}
-                              onClick={() =>
-                                act(async () => {
-                                  const res = await appointAdminScope(adminUser.id, s)
-                                  if (res.ok) toast({ title: `Scope updated to ${s}`, variant: 'success' })
-                                  return res
-                                })
-                              }
-                            >
-                              {s}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                  <div>
+                    <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Access Scope</span>
+                    <select
+                      value={newAdminScope}
+                      onChange={(e) => setNewAdminScope(e.target.value as AdminScopeType)}
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm outline-none focus:border-gold/50"
+                    >
+                      <option value="operations">Operations (KYC, Cards, Users, Projects)</option>
+                      <option value="finance">Finance (Deposits, Withdrawals, P2P)</option>
+                      <option value="full">Full Control (All permissions & Admin settings)</option>
+                    </select>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+                    disabled={!newAdminEmail || busy}
+                    onClick={() =>
+                      act(async () => {
+                        const res = await addAdminByEmail(newAdminEmail, newAdminScope)
+                        if (res.ok) {
+                          toast({ title: 'Admin added', description: `${newAdminEmail} assigned ${newAdminScope} scope.`, variant: 'success' })
+                          setNewAdminEmail('')
+                        }
+                        return res
+                      })
+                    }
+                  >
+                    <UserPlus className="size-4 mr-1.5" /> Grant Access
+                  </Button>
                 </div>
               </Glass>
             </div>
