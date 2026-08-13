@@ -691,98 +691,85 @@ export function AdminView() {
                       <div>
                         <p className="text-sm font-semibold">{u.email ?? u.id}</p>
                         <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <span>Cash: <strong className="text-foreground">${money(u.cash, 0)}</strong></span>
+                          <span>Cash: <strong className="text-foreground">${money(u.cash)}</strong></span>
                           <span>·</span>
                           <span>KYC: <strong className="text-foreground">{u.kycStatus}</strong></span>
-                          {u.managerId && (
-                            <>
-                              <span>·</span>
-                              <span>Manager: <strong className="text-foreground">{u.managerId}</strong></span>
-                            </>
-                          )}
                         </div>
                       </div>
-
-                      {confirmDeleteId === u.id ? (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-7 px-2 text-xs font-semibold"
-                            disabled={busy}
-                            onClick={() =>
-                              act(async () => {
-                                const res = await deleteUser(u.id)
-                                setConfirmDeleteId(null)
-                                if (res.ok) toast({ title: 'User deleted', variant: 'success' })
-                                return res
-                              })
-                            }
-                          >
-                            Confirm
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => setConfirmDeleteId(null)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="size-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => setConfirmDeleteId(u.id)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      )}
+                      {u.managerId && <Pill tone="gold">Managed</Pill>}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
-                      <div className="flex flex-1 items-center gap-1.5 min-w-[200px]">
-                        <input
-                          type="text"
-                          placeholder="Manager ID"
-                          value={managerIdDraft[u.id] ?? ''}
-                          onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
-                          className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs outline-none focus:border-gold/50"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 shrink-0 text-xs"
-                          disabled={busy || !managerIdDraft[u.id]}
-                          onClick={() =>
-                            act(async () => {
-                              const res = await assignManager(u.id, managerIdDraft[u.id])
-                              if (res.ok) toast({ title: 'Manager assigned', variant: 'success' })
-                              return res
-                            })
-                          }
-                        >
-                          Assign
-                        </Button>
-                      </div>
-
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Manager ID"
+                        value={managerIdDraft[u.id] ?? u.managerId ?? ''}
+                        onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
+                        className="flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
+                      />
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await assignManager(u.id, managerIdDraft[u.id] || null)
+                            if (res.ok) toast({ title: 'Manager updated', variant: 'success' })
+                            return res
+                          })
+                        }
+                      >
+                        Assign
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs"
                         disabled={busy}
                         onClick={() =>
                           act(async () => {
                             const res = await resetKyc(u.id)
-                            if (res.ok) toast({ title: 'KYC reset for user', variant: 'info' })
+                            if (res.ok) toast({ title: 'KYC reset', variant: 'info' })
                             return res
                           })
                         }
                       >
                         <RotateCcw className="mr-1 size-3" /> Reset KYC
                       </Button>
+
+                      {confirmDeleteId === u.id ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="flex-1 text-xs"
+                          disabled={busy}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await deleteUser(u.id)
+                              if (res.ok) {
+                                toast({ title: 'User deleted', variant: 'success' })
+                                setConfirmDeleteId(null)
+                              }
+                              return res
+                            })
+                          }
+                        >
+                          Confirm Delete
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive/40 text-xs text-destructive hover:bg-destructive/10"
+                          disabled={busy}
+                          onClick={() => setConfirmDeleteId(u.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      )}
                     </div>
                   </Glass>
                 ))
@@ -793,52 +780,40 @@ export function AdminView() {
           {/* TAB: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-4 animate-rise">
-              <Glass>
-                <p className="mb-1 text-sm font-semibold">Grant Admin Privileges</p>
-                <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-                  Grant operational or financial administration access to team members by user email.
-                </p>
-                <div className="space-y-3">
-                  <div>
-                    <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Admin Email</span>
-                    <input
-                      type="email"
-                      value={newAdminEmail}
-                      onChange={(e) => setNewAdminEmail(e.target.value)}
-                      placeholder="colleague@example.com"
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
-                    />
-                  </div>
-
-                  <div>
-                    <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Access Scope</span>
-                    <select
-                      value={newAdminScope}
-                      onChange={(e) => setNewAdminScope(e.target.value as AdminScopeType)}
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm outline-none focus:border-gold/50"
-                    >
-                      <option value="operations">Operations (KYC, Cards, Users, Projects)</option>
-                      <option value="finance">Finance (Deposits, Withdrawals, P2P)</option>
-                      <option value="full">Full Control (All permissions & Admin settings)</option>
-                    </select>
-                  </div>
-
+              <Glass className="space-y-3">
+                <p className="text-sm font-semibold">Add New Administrator</p>
+                <div className="space-y-2">
+                  <input
+                    type="email"
+                    placeholder="Admin Email Address"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
+                  />
+                  <select
+                    value={newAdminScope}
+                    onChange={(e) => setNewAdminScope(e.target.value as AdminScopeType)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm outline-none focus:border-gold/50"
+                  >
+                    <option value="operations">Operations Admin</option>
+                    <option value="finance">Finance Admin</option>
+                    <option value="full">Full Admin</option>
+                  </select>
                   <Button
-                    size="lg"
-                    className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+                    className="w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
                     disabled={!newAdminEmail || busy}
                     onClick={() =>
                       act(async () => {
                         const res = await addAdminByEmail(newAdminEmail, newAdminScope)
                         if (res.ok) {
-                          toast({ title: 'Admin added', description: `${newAdminEmail} assigned ${newAdminScope} scope.`, variant: 'success' })
+                          toast({ title: 'Admin added successfully', variant: 'success' })
                           setNewAdminEmail('')
                         }
                         return res
                       })
                     }
                   >
-                    <UserPlus className="size-4 mr-1.5" /> Grant Access
+                    <UserPlus className="mr-1.5 size-4" /> Add Admin
                   </Button>
                 </div>
               </Glass>
