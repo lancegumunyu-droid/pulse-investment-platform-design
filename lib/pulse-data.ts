@@ -86,9 +86,12 @@ export interface Project {
   goal: number
   risk: 'Lower' | 'Moderate' | 'Higher'
   summary: string
+  status?: 'Open' | 'Closed'
+  deadline?: string | null
 }
 
-export const PROJECTS: Project[] = [
+// Fallback seed projects if DB is empty or during cold-starts
+export const FALLBACK_PROJECTS: Project[] = [
   {
     id: 'kalahari-solar',
     name: 'Kalahari Solar Field',
@@ -99,6 +102,8 @@ export const PROJECTS: Project[] = [
     goal: 1_000_000,
     risk: 'Lower',
     summary: '85 MW solar installation with a 20-year power purchase agreement with the national utility.',
+    status: 'Open',
+    deadline: '2026-09-15',
   },
   {
     id: 'copperbelt-royalty',
@@ -110,6 +115,8 @@ export const PROJECTS: Project[] = [
     goal: 750_000,
     risk: 'Higher',
     summary: 'Revenue royalty on an operating copper concession. Returns track commodity prices and output.',
+    status: 'Open',
+    deadline: '2026-08-30',
   },
   {
     id: 'zambezi-agri',
@@ -121,6 +128,8 @@ export const PROJECTS: Project[] = [
     goal: 500_000,
     risk: 'Moderate',
     summary: 'Irrigated macadamia and citrus estate with offtake contracts to EU distributors.',
+    status: 'Open',
+    deadline: '2026-10-01',
   },
   {
     id: 'maputo-logistics',
@@ -132,8 +141,13 @@ export const PROJECTS: Project[] = [
     goal: 900_000,
     risk: 'Moderate',
     summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
+    status: 'Open',
+    deadline: '2026-09-20',
   },
 ]
+
+// Backward compatibility export
+export const PROJECTS = FALLBACK_PROJECTS
 
 export interface Signal {
   id: string
@@ -145,7 +159,8 @@ export interface Signal {
   urgency: 'New' | 'Closing soon' | 'Open'
 }
 
-export const SIGNALS: Signal[] = [
+// Fallback seed signals
+export const FALLBACK_SIGNALS: Signal[] = [
   {
     id: 'sig-1',
     projectId: 'kalahari-solar',
@@ -175,6 +190,9 @@ export const SIGNALS: Signal[] = [
   },
 ]
 
+// Backward compatibility export
+export const SIGNALS = FALLBACK_SIGNALS
+
 export const TOKEN = {
   symbol: 'PULSE',
   salePrice: 0.08,
@@ -185,21 +203,14 @@ export const TOKEN = {
 export const RISK_DISCLAIMER =
   "Risk Warning: Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. The possibility exists that you could sustain a loss of some or all of your initial investment and therefore you should not invest money that you cannot afford to lose."
 
-export const PROJECT_DEADLINES: Record<string, string> = {
-  'kalahari-solar': '2026-09-15',
-  'copperbelt-royalty': '2026-08-30',
-  'zambezi-agri': '2026-10-01',
-  'maputo-logistics': '2026-09-20',
+export function isProjectClosed(p: Project): boolean {
+  if (p.status === 'Closed') return true
+  if (!p.deadline) return false
+  return new Date() > new Date(p.deadline)
 }
 
-export function isProjectClosed(projectId: string, deadlineOverride?: string | null): boolean {
-  const deadline = deadlineOverride ?? PROJECT_DEADLINES[projectId]
-  if (!deadline) return false
-  return new Date() > new Date(deadline)
-}
-
-export function projectStatusLabel(projectId: string, deadlineOverride?: string | null): 'Open' | 'Closed' {
-  return isProjectClosed(projectId, deadlineOverride) ? 'Closed' : 'Open'
+export function projectStatusLabel(p: Project): 'Open' | 'Closed' {
+  return isProjectClosed(p) ? 'Closed' : 'Open'
 }
 
 export const PLATFORM_WALLETS: Record<'usdttrc20' | 'btc', string> = {
