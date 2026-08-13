@@ -12,7 +12,6 @@ export interface Tier {
 }
 
 // Tiers are unlocked purely by the amount an investor allocates.
-// They are NOT tied to recruiting other people.
 export const TIERS: Tier[] = [
   {
     id: 'starter',
@@ -176,7 +175,6 @@ export const SIGNALS: Signal[] = [
   },
 ]
 
-// $PULSE is the platform's ecosystem token used for staking and governance.
 export const TOKEN = {
   symbol: 'PULSE',
   salePrice: 0.08,
@@ -187,9 +185,6 @@ export const TOKEN = {
 export const RISK_DISCLAIMER =
   "Risk Warning: Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. The possibility exists that you could sustain a loss of some or all of your initial investment and therefore you should not invest money that you cannot afford to lose."
 
-// Project deadlines — additive, doesn't touch the PROJECTS array above.
-// Status is computed live from these dates whenever displayed — no
-// scheduled job needed, no separate "status" field to keep in sync.
 export const PROJECT_DEADLINES: Record<string, string> = {
   'kalahari-solar': '2026-09-15',
   'copperbelt-royalty': '2026-08-30',
@@ -197,18 +192,16 @@ export const PROJECT_DEADLINES: Record<string, string> = {
   'maputo-logistics': '2026-09-20',
 }
 
-export function isProjectClosed(projectId: string): boolean {
-  const deadline = PROJECT_DEADLINES[projectId]
+export function isProjectClosed(projectId: string, deadlineOverride?: string | null): boolean {
+  const deadline = deadlineOverride ?? PROJECT_DEADLINES[projectId]
   if (!deadline) return false
   return new Date() > new Date(deadline)
 }
 
-export function projectStatusLabel(projectId: string): 'Open' | 'Closed' {
-  return isProjectClosed(projectId) ? 'Closed' : 'Open'
+export function projectStatusLabel(projectId: string, deadlineOverride?: string | null): 'Open' | 'Closed' {
+  return isProjectClosed(projectId, deadlineOverride) ? 'Closed' : 'Open'
 }
 
-// Real receiving wallets — shown to users on the deposit screen. Luno BTC
-// and Binance USDT-TRC20, both confirmed real addresses.
 export const PLATFORM_WALLETS: Record<'usdttrc20' | 'btc', string> = {
   usdttrc20: 'THB24HhGT515q2kT8qJRBdXMbGCu4uyAKZ',
   btc: '35oZ6ywxKnhVA5r2EccdUb1Jy7qJrU2mH8',
