@@ -82,10 +82,6 @@ export function AdminView() {
     )
   }
 
-  // A full admin (the default for any admin promoted before this feature
-  // existed) sees every tab. A scoped admin only sees the tabs relevant to
-  // what they were appointed to monitor, so the dashboard actually splits
-  // between people instead of just labeling who's who.
   const scope = state.adminScope ?? 'full'
   const allTabs: { id: Tab; label: string; scopes: Array<'full' | 'finance' | 'operations'> }[] = [
     { id: 'overview', label: 'Overview', scopes: ['full', 'finance', 'operations'] },
@@ -423,4 +419,403 @@ export function AdminView() {
                             return res
                           })
                         }
-                     
+                      >
+                        <Check className="size-3.5" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await reviewWithdrawal(w.id, 'rejected')
+                            if (res.ok) toast({ title: 'Withdrawal rejected', variant: 'info' })
+                            return res
+                          })
+                        }
+                      >
+                        <X className="size-3.5" /> Reject
+                      </Button>
+                    </div>
+                  </Glass>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'transfers' && (
+            <div className="space-y-3 animate-rise">
+              {snap.p2pQueue.length === 0 ? (
+                <Glass className="py-8 text-center">
+                  <Check className="mx-auto size-8 text-green" />
+                  <p className="mt-2 text-sm font-semibold">No pending P2P transfers</p>
+                </Glass>
+              ) : (
+                snap.p2pQueue.map((p) => (
+                  <Glass key={p.id} className="animate-rise">
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="min-w-0">
+                        <p className="font-semibold">${money(p.amount)}</p>
+                        <p className="text-xs text-muted-foreground">From: {p.senderEmail ?? p.senderId.slice(0, 12)}</p>
+                        <p className="text-xs text-muted-foreground">To: {p.recipientEmail ?? p.recipientId.slice(0, 12)}</p>
+                        <p className="text-xs text-muted-foreground">Requested {new Date(p.createdAt).toLocaleString()}</p>
+                        {p.note && <p className="mt-1 text-xs italic text-muted-foreground">&quot;{p.note}&quot;</p>}
+                      </div>
+                      <Pill tone="gold">pending</Pill>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-green/90 font-semibold text-background hover:bg-green"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await reviewP2PTransfer(p.id, 'approved')
+                            if (res.ok) toast({ title: 'P2P Transfer approved', variant: 'success' })
+                            return res
+                          })
+                        }
+                      >
+                        <Check className="size-3.5" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await reviewP2PTransfer(p.id, 'rejected')
+                            if (res.ok) toast({ title: 'P2P Transfer rejected', variant: 'info' })
+                            return res
+                          })
+                        }
+                      >
+                        <X className="size-3.5" /> Reject
+                      </Button>
+                    </div>
+                  </Glass>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'cards' && (
+            <div className="space-y-3 animate-rise">
+              {snap.cardQueue.length === 0 ? (
+                <Glass className="py-8 text-center">
+                  <Check className="mx-auto size-8 text-green" />
+                  <p className="mt-2 text-sm font-semibold">No pending card applications</p>
+                </Glass>
+              ) : (
+                snap.cardQueue.map((c) => (
+                  <Glass key={c.id} className="animate-rise">
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="min-w-0">
+                        <p className="font-semibold">{c.cardType.toUpperCase()} Card</p>
+                        <p className="text-xs text-muted-foreground">{c.email ?? c.userId.slice(0, 12)}</p>
+                        <p className="text-xs text-muted-foreground">Requested {new Date(c.createdAt).toLocaleString()}</p>
+                        {c.shippingAddress && <p className="mt-1 text-xs text-muted-foreground">Ship: {c.shippingAddress}</p>}
+                      </div>
+                      <Pill tone="gold">pending</Pill>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-green/90 font-semibold text-background hover:bg-green"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await reviewCardApplication(c.id, 'approved')
+                            if (res.ok) toast({ title: 'Card application approved', variant: 'success' })
+                            return res
+                          })
+                        }
+                      >
+                        <Check className="size-3.5" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await reviewCardApplication(c.id, 'rejected')
+                            if (res.ok) toast({ title: 'Card application rejected', variant: 'info' })
+                            return res
+                          })
+                        }
+                      >
+                        <X className="size-3.5" /> Reject
+                      </Button>
+                    </div>
+                  </Glass>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'projects' && (
+            <div className="space-y-3 animate-rise">
+              {loadingProjects ? (
+                <Glass className="flex items-center justify-center py-8">
+                  <Activity className="size-5 animate-spin text-gold" />
+                  <span className="ml-2 text-sm text-muted-foreground">Loading projects data…</span>
+                </Glass>
+              ) : (
+                PROJECTS.map((p) => {
+                  const status = projectStatuses?.[p.id]
+                  const isClosed = status?.closed ?? false
+
+                  return (
+                    <Glass key={p.id} className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">{p.country} · {p.sector}</p>
+                        </div>
+                        <Pill tone={isClosed ? 'muted' : 'green'}>
+                          {isClosed ? 'closed' : 'open'}
+                        </Pill>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={deadlineDraft[p.id] ?? status?.deadlineOverride ?? ''}
+                          onChange={(e) => setDeadlineDraft({ ...deadlineDraft, [p.id]: e.target.value })}
+                          className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await setProjectStatus(p.id, isClosed, deadlineDraft[p.id] ?? null)
+                              if (res.ok) toast({ title: 'Date updated', variant: 'success' })
+                              return res
+                            })
+                          }
+                        >
+                          Set date
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 font-semibold"
+                          disabled={busy}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await setProjectStatus(p.id, !isClosed, status?.deadlineOverride ?? null)
+                              if (res.ok) toast({ title: `Project ${!isClosed ? 'closed' : 'reopened'}`, variant: 'success' })
+                              return res
+                            })
+                          }
+                        >
+                          {!isClosed ? 'Close project' : 'Reopen project'}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+                          disabled={busy}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await processProjectPayout(p.id)
+                              if (res.ok) {
+                                toast({ title: 'Payout processed', description: 'Returns disbursed successfully', variant: 'success' })
+                              }
+                              return res
+                            })
+                          }
+                        >
+                          Process payout
+                        </Button>
+                      </div>
+                    </Glass>
+                  )
+                })
+              )}
+            </div>
+          )}
+
+          {tab === 'users' && (
+            <div className="space-y-3 animate-rise">
+              {snap.users.length === 0 ? (
+                <Glass className="py-8 text-center">
+                  <User className="mx-auto size-8 text-muted-foreground" />
+                  <p className="mt-2 text-sm font-semibold">No registered users</p>
+                </Glass>
+              ) : (
+                snap.users.map((u) => (
+                  <Glass key={u.id} className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">{u.email ?? u.id}</p>
+                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span>Cash: <strong className="text-foreground">${money(u.cash, 0)}</strong></span>
+                          <span>·</span>
+                          <span>KYC: <strong className="text-foreground">{u.kycStatus}</strong></span>
+                          {u.managerId && (
+                            <>
+                              <span>·</span>
+                              <span>Manager: <strong className="text-foreground">{u.managerId}</strong></span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {confirmDeleteId === u.id ? (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busy}
+                            onClick={() =>
+                              act(async () => {
+                                const res = await deleteUser(u.id)
+                                if (res.ok) toast({ title: 'User deleted', variant: 'success' })
+                                setConfirmDeleteId(null)
+                                return res
+                              })
+                            }
+                          >
+                            Confirm
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setConfirmDeleteId(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteId(u.id)}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
+                      <div className="flex-1 min-w-[140px] flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="Manager ID"
+                          value={managerIdDraft[u.id] ?? ''}
+                          onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
+                          className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs outline-none focus:border-gold/50"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy || !managerIdDraft[u.id]}
+                          onClick={() =>
+                            act(async () => {
+                              const res = await assignManager(u.id, managerIdDraft[u.id])
+                              if (res.ok) toast({ title: 'Manager assigned', variant: 'success' })
+                              return res
+                            })
+                          }
+                        >
+                          Assign
+                        </Button>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await resetKyc(u.id)
+                            if (res.ok) toast({ title: 'KYC reset to unverified', variant: 'info' })
+                            return res
+                          })
+                        }
+                      >
+                        <RotateCcw className="mr-1 size-3" /> Reset KYC
+                      </Button>
+                    </div>
+                  </Glass>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'settings' && (
+            <div className="space-y-4 animate-rise">
+              <Glass className="space-y-3">
+                <p className="text-sm font-semibold">Add New Admin</p>
+                <p className="text-xs text-muted-foreground">
+                  Promote a user to admin by entering their registered account email address.
+                </p>
+                <input
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
+                />
+                <Button
+                  className="w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+                  disabled={!newAdminEmail || busy}
+                  onClick={() =>
+                    act(async () => {
+                      const res = await addAdminByEmail(newAdminEmail)
+                      if (res.ok) {
+                        toast({ title: 'Admin added successfully', variant: 'success' })
+                        setNewAdminEmail('')
+                      }
+                      return res
+                    })
+                  }
+                >
+                  Add Admin
+                </Button>
+              </Glass>
+
+              <Glass className="space-y-3">
+                <p className="text-sm font-semibold">Appoint Admin Scopes</p>
+                <p className="text-xs text-muted-foreground">
+                  Restrict an admin&apos;s visibility strictly to Finance or Operations tasks.
+                </p>
+                <div className="space-y-2">
+                  {snap.users
+                    .filter((u) => u.isAdmin)
+                    .map((adminUser) => (
+                      <div key={adminUser.id} className="flex items-center justify-between text-xs pt-1">
+                        <span className="font-medium truncate max-w-[150px]">{adminUser.email ?? adminUser.id.slice(0, 10)}</span>
+                        <div className="flex gap-1">
+                          {(['full', 'finance', 'operations'] as const).map((s) => (
+                            <Button
+                              key={s}
+                              size="sm"
+                              variant={adminUser.adminScope === s ? 'default' : 'outline'}
+                              className={cn('px-2 py-0.5 text-[10px] h-7', adminUser.adminScope === s && 'bg-gold text-primary-foreground')}
+                              disabled={busy}
+                              onClick={() =>
+                                act(async () => {
+                                  const res = await appointAdminScope(adminUser.id, s)
+                                  if (res.ok) toast({ title: `Scope updated to ${s}`, variant: 'success' })
+                                  return res
+                                })
+                              }
+                            >
+                              {s}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </Glass>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
