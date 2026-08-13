@@ -7,6 +7,7 @@ import {
   Check,
   Coins,
   Lock,
+  Radio,
   RotateCcw,
   ShieldCheck,
   Trash2,
@@ -19,6 +20,7 @@ import { usePulse, money } from '../store'
 import { Glass, Pill, SectionTitle, Stat } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import {
   getAdminSnapshot,
   reviewKyc,
@@ -51,12 +53,25 @@ type Tab =
   | 'settings'
 
 type AdminScopeType = 'full' | 'finance' | 'operations'
+type UrgencyLevel = 'Closing soon' | 'New' | 'Standard' | 'Open'
+
+interface SignalData {
+  id: string
+  project_id: string
+  title: string
+  urgency: UrgencyLevel
+  window: string
+  target_yield: string
+}
 
 export function AdminView() {
+  const supabase = createClient()
   const { state, setView, toast } = usePulse()
   const [snap, setSnap] = useState<AdminSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
+
+  // Form states
   const [disburseUser, setDisburseUser] = useState('')
   const [disburseAmt, setDisburseAmt] = useState('')
   const [newAdminEmail, setNewAdminEmail] = useState('')
@@ -64,9 +79,12 @@ export function AdminView() {
   const [busy, setBusy] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [managerIdDraft, setManagerIdDraft] = useState<Record<string, string>>({})
+
+  // Projects & Signals Admin State
   const [projectStatuses, setProjectStatuses] = useState<Record<string, { closed: boolean; deadlineOverride: string | null }> | null>(null)
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [deadlineDraft, setDeadlineDraft] = useState<Record<string, string>>({})
+  const [signals, setSignals] = useState<Record<string, SignalData>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -93,29 +111,51 @@ export function AdminView() {
     { id: 'transfers', label: `Transfers${snap?.pendingP2P ? ` (${snap.pendingP2P})` : ''}`, scopes: ['full', 'finance'] },
     { id: 'cards', label: `Cards${snap?.pendingCards ? ` (${snap.pendingCards})` : ''}`, scopes: ['full', 'operations'] },
     { id: 'users', label: 'Users', scopes: ['full', 'operations'] },
-    { id: 'projects', label: 'Projects', scopes: ['full', 'operations'] },
+    { id: 'projects', label: 'Projects & Signals', scopes: ['full', 'operations'] },
     { id: 'settings', label: 'Settings', scopes: ['full'] },
   ]
 
   const tabs = allTabs.filter((t) => t.scopes.includes(scope as AdminScopeType))
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'overview'
 
-  useEffect(() => {
-    if (activeTab !== 'projects' || projectStatuses !== null) return
+  // Fetch Projects and Signals together for the Projects Tab
+  const loadProjectsAndSignals = useCallback(async () => {
     setLoadingProjects(true)
-    getProjectAdminStatuses().then((res) => {
-      setLoadingProjects(false)
-      if (res.ok && res.rows) {
+    try {
+      const [projRes, sigRes] = await Promise.all([
+        getProjectAdminStatuses(),
+        supabase.from('signals').select('*'),
+      ])
+
+      if (projRes.ok && projRes.rows) {
         const map: Record<string, { closed: boolean; deadlineOverride: string | null }> = {}
-        for (const r of res.rows) {
+        for (const r of projRes.rows) {
           map[r.projectId] = { closed: r.closed, deadlineOverride: r.deadlineOverride }
         }
         setProjectStatuses(map)
-      } else {
-        toast({ title: 'Could not load project statuses', description: res.error, variant: 'error' })
+      } else if (projRes.error) {
+        toast({ title: 'Could not load project statuses', description: projRes.error, variant: 'error' })
       }
-    })
-  }, [activeTab, projectStatuses, toast])
+
+      if (sigRes.data) {
+        const sigMap: Record<string, SignalData> = {}
+        for (const s of sigRes.data) {
+          sigMap[s.project_id] = s as SignalData
+        }
+        setSignals(sigMap)
+      }
+    } catch (err) {
+      console.error('Error loading projects & signals:', err)
+    } finally {
+      setLoadingProjects(false)
+    }
+  }, [supabase, toast])
+
+  useEffect(() => {
+    if (activeTab === 'projects' && projectStatuses === null) {
+      loadProjectsAndSignals()
+    }
+  }, [activeTab, projectStatuses, loadProjectsAndSignals])
 
   const act = async (fn: () => Promise<{ ok: boolean; error?: string; snapshot?: AdminSnapshot }>) => {
     setBusy(true)
@@ -124,6 +164,35 @@ export function AdminView() {
       if (res.ok && res.snapshot) setSnap(res.snapshot)
       else if (!res.ok) toast({ title: 'Action failed', description: res.error, variant: 'error' })
       return res
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Handle updates to Signals table in Supabase
+  const handleUpdateSignal = async (
+    projectId: string,
+    updates: Partial<Pick<SignalData, 'urgency' | 'window' | 'target_yield'>>
+  ) => {
+    setBusy(true)
+    try {
+      const currentSignal = signals[projectId]
+      if (!currentSignal) return
+
+      const { error } = await supabase
+        .from('signals')
+        .update(updates)
+        .eq('project_id', projectId)
+
+      if (error) {
+        toast({ title: 'Signal update failed', description: error.message, variant: 'error' })
+      } else {
+        setSignals((prev) => ({
+          ...prev,
+          [projectId]: { ...prev[projectId], ...updates },
+        }))
+        toast({ title: 'Signal updated', description: 'Public signal feed reflects these changes.', variant: 'success' })
+      }
     } finally {
       setBusy(false)
     }
@@ -587,24 +656,36 @@ export function AdminView() {
             </div>
           )}
 
-          {/* TAB: PROJECTS */}
+          {/* TAB: PROJECTS & SIGNALS */}
           {activeTab === 'projects' && (
-            <div className="space-y-3 animate-rise">
+            <div className="space-y-4 animate-rise">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">Active Projects & Signal Controls</h3>
+                  <p className="text-xs text-muted-foreground">Update project status, closing windows, urgency flags, or disburse returns.</p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={loadProjectsAndSignals} disabled={loadingProjects}>
+                  <RotateCcw className={`size-3.5 ${loadingProjects ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+
               {loadingProjects ? (
                 <Glass className="flex items-center justify-center py-8">
                   <Activity className="size-5 animate-spin text-gold" />
-                  <span className="ml-2 text-sm text-muted-foreground">Loading projects data…</span>
+                  <span className="ml-2 text-sm text-muted-foreground">Loading projects and signals…</span>
                 </Glass>
               ) : (
                 PROJECTS.map((p) => {
                   const status = projectStatuses?.[p.id]
                   const isClosed = status?.closed ?? false
+                  const signal = signals[p.id]
 
                   return (
-                    <Glass key={p.id} className="space-y-3">
+                    <Glass key={p.id} className="space-y-4 border-gold/10">
+                      {/* Project Header */}
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-semibold">{p.name}</p>
+                          <p className="font-semibold text-base">{p.name}</p>
                           <p className="text-xs text-muted-foreground">{p.country} · {p.sector}</p>
                         </div>
                         <Pill tone={isClosed ? 'muted' : 'green'}>
@@ -612,34 +693,86 @@ export function AdminView() {
                         </Pill>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="date"
-                          value={deadlineDraft[p.id] ?? status?.deadlineOverride ?? ''}
-                          onChange={(e) => setDeadlineDraft({ ...deadlineDraft, [p.id]: e.target.value })}
-                          className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() =>
-                            act(async () => {
-                              const res = await setProjectStatus(p.id, isClosed, deadlineDraft[p.id] ?? null)
-                              if (res.ok) toast({ title: 'Date updated', variant: 'success' })
-                              return res
-                            })
-                          }
-                        >
-                          Set date
-                        </Button>
+                      {/* Date & Deadline Controls */}
+                      <div className="rounded-lg bg-black/20 p-3 space-y-2 border border-white/5">
+                        <p className="text-xs font-medium text-gold flex items-center gap-1.5">
+                          <Radio className="size-3.5" /> Project Deadline & Status
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="date"
+                            value={deadlineDraft[p.id] ?? status?.deadlineOverride ?? ''}
+                            onChange={(e) => setDeadlineDraft({ ...deadlineDraft, [p.id]: e.target.value })}
+                            className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            disabled={busy}
+                            onClick={() =>
+                              act(async () => {
+                                const res = await setProjectStatus(p.id, isClosed, deadlineDraft[p.id] ?? null)
+                                if (res.ok) toast({ title: 'Date updated', variant: 'success' })
+                                return res
+                              })
+                            }
+                          >
+                            Save Date
+                          </Button>
+                        </div>
                       </div>
 
+                      {/* Signals Configuration (Urgency, Yield & Window) */}
+                      {signal && (
+                        <div className="rounded-lg bg-black/20 p-3 space-y-3 border border-white/5">
+                          <p className="text-xs font-medium text-gold">Public Signal Settings</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                            <div>
+                              <label className="block text-muted-foreground mb-1">Urgency</label>
+                              <select
+                                value={signal.urgency}
+                                onChange={(e) => handleUpdateSignal(p.id, { urgency: e.target.value as UrgencyLevel })}
+                                className="w-full rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 outline-none focus:border-gold/50"
+                              >
+                                <option value="New">New</option>
+                                <option value="Closing soon">Closing soon</option>
+                                <option value="Standard">Standard</option>
+                                <option value="Open">Open</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-muted-foreground mb-1">Window Text</label>
+                              <input
+                                type="text"
+                                value={signal.window}
+                                onChange={(e) => handleUpdateSignal(p.id, { window: e.target.value })}
+                                placeholder="e.g. Closes in 24h"
+                                className="w-full rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 outline-none focus:border-gold/50"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-muted-foreground mb-1">Target Yield</label>
+                              <input
+                                type="text"
+                                value={signal.target_yield}
+                                onChange={(e) => handleUpdateSignal(p.id, { target_yield: e.target.value })}
+                                placeholder="e.g. 14.5% IRR"
+                                className="w-full rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 outline-none focus:border-gold/50"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Project Action Buttons */}
                       <div className="flex gap-2 pt-1">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1 font-semibold"
+                          className="flex-1 font-semibold text-xs"
                           disabled={busy}
                           onClick={() =>
                             act(async () => {
@@ -654,7 +787,7 @@ export function AdminView() {
 
                         <Button
                           size="sm"
-                          className="flex-1 bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
+                          className="flex-1 bg-gold font-semibold text-xs text-primary-foreground hover:bg-gold/90"
                           disabled={busy}
                           onClick={() =>
                             act(async () => {
@@ -690,84 +823,104 @@ export function AdminView() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-sm font-semibold">{u.email ?? u.id}</p>
-                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <span>Cash: <strong className="text-foreground">${money(u.cash)}</strong></span>
-                          <span>·</span>
-                          <span>KYC: <strong className="text-foreground">{u.kycStatus}</strong></span>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Joined {new Date(u.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
-                      {u.managerId && <Pill tone="gold">Managed</Pill>}
+                      <Pill tone={u.kycStatus === 'approved' ? 'green' : u.kycStatus === 'pending' ? 'gold' : 'muted'}>
+                        {u.kycStatus}
+                      </Pill>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Manager ID"
-                        value={managerIdDraft[u.id] ?? u.managerId ?? ''}
-                        onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
-                        className="flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() =>
-                          act(async () => {
-                            const res = await assignManager(u.id, managerIdDraft[u.id] || null)
-                            if (res.ok) toast({ title: 'Manager updated', variant: 'success' })
-                            return res
-                          })
-                        }
-                      >
-                        Assign
-                      </Button>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Cash:</span> ${money(u.cash, 0)}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Manager ID:</span> {u.managerId ?? 'None'}
+                      </div>
                     </div>
 
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs"
-                        disabled={busy}
-                        onClick={() =>
-                          act(async () => {
-                            const res = await resetKyc(u.id)
-                            if (res.ok) toast({ title: 'KYC reset', variant: 'info' })
-                            return res
-                          })
-                        }
-                      >
-                        <RotateCcw className="mr-1 size-3" /> Reset KYC
-                      </Button>
-
-                      {confirmDeleteId === u.id ? (
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+                      {/* Assign Manager */}
+                      <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                        <input
+                          type="text"
+                          placeholder="Manager ID"
+                          value={managerIdDraft[u.id] ?? ''}
+                          onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
+                          className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs outline-none focus:border-gold/50"
+                        />
                         <Button
                           size="sm"
-                          variant="destructive"
-                          className="flex-1 text-xs"
+                          variant="outline"
+                          className="text-xs shrink-0"
                           disabled={busy}
                           onClick={() =>
                             act(async () => {
-                              const res = await deleteUser(u.id)
-                              if (res.ok) {
-                                toast({ title: 'User deleted', variant: 'success' })
-                                setConfirmDeleteId(null)
-                              }
+                              const res = await assignManager(u.id, managerIdDraft[u.id] || null)
+                              if (res.ok) toast({ title: 'Manager updated', variant: 'success' })
                               return res
                             })
                           }
                         >
-                          Confirm Delete
+                          Set Manager
                         </Button>
+                      </div>
+
+                      {/* Reset KYC */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const res = await resetKyc(u.id)
+                            if (res.ok) toast({ title: 'KYC Reset', variant: 'info' })
+                            return res
+                          })
+                        }
+                      >
+                        Reset KYC
+                      </Button>
+
+                      {/* Delete User */}
+                      {confirmDeleteId === u.id ? (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="text-xs"
+                            disabled={busy}
+                            onClick={() =>
+                              act(async () => {
+                                const res = await deleteUser(u.id)
+                                setConfirmDeleteId(null)
+                                if (res.ok) toast({ title: 'User deleted', variant: 'success' })
+                                return res
+                              })
+                            }
+                          >
+                            Confirm Delete
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs"
+                            onClick={() => setConfirmDeleteId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       ) : (
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="border-destructive/40 text-xs text-destructive hover:bg-destructive/10"
-                          disabled={busy}
+                          variant="ghost"
+                          className="text-xs text-destructive hover:bg-destructive/10"
                           onClick={() => setConfirmDeleteId(u.id)}
                         >
-                          <Trash2 className="size-3" />
+                          <Trash2 className="size-3.5" />
                         </Button>
                       )}
                     </div>
@@ -780,40 +933,51 @@ export function AdminView() {
           {/* TAB: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-4 animate-rise">
-              <Glass className="space-y-3">
-                <p className="text-sm font-semibold">Add New Administrator</p>
-                <div className="space-y-2">
-                  <input
-                    type="email"
-                    placeholder="Admin Email Address"
-                    value={newAdminEmail}
-                    onChange={(e) => setNewAdminEmail(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm outline-none focus:border-gold/50"
-                  />
-                  <select
-                    value={newAdminScope}
-                    onChange={(e) => setNewAdminScope(e.target.value as AdminScopeType)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm outline-none focus:border-gold/50"
-                  >
-                    <option value="operations">Operations Admin</option>
-                    <option value="finance">Finance Admin</option>
-                    <option value="full">Full Admin</option>
-                  </select>
+              <Glass>
+                <p className="mb-1 text-sm font-semibold">Add New Admin</p>
+                <p className="mb-3 text-xs text-muted-foreground">Grant admin access to an existing platform user by email.</p>
+                
+                <div className="space-y-3">
+                  <div>
+                    <span className="mb-1 block text-xs text-muted-foreground">Admin Email</span>
+                    <input
+                      type="email"
+                      value={newAdminEmail}
+                      onChange={(e) => setNewAdminEmail(e.target.value)}
+                      placeholder="user@example.com"
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm outline-none focus:border-gold/50"
+                    />
+                  </div>
+
+                  <div>
+                    <span className="mb-1 block text-xs text-muted-foreground">Admin Scope</span>
+                    <select
+                      value={newAdminScope}
+                      onChange={(e) => setNewAdminScope(e.target.value as AdminScopeType)}
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm outline-none focus:border-gold/50"
+                    >
+                      <option value="operations">Operations (KYC, Users, Cards, Projects)</option>
+                      <option value="finance">Finance (Deposits, Withdrawals, Transfers)</option>
+                      <option value="full">Full Admin (All Tabs + Settings)</option>
+                    </select>
+                  </div>
+
                   <Button
+                    size="lg"
                     className="w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
                     disabled={!newAdminEmail || busy}
                     onClick={() =>
                       act(async () => {
                         const res = await addAdminByEmail(newAdminEmail, newAdminScope)
                         if (res.ok) {
-                          toast({ title: 'Admin added successfully', variant: 'success' })
+                          toast({ title: 'Admin added', description: `${newAdminEmail} assigned ${newAdminScope} scope.`, variant: 'success' })
                           setNewAdminEmail('')
                         }
                         return res
                       })
                     }
                   >
-                    <UserPlus className="mr-1.5 size-4" /> Add Admin
+                    <UserPlus className="size-4" /> Add Admin
                   </Button>
                 </div>
               </Glass>
