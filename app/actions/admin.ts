@@ -61,6 +61,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         staked: Number(a?.staked_balance ?? 0),
         createdAt: new Date(p.created_at).getTime(),
         adminScope: p.admin_scope ?? null,
+        managerId: p.managed_by ?? null,
+        isAdmin: p.role === 'admin',
       }
     })
 
@@ -80,9 +82,9 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         status: t.status,
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
-        settledStatus: (t.meta as Record<string, unknown> | null)?.settled_status as string | null ?? null,
-        payCurrency: (t.meta as Record<string, unknown> | null)?.payCurrency as string | null ?? null,
-        userTxRef: (t.meta as Record<string, unknown> | null)?.userTxRef as string | null ?? null,
+        settledStatus: ((t.meta as Record<string, unknown> | null)?.settled_status as string | null) ?? null,
+        payCurrency: ((t.meta as Record<string, unknown> | null)?.payCurrency as string | null) ?? null,
+        userTxRef: ((t.meta as Record<string, unknown> | null)?.userTxRef as string | null) ?? null,
       }))
 
     const withdrawalQueue = (txns ?? [])
@@ -97,26 +99,32 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         status: t.status,
         reference: t.reference,
         createdAt: new Date(t.created_at).getTime(),
-        destinationAddress: (t.meta as Record<string, unknown> | null)?.wallet as string | null ?? null,
-        walletName: (t.meta as Record<string, unknown> | null)?.walletName as string | null ?? null,
-        network: (t.meta as Record<string, unknown> | null)?.network as string | null ?? null,
-        broker: (t.meta as Record<string, unknown> | null)?.broker as string | null ?? null,
+        destinationAddress: ((t.meta as Record<string, unknown> | null)?.wallet as string | null) ?? null,
+        walletName: ((t.meta as Record<string, unknown> | null)?.walletName as string | null) ?? null,
+        network: ((t.meta as Record<string, unknown> | null)?.network as string | null) ?? null,
+        broker: ((t.meta as Record<string, unknown> | null)?.broker as string | null) ?? null,
       }))
 
     const p2pQueue = (txns ?? [])
       .filter((t) => t.type === 'p2p_send' && t.status === 'pending')
-      .map((t) => ({
-        id: t.id,
-        userId: t.user_id,
-        email: emailMap.get(t.user_id) ?? null,
-        type: t.type,
-        amount: Number(t.amount),
-        currency: t.currency,
-        status: t.status,
-        reference: t.reference,
-        createdAt: new Date(t.created_at).getTime(),
-        counterpartyLabel: (t.meta as Record<string, unknown> | null)?.recipientLabel as string | null ?? null,
-      }))
+      .map((t) => {
+        const meta = (t.meta as Record<string, unknown> | null) ?? {}
+        const recipientId = meta.recipientId as string | undefined
+        return {
+          id: t.id,
+          senderId: t.user_id,
+          senderEmail: emailMap.get(t.user_id) ?? null,
+          recipientId: recipientId ?? '',
+          recipientEmail: recipientId ? emailMap.get(recipientId) ?? null : null,
+          type: t.type,
+          amount: Number(t.amount),
+          currency: t.currency,
+          status: t.status,
+          reference: t.reference,
+          note: (meta.note as string | null) ?? null,
+          createdAt: new Date(t.created_at).getTime(),
+        }
+      })
 
     const recentTxns = (txns ?? []).slice(0, 40).map((t) => ({
       id: t.id,
@@ -139,6 +147,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
           userId: c.user_id,
           email: emailMap.get(c.user_id) ?? null,
           fullName: p?.full_name ?? null,
+          cardType: c.card_type ?? 'virtual',
+          shippingAddress: c.shipping_address ?? null,
           kycStatus: p?.kyc_status ?? 'none',
           status: c.status,
           createdAt: new Date(c.created_at).getTime(),
@@ -201,8 +211,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .eq('id', sub.user_id)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
 
-    // Welcome bonus: credited once, only on first approval, matching the
-    // original design (bonus unlocks alongside verified access).
     if (decision === 'approved') {
       const { data: alreadyBonused } = await db
         .from('transactions')
@@ -218,14 +226,11 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
           amount: 35,
           currency: 'USD',
           status: 'completed',
-          reference: 'welcome_bonus',
           processedBy: admin.id,
           meta: { label: 'Welcome bonus' },
         })
       }
 
-      // Honest referral rewards: points only, never yield. And a shot at
-      // the real (non-fabricated) Founders' Circle badge.
       const { error: founderErr } = await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
       if (founderErr) console.error('assign_founder_number failed:', founderErr.message)
 
@@ -245,8 +250,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
   }
 }
 
-// NEW: lets admin send a user's KYC back to square one so they can resubmit
-// (e.g. blurry ID photo, mismatched details, or they need a fresh look).
 export async function resetKyc(userId: string): Promise<AdminResult> {
   try {
     await requireAdminScope(['full', 'operations'])
@@ -344,7 +347,6 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     } else {
-      // Refund the sender — funds were held at request time.
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
       const { error } = await db
         .from('transactions')
@@ -372,10 +374,6 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
         return { ok: false, error: 'This applicant has not completed KYC yet — verify identity before approving a card' }
       }
     }
-    // NOTE: this generates a reference/tracking ID only — not a real,
-    // spendable payment card number. Issuing an actual card requires
-    // integrating a licensed card-issuing partner (e.g. Stripe Issuing,
-    // Marqeta); this framework is what that integration will plug into.
     const cardRef =
       decision === 'approved'
         ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
@@ -430,8 +428,6 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
   }
 }
 
-// NEW: a full admin can appoint another admin to a narrower scope
-// (finance-only or operations-only) so the dashboard splits between them.
 export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations' | 'manager' | 'director'): Promise<AdminResult> {
   try {
     await requireAdminScope(['full'])
@@ -444,10 +440,92 @@ export async function appointAdminScope(userId: string, scope: 'full' | 'finance
   }
 }
 
-// Read-only. Managers/Directors have no fund-moving or KYC-approval
-// permissions — this just totals verified investment volume for the
-// users assigned to them, so salary/commission can be calculated
-// against real, KYC'd investment activity rather than headcount.
+export async function assignManager(userId: string, managerId: string): Promise<AdminResult> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { error } = await db.from('profiles').update({ managed_by: managerId }).eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function deleteUser(userId: string): Promise<AdminResult> {
+  try {
+    await requireAdminScope(['full'])
+    const db = serviceClient()
+    const { error } = await db.from('profiles').delete().eq('id', userId)
+    if (error) return { ok: false, error: error.message }
+    return getAdminSnapshot()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getProjectAdminStatuses(): Promise<
+  | { ok: true; rows: { projectId: string; closed: boolean; deadlineOverride: string | null }[] }
+  | { ok: false; error: string }
+> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { data, error } = await db.from('project_statuses').select('*')
+    if (error) return { ok: false, error: error.message }
+    const rows = (data ?? []).map((p) => ({
+      projectId: p.project_id,
+      closed: p.closed,
+      deadlineOverride: p.deadline_override,
+    }))
+    return { ok: true, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function setProjectStatus(projectId: string, closed: boolean, deadlineOverride: string | null): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const { error } = await db.from('project_statuses').upsert(
+      { project_id: projectId, closed, deadline_override: deadlineOverride },
+      { onConflict: 'project_id' }
+    )
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function processProjectPayout(projectId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdminScope(['full', 'operations', 'finance'])
+    const db = serviceClient()
+    const { data: holdings } = await db.from('holdings').select('*').eq('project_id', projectId)
+    
+    if (holdings && holdings.length > 0) {
+      for (const h of holdings) {
+        const yieldPayout = Number(h.amount) * 0.1
+        if (yieldPayout > 0) {
+          await adjustAccount(h.user_id, { cash_balance: yieldPayout })
+          await recordTxn(h.user_id, {
+            type: 'yield',
+            amount: yieldPayout,
+            currency: 'USD',
+            status: 'completed',
+            meta: { label: `Project Payout (${projectId})` },
+          })
+        }
+      }
+    }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
 export async function getTeamVolumeReport(): Promise<
   | { ok: true; scope: 'manager' | 'director'; rows: { userId: string; name: string | null; email: string | null; kycVerified: boolean; investedVolume: number }[] }
   | AdminResult
@@ -475,4 +553,25 @@ export async function getTeamVolumeReport(): Promise<
 
     const [{ data: people }, { data: holdings }] = await Promise.all([
       db.from('profiles').select('id, full_name, email, kyc_status').in('id', teamIds),
-      db.from('holdings')
+      db.from('holdings').select('user_id, amount').in('user_id', teamIds),
+    ])
+
+    const volumeMap = new Map<string, number>()
+    for (const h of holdings ?? []) {
+      const current = volumeMap.get(h.user_id) ?? 0
+      volumeMap.set(h.user_id, current + Number(h.amount))
+    }
+
+    const rows = (people ?? []).map((p) => ({
+      userId: p.id,
+      name: p.full_name,
+      email: p.email,
+      kycVerified: p.kyc_status === 'verified',
+      investedVolume: volumeMap.get(p.id) ?? 0,
+    }))
+
+    return { ok: true, scope, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
