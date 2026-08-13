@@ -62,7 +62,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       }
     })
 
-    // FIXED: Calculate real total deposits from verified/completed deposit transactions
     const totalDeposits = (txns ?? [])
       .filter((t) => t.type === 'deposit' && t.status === 'completed')
       .reduce((s, t) => s + Number(t.amount), 0)
@@ -465,7 +464,7 @@ export async function deleteUser(userId: string): Promise<AdminResult> {
 }
 
 // ==========================================
-// PROJECT MANAGEMENT ACTIONS (NEW)
+// PROJECT MANAGEMENT ACTIONS
 // ==========================================
 
 export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project[]; error?: string }> {
@@ -488,6 +487,50 @@ export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project
       deadline: p.deadline,
     }))
     return { ok: true, projects }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// Fixed missing exports required by client views
+export async function getProjectAdminStatuses(): Promise<{ ok: boolean; statuses?: Record<string, { status: 'Open' | 'Closed'; deadline: string | null }>; error?: string }> {
+  try {
+    await requireAdminScope(['full', 'operations', 'finance'])
+    const db = serviceClient()
+    const { data, error } = await db.from('projects').select('id, status, deadline')
+    if (error) return { ok: false, error: error.message }
+
+    const statuses: Record<string, { status: 'Open' | 'Closed'; deadline: string | null }> = {}
+    for (const row of data ?? []) {
+      statuses[row.id] = {
+        status: row.status ?? 'Open',
+        deadline: row.deadline ?? null,
+      }
+    }
+    return { ok: true, statuses }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function setProjectStatus(
+  projectId: string,
+  closed: boolean,
+  deadlineOverride?: string | null
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdminScope(['full', 'operations'])
+    const db = serviceClient()
+    const updatePayload: Record<string, unknown> = {
+      status: closed ? 'Closed' : 'Open',
+    }
+    if (deadlineOverride !== undefined) {
+      updatePayload.deadline = deadlineOverride
+    }
+
+    const { error } = await db.from('projects').update(updatePayload).eq('id', projectId)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
@@ -533,7 +576,7 @@ export async function deleteProject(id: string): Promise<{ ok: boolean; error?: 
 }
 
 // ==========================================
-// SIGNAL MANAGEMENT ACTIONS (NEW)
+// SIGNAL MANAGEMENT ACTIONS
 // ==========================================
 
 export async function fetchSignals(): Promise<{ ok: boolean; signals?: Signal[]; error?: string }> {
