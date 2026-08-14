@@ -68,22 +68,19 @@ const PROJECTS = [
 ]
 
 export default async function HomePage() {
-  // Check if user is already logged in
+  let user = null
+
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    // If logged in, go straight to app
-    if (user) {
-      redirect('/app')
-    }
+    const { data } = await supabase.auth.getUser()
+    user = data?.user
   } catch (err) {
-    // Re-throw Next.js redirect control error so it doesn't get swallowed
-    if ((err as Error)?.message?.includes('NEXT_REDIRECT')) {
-      throw err
-    }
-    // Otherwise, if Supabase isn't configured, show the marketing page
     console.log('[v0] Supabase auth check skipped:', (err as Error).message)
+  }
+
+  // Safe execution point: redirect is completely outside try/catch
+  if (user) {
+    redirect('/app')
   }
 
   return (
