@@ -140,7 +140,7 @@ function useToast() {
 // MAIN ADMIN PANEL COMPONENT
 // ==========================================
 
-export default function AdminDashboard() {
+export function AdminView() {
   const { toast } = useToast()
 
   // State Management
@@ -637,3 +637,5 @@ export default function AdminDashboard() {
     </div>
   )
 }
+
+export default AdminView
