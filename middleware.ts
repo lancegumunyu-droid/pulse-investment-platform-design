@@ -7,10 +7,12 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Only run middleware on the investor app and auth routes.
-    // Public marketing pages (/, /about, /projects, /contact, /legal) do NOT need session refreshing.
-    '/app/:path*',
-    '/auth/:path*',
-    '/api/nowpayments/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
