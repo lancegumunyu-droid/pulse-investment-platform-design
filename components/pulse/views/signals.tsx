@@ -15,7 +15,8 @@ export interface Signal {
   detail: string
   target_yield: string
   urgency: 'Closing soon' | 'New' | 'Open' | 'Standard' | string
-  window: string
+  window_label?: string // 👈 Updated to match renamed DB column
+  window?: string       // Kept as optional fallback
   created_at?: string
   updated_at?: string
 }
@@ -172,6 +173,9 @@ export function SignalsView() {
                 })
               : null
 
+            // Fallback check to ensure legacy or updated data displays smoothly
+            const displayWindow = s.window_label || s.window
+
             return (
               <Glass key={s.id} className="animate-rise space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -204,7 +208,7 @@ export function SignalsView() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-white/5">
                   <div className="flex flex-col text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground/90">{s.window}</span>
+                    <span className="font-medium text-foreground/90">{displayWindow}</span>
                     {formattedDate && (
                       <span className="text-[10px] opacity-70" suppressHydrationWarning>
                         Updated: {formattedDate}
