@@ -3,29 +3,41 @@ import { createClient } from '@/lib/supabase/server'
 import { getSnapshot } from '@/lib/pulse/data-access'
 import { PulseApp } from '@/components/pulse/app'
 
-// This route depends on the logged-in user's session and must be
-// evaluated per-request — without this, Next.js tries to statically
-// prerender it at build time (no request/session exists then), which
-// was the actual cause of the "NEXT_PUBLIC_SUPABASE_URL must be set"
-// build failure.
+// Force per-request evaluation (prevents static prerender build failures)
 export const dynamic = 'force-dynamic'
 
 export default async function AppPage() {
   const supabase = await createClient()
+  
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // IMPORTANT: redirect() is called here, completely outside any
-  // try/catch. Wrapping it in a try/catch (as the homepage and login
-  // form both used to do) causes the redirect signal itself to be
-  // caught and swallowed, which is what produced the redirect loops
-  // fixed earlier in this app. Do not wrap this in try/catch.
+  // IMPORTANT: redirect() must run outside any try/catch block
   if (!user) {
     redirect('/auth/login')
   }
 
-  const initial = await getSnapshot(user.id)
+  // Safely fetch snapshot data with fallback protection
+  let initial = null
 
-  return <PulseApp initial={initial} />
+  try {
+    initial = await getSnapshot(user.id)
+  } catch (err) {
+    console.error('[Pulse App Page] Failed to fetch user snapshot:', (err as Error).message)
+  }
+
+  // Ensure initial is never undefined when handed to PulseApp
+  const safeInitial = initial || {
+    user: { id: user.id, email: user.email },
+    portfolio: [],
+    stats: {
+      portfolioReturn: 0,
+      totalInvested: 0,
+      totalYieldEarned: 0,
+    },
+    projects: [],
+  }
+
+  return <PulseApp initial={safeInitial} />
 }
