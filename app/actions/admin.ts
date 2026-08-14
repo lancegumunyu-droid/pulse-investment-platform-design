@@ -6,6 +6,8 @@ import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type { AdminSnapshot } from '@/lib/pulse/types'
 import type { Project, Signal } from '@/lib/pulse/pulse-data'
 
+type AdminScope = 'full' | 'finance' | 'operations' | 'manager' | 'director'
+
 async function requireAdmin() {
   const supabase = await createClient()
   const {
@@ -16,11 +18,11 @@ async function requireAdmin() {
   return user
 }
 
-async function requireAdminScope(allowed: Array<'full' | 'finance' | 'operations' | 'manager' | 'director'>) {
+async function requireAdminScope(allowed: AdminScope[]) {
   const user = await requireAdmin()
   const db = serviceClient()
   const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
-  const scope = (data?.admin_scope as 'full' | 'finance' | 'operations' | 'manager' | 'director' | null) ?? 'full'
+  const scope = (data?.admin_scope as AdminScope | null) ?? 'full'
   if (!allowed.includes(scope)) throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
   return user
 }
@@ -71,38 +73,44 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
 
     const depositQueue = (txns ?? [])
       .filter((t) => t.type === 'deposit' && t.status === 'pending')
-      .map((t) => ({
-        id: t.id,
-        userId: t.user_id,
-        email: emailMap.get(t.user_id) ?? null,
-        type: t.type,
-        amount: Number(t.amount),
-        currency: t.currency,
-        status: t.status,
-        reference: t.reference,
-        createdAt: new Date(t.created_at).getTime(),
-        settledStatus: ((t.meta as Record<string, unknown> | null)?.settled_status as string | null) ?? null,
-        payCurrency: ((t.meta as Record<string, unknown> | null)?.payCurrency as string | null) ?? null,
-        userTxRef: ((t.meta as Record<string, unknown> | null)?.userTxRef as string | null) ?? null,
-      }))
+      .map((t) => {
+        const meta = (t.meta as Record<string, unknown> | null) ?? {}
+        return {
+          id: t.id,
+          userId: t.user_id,
+          email: emailMap.get(t.user_id) ?? null,
+          type: t.type,
+          amount: Number(t.amount),
+          currency: t.currency,
+          status: t.status,
+          reference: t.reference,
+          createdAt: new Date(t.created_at).getTime(),
+          settledStatus: (meta.settled_status as string | null) ?? null,
+          payCurrency: (meta.payCurrency as string | null) ?? null,
+          userTxRef: (meta.userTxRef as string | null) ?? null,
+        }
+      })
 
     const withdrawalQueue = (txns ?? [])
       .filter((t) => t.type === 'withdrawal' && t.status === 'pending')
-      .map((t) => ({
-        id: t.id,
-        userId: t.user_id,
-        email: emailMap.get(t.user_id) ?? null,
-        type: t.type,
-        amount: Number(t.amount),
-        currency: t.currency,
-        status: t.status,
-        reference: t.reference,
-        createdAt: new Date(t.created_at).getTime(),
-        destinationAddress: ((t.meta as Record<string, unknown> | null)?.wallet as string | null) ?? null,
-        walletName: ((t.meta as Record<string, unknown> | null)?.walletName as string | null) ?? null,
-        network: ((t.meta as Record<string, unknown> | null)?.network as string | null) ?? null,
-        broker: ((t.meta as Record<string, unknown> | null)?.broker as string | null) ?? null,
-      }))
+      .map((t) => {
+        const meta = (t.meta as Record<string, unknown> | null) ?? {}
+        return {
+          id: t.id,
+          userId: t.user_id,
+          email: emailMap.get(t.user_id) ?? null,
+          type: t.type,
+          amount: Number(t.amount),
+          currency: t.currency,
+          status: t.status,
+          reference: t.reference,
+          createdAt: new Date(t.created_at).getTime(),
+          destinationAddress: (meta.wallet as string | null) ?? null,
+          walletName: (meta.walletName as string | null) ?? null,
+          network: (meta.network as string | null) ?? null,
+          broker: (meta.broker as string | null) ?? null,
+        }
+      })
 
     const p2pQueue = (txns ?? [])
       .filter((t) => t.type === 'p2p_send' && t.status === 'pending')
@@ -427,7 +435,7 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
   }
 }
 
-export async function appointAdminScope(userId: string, scope: 'full' | 'finance' | 'operations' | 'manager' | 'director'): Promise<AdminResult> {
+export async function appointAdminScope(userId: string, scope: AdminScope): Promise<AdminResult> {
   try {
     await requireAdminScope(['full'])
     const db = serviceClient()
@@ -472,7 +480,7 @@ export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project
     const db = serviceClient()
     const { data, error } = await db.from('projects').select('*').order('created_at', { ascending: false })
     if (error) return { ok: false, error: error.message }
-    
+
     const projects: Project[] = (data ?? []).map((p) => ({
       id: p.id,
       name: p.name,
@@ -492,7 +500,6 @@ export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project
   }
 }
 
-// Fixed missing exports required by client views
 export async function getProjectAdminStatuses(): Promise<{ ok: boolean; statuses?: Record<string, { status: 'Open' | 'Closed'; deadline: string | null }>; error?: string }> {
   try {
     await requireAdminScope(['full', 'operations', 'finance'])
@@ -640,7 +647,7 @@ export async function processProjectPayout(projectId: string): Promise<{ ok: boo
     await requireAdminScope(['full', 'operations', 'finance'])
     const db = serviceClient()
     const { data: holdings } = await db.from('holdings').select('*').eq('project_id', projectId)
-    
+
     if (holdings && holdings.length > 0) {
       for (const h of holdings) {
         const yieldPayout = Number(h.amount) * 0.1
