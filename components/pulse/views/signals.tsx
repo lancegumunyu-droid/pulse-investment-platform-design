@@ -1,27 +1,28 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Radio, RotateCcw, Zap } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { Radio, RotateCcw, Zap, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePulse } from '../store'
 import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { PROJECTS as INITIAL_PROJECTS } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
 
-interface Signal {
+export interface Signal {
   id: string
   project_id: string
   title: string
   detail: string
   target_yield: string
-  urgency: string
+  urgency: 'Closing soon' | 'New' | 'Open' | 'Standard' | string
   window: string
   created_at?: string
   updated_at?: string
 }
 
 export function SignalsView() {
-  const supabase = createClient()
+  // 1. Instantiated static supabase client once outside render loops/effects
+  const supabase = useMemo(() => createClient(), [])
   const { api, openModal } = usePulse()
 
   const [signals, setSignals] = useState<Signal[]>([])
@@ -29,14 +30,14 @@ export function SignalsView() {
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Fetch signals from Supabase
-  const loadSignals = useCallback(async () => {
-    setLoading(true)
+  // Load initial Signals data
+  const loadSignals = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
     try {
       const { data, error } = await supabase
         .from('signals')
         .select('*')
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (!error && data) {
         setSignals(data as Signal[])
@@ -44,61 +45,88 @@ export function SignalsView() {
     } catch (err) {
       console.error('Error fetching signals:', err)
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
     }
   }, [supabase])
 
-  // Fetch live project funding
+  // Load live project funding
   const fetchFunding = useCallback(async () => {
-    setIsRefreshing(true)
     try {
       const res = await api.liveProjectFunding()
-      if (res?.ok) setLiveFunding(res.funding)
-    } finally {
-      setIsRefreshing(false)
+      if (res?.ok && res.funding) {
+        setLiveFunding(res.funding)
+      }
+    } catch (err) {
+      console.error('Error fetching live funding:', err)
     }
   }, [api])
 
-  // Manual trigger for both Signals and Funding
-  const handleRefresh = useCallback(() => {
-    loadSignals()
-    fetchFunding()
+  // Manual Trigger Refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    await Promise.all([loadSignals(false), fetchFunding()])
+    setIsRefreshing(false)
   }, [loadSignals, fetchFunding])
 
   useEffect(() => {
-    // Initial fetch
-    loadSignals()
+    // Initial fetch on mount
+    loadSignals(true)
     fetchFunding()
 
-    // Realtime subscription for live signal updates (dates, urgency, yields)
+    // 2. Optimized Realtime Subscription using Delta Updates
     const channel = supabase
       .channel('public:signals')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'signals' },
-        () => {
-          loadSignals()
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newSignal = payload.new as Signal
+            setSignals((prev) => [newSignal, ...prev.filter((s) => s.id !== newSignal.id)])
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedSignal = payload.new as Signal
+            setSignals((prev) =>
+              prev.map((s) => (s.id === updatedSignal.id ? updatedSignal : s))
+            )
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id
+            setSignals((prev) => prev.filter((s) => s.id !== deletedId))
+          }
         }
       )
       .subscribe()
 
-    // Funding polling interval
+    // Polling background interval for live funding
     const interval = setInterval(fetchFunding, 10_000)
 
     return () => {
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
-  }, [loadSignals, fetchFunding, supabase])
+  }, [supabase, loadSignals, fetchFunding])
+
+  // Helper function for mapping tone safely
+  const getUrgencyTone = (urgency: string) => {
+    switch (urgency) {
+      case 'Closing soon':
+        return 'danger'
+      case 'New':
+        return 'gold'
+      case 'Open':
+        return 'green'
+      default:
+        return 'muted'
+    }
+  }
 
   return (
     <div className="space-y-5">
-      {/* Header */}
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <SectionTitle
           title="Investment signals"
           subtitle="Timely, research-backed opportunities across our live projects."
-          icon={<Radio className="size-5" />}
+          icon={<Radio className="size-5 text-gold" />}
         />
         <Button
           size="sm"
@@ -111,22 +139,39 @@ export function SignalsView() {
         </Button>
       </div>
 
+      {/* Main Content Area */}
       {loading ? (
-        <div className="py-8 text-center text-sm text-muted-foreground">Loading signals...</div>
+        <div className="space-y-4">
+          {[1, 2].map((i) => (
+            <Glass key={i} className="animate-pulse space-y-3 p-4">
+              <div className="h-4 w-1/4 rounded bg-white/10" />
+              <div className="h-6 w-3/4 rounded bg-white/10" />
+              <div className="h-4 w-1/2 rounded bg-white/10" />
+            </Glass>
+          ))}
+        </div>
+      ) : signals.length === 0 ? (
+        <Glass className="flex flex-col items-center justify-center py-12 text-center">
+          <Inbox className="size-10 text-muted-foreground/50 mb-2" />
+          <p className="text-sm font-medium">No active signals found</p>
+          <p className="text-xs text-muted-foreground">Check back later for newly broadcast opportunities.</p>
+        </Glass>
       ) : (
         <div className="space-y-4">
           {signals.map((s) => {
             const project = INITIAL_PROJECTS.find((p) => p.id === s.project_id)
-            const funded = project ? (liveFunding ? project.funded + (liveFunding[project.id] ?? 0) : project.funded) : 0
+            const funded = project
+              ? project.funded + (liveFunding?.[project.id] ?? 0)
+              : 0
             const pct = project ? Math.min(100, Math.round((funded / project.goal) * 100)) : 0
-            
-            // Format updated/created date
+
+            // Hydration-safe date formatting
             const rawDate = s.updated_at || s.created_at
             const formattedDate = rawDate
-              ? new Date(rawDate).toLocaleDateString(undefined, {
+              ? new Date(rawDate).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
-                  year: 'numeric',
+                  year: 'numeric'
                 })
               : null
 
@@ -139,7 +184,7 @@ export function SignalsView() {
                       <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold opacity-60" />
                       <span className="relative inline-flex size-2.5 rounded-full bg-gold" />
                     </span>
-                    <Pill tone={s.urgency === 'Closing soon' ? 'danger' : s.urgency === 'New' ? 'gold' : 'muted'}>
+                    <Pill tone={getUrgencyTone(s.urgency)}>
                       {s.urgency}
                     </Pill>
                   </div>
@@ -153,13 +198,19 @@ export function SignalsView() {
                 </div>
 
                 {project && (
-                  <p className="text-xs text-muted-foreground">
-                    {pct}% funded of the underlying project
-                  </p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Underlying project</span>
+                      <span className="font-medium text-foreground">{pct}% funded</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full bg-gold transition-all duration-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
                 )}
 
-                {/* Public Actions & Rendered Date */}
-                <div className="flex items-center justify-between pt-1">
+                {/* Public Actions & Metadata */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/5">
                   <div className="flex flex-col text-xs text-muted-foreground">
                     <span className="font-medium text-foreground/90">{s.window}</span>
                     {formattedDate && (
@@ -173,7 +224,7 @@ export function SignalsView() {
                     className="bg-gold font-semibold text-primary-foreground hover:bg-gold/90"
                     onClick={() => openModal('invest', { projectId: s.project_id })}
                   >
-                    <Zap className="size-4" /> One-click invest
+                    <Zap className="size-4 mr-1" /> One-click invest
                   </Button>
                 </div>
               </Glass>
