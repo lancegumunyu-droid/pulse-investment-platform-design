@@ -21,7 +21,6 @@ export interface Signal {
 }
 
 export function SignalsView() {
-  // 1. Instantiated static supabase client once outside render loops/effects
   const supabase = useMemo(() => createClient(), [])
   const { api, openModal } = usePulse()
 
@@ -30,7 +29,7 @@ export function SignalsView() {
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Load initial Signals data
+  // Fetch Signals
   const loadSignals = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true)
     try {
@@ -49,7 +48,7 @@ export function SignalsView() {
     }
   }, [supabase])
 
-  // Load live project funding
+  // Fetch Funding
   const fetchFunding = useCallback(async () => {
     try {
       const res = await api.liveProjectFunding()
@@ -61,21 +60,20 @@ export function SignalsView() {
     }
   }, [api])
 
-  // Manual Trigger Refresh
+  // Refresh Trigger
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     await Promise.all([loadSignals(false), fetchFunding()])
     setIsRefreshing(false)
   }, [loadSignals, fetchFunding])
 
+  // Realtime & Interval Setup
   useEffect(() => {
-    // Initial fetch on mount
     loadSignals(true)
     fetchFunding()
 
-    // 2. Optimized Realtime Subscription using Delta Updates
     const channel = supabase
-      .channel('public:signals')
+      .channel('signals-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'signals' },
@@ -89,14 +87,15 @@ export function SignalsView() {
               prev.map((s) => (s.id === updatedSignal.id ? updatedSignal : s))
             )
           } else if (payload.eventType === 'DELETE') {
-            const deletedId = payload.old.id
-            setSignals((prev) => prev.filter((s) => s.id !== deletedId))
+            const deletedId = payload.old?.id
+            if (deletedId) {
+              setSignals((prev) => prev.filter((s) => s.id !== deletedId))
+            }
           }
         }
       )
       .subscribe()
 
-    // Polling background interval for live funding
     const interval = setInterval(fetchFunding, 10_000)
 
     return () => {
@@ -105,7 +104,6 @@ export function SignalsView() {
     }
   }, [supabase, loadSignals, fetchFunding])
 
-  // Helper function for mapping tone safely
   const getUrgencyTone = (urgency: string) => {
     switch (urgency) {
       case 'Closing soon':
@@ -121,7 +119,7 @@ export function SignalsView() {
 
   return (
     <div className="space-y-5">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <SectionTitle
           title="Investment signals"
@@ -139,7 +137,7 @@ export function SignalsView() {
         </Button>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Container */}
       {loading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
@@ -165,7 +163,6 @@ export function SignalsView() {
               : 0
             const pct = project ? Math.min(100, Math.round((funded / project.goal) * 100)) : 0
 
-            // Hydration-safe date formatting
             const rawDate = s.updated_at || s.created_at
             const formattedDate = rawDate
               ? new Date(rawDate).toLocaleDateString('en-US', {
@@ -177,21 +174,17 @@ export function SignalsView() {
 
             return (
               <Glass key={s.id} className="animate-rise space-y-3">
-                {/* Card Header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span className="relative flex size-2.5">
                       <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold opacity-60" />
                       <span className="relative inline-flex size-2.5 rounded-full bg-gold" />
                     </span>
-                    <Pill tone={getUrgencyTone(s.urgency)}>
-                      {s.urgency}
-                    </Pill>
+                    <Pill tone={getUrgencyTone(s.urgency)}>{s.urgency}</Pill>
                   </div>
                   <Pill tone="green">{s.target_yield}</Pill>
                 </div>
 
-                {/* Title & Detail */}
                 <div>
                   <p className="font-semibold leading-tight">{s.title}</p>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.detail}</p>
@@ -209,12 +202,11 @@ export function SignalsView() {
                   </div>
                 )}
 
-                {/* Public Actions & Metadata */}
                 <div className="flex items-center justify-between pt-2 border-t border-white/5">
                   <div className="flex flex-col text-xs text-muted-foreground">
                     <span className="font-medium text-foreground/90">{s.window}</span>
                     {formattedDate && (
-                      <span className="text-[10px] opacity-70">
+                      <span className="text-[10px] opacity-70" suppressHydrationWarning>
                         Updated: {formattedDate}
                       </span>
                     )}
