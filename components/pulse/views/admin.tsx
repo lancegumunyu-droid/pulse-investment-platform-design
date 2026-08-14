@@ -219,7 +219,7 @@ export function AdminView() {
   }, [loadSnapshot, loadProjectsAndSignalsData, loadTeamData])
 
   // Action Helpers
-  const handleAction = async (actionCall: () => Promise<{ ok: boolean; error?: string } | AdminResult>) => {
+  const handleAction = async (actionCall: () => Promise<{ ok: boolean; error?: string } | any>) => {
     startTransition(async () => {
       const res = await actionCall()
       if ('ok' in res && res.ok) {
@@ -791,110 +791,66 @@ export function AdminView() {
                 placeholder="Details on why this signal is broadcasting..."
                 value={newSignal.detail ?? ''}
                 onChange={(e) => setNewSignal({ ...newSignal, detail: e.target.value })}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs outline-none focus:border-amber-400 h-20"
+                rows={2}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
               />
             </div>
             <Button
-              disabled={isPending || !newSignal.id || !newSignal.projectId || !newSignal.title}
+              size="sm"
+              disabled={isPending || !newSignal.id || !newSignal.title}
               onClick={() =>
-                handleAction(() =>
-                  upsertSignal({
-                    id: newSignal.id!,
-                    projectId: newSignal.projectId!,
-                    title: newSignal.title!,
-                    window: newSignal.window ?? 'Active',
-                    detail: newSignal.detail ?? '',
-                    targetYield: newSignal.targetYield ?? '10%',
-                    urgency: (newSignal.urgency as UrgencyLevel) ?? 'Standard'
-                  })
-                )
+                handleAction(async () => {
+                  const res = await upsertSignal(newSignal as Signal)
+                  if (res.ok) {
+                    setNewSignal({ id: '', projectId: '', title: '', window: '', detail: '', targetYield: '', urgency: 'Standard' })
+                    loadProjectsAndSignalsData()
+                  }
+                  return res
+                })
               }
             >
               Broadcast Signal
             </Button>
           </Glass>
 
-          {/* Active Signals List */}
-          <Glass className="space-y-4">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
-              <Radio className="size-4 text-amber-400" /> Active Broadcast Signals
-            </h3>
+          {/* Existing Signals List */}
+          <div className="space-y-3">
+            <h3 className="font-semibold text-sm">Active Signals Feed ({signals.length})</h3>
             {signals.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2">No active broadcast signals.</p>
+              <Glass>
+                <p className="text-center text-xs text-muted-foreground py-2">No signals currently active.</p>
+              </Glass>
             ) : (
-              <div className="space-y-3">
-                {signals.map((sig) => (
-                  <div key={sig.id} className="rounded-xl bg-black/20 p-4 border border-white/5 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-sm">{sig.title}</p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          Signal ID: {sig.id} | Project ID: {sig.projectId}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Pill tone={sig.urgency === 'Closing soon' ? 'red' : 'gold'}>{sig.urgency}</Pill>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          disabled={isPending}
-                          onClick={() => handleAction(() => deleteSignal(sig.id))}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
+              signals.map((sig) => (
+                <Glass key={sig.id} className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-sm">{sig.title}</h4>
+                      <Pill tone={sig.urgency === 'Closing soon' ? 'red' : 'gold'}>{sig.urgency}</Pill>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/5">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase block mb-1">Urgency</label>
-                        <select
-                          value={sig.urgency}
-                          onChange={(e) =>
-                            handleAction(() =>
-                              upsertSignal({ ...sig, urgency: e.target.value as UrgencyLevel })
-                            )
-                          }
-                          className="w-full rounded-lg border border-white/10 bg-neutral-900 px-2.5 py-1 text-xs outline-none focus:border-amber-400"
-                        >
-                          <option value="Open">Open</option>
-                          <option value="Standard">Standard</option>
-                          <option value="New">New</option>
-                          <option value="Closing soon">Closing soon</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase block mb-1">Window Label</label>
-                        <input
-                          type="text"
-                          defaultValue={sig.window}
-                          onBlur={(e) =>
-                            handleAction(() =>
-                              upsertSignal({ ...sig, window: e.target.value })
-                            )
-                          }
-                          className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs outline-none focus:border-amber-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase block mb-1">Target Yield</label>
-                        <input
-                          type="text"
-                          defaultValue={sig.targetYield}
-                          onBlur={(e) =>
-                            handleAction(() =>
-                              upsertSignal({ ...sig, targetYield: e.target.value })
-                            )
-                          }
-                          className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs outline-none focus:border-amber-400"
-                        />
-                      </div>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{sig.detail}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 font-mono">
+                      ID: {sig.id} | Project: {sig.projectId ?? 'None'} | Window: {sig.window} | Yield: {sig.targetYield}
+                    </p>
                   </div>
-                ))}
-              </div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={isPending}
+                    onClick={() =>
+                      handleAction(async () => {
+                        const res = await deleteSignal(sig.id)
+                        if (res.ok) loadProjectsAndSignalsData()
+                        return res
+                      })
+                    }
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </Glass>
+              ))
             )}
-          </Glass>
+          </div>
         </div>
       )}
 
@@ -902,120 +858,85 @@ export function AdminView() {
           TAB 5: USERS MANAGEMENT
           ========================================== */}
       {activeTab === 'users' && snapshot && (
-        <div className="space-y-3">
-          {snapshot.users.map((u) => (
-            <Glass key={u.id} className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-semibold text-sm">{u.fullName ?? u.email ?? 'Unidentified User'}</p>
-                  <p className="font-mono text-xs text-muted-foreground">{u.id} | {u.email}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {u.isAdmin && <Pill tone="blue">Admin ({u.adminScope ?? 'full'})</Pill>}
-                  <Pill tone={u.kycStatus === 'verified' ? 'green' : u.kycStatus === 'pending' ? 'gold' : 'muted'}>
-                    KYC: {u.kycStatus}
-                  </Pill>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="rounded-lg bg-black/20 p-2 border border-white/5">
-                  <span className="text-muted-foreground block text-[10px]">Cash Balance</span>
-                  <span className="font-semibold">{formatMoney(u.cash)}</span>
-                </div>
-                <div className="rounded-lg bg-black/20 p-2 border border-white/5">
-                  <span className="text-muted-foreground block text-[10px]">Invested</span>
-                  <span className="font-semibold">{formatMoney(u.invested)}</span>
-                </div>
-                <div className="rounded-lg bg-black/20 p-2 border border-white/5">
-                  <span className="text-muted-foreground block text-[10px]">Manager ID</span>
-                  <span className="font-mono text-[11px] truncate block">{u.managerId ?? 'None'}</span>
-                </div>
-              </div>
-
-              {/* User Action Controls */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
-                {/* Disburse Manual Yield */}
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    placeholder="Amount $"
-                    value={yieldDisburseAmount[u.id] ?? ''}
-                    onChange={(e) => setYieldDisburseAmount({ ...yieldDisburseAmount, [u.id]: e.target.value })}
-                    className="w-24 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs outline-none"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isPending || !yieldDisburseAmount[u.id]}
-                    onClick={() =>
-                      handleAction(() =>
-                        disburseYield(u.id, Number(yieldDisburseAmount[u.id]))
-                      )
-                    }
-                  >
-                    Disburse Yield
-                  </Button>
-                </div>
-
-                {/* Assign Manager */}
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    placeholder="Manager UUID"
-                    value={managerIdDraft[u.id] ?? ''}
-                    onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
-                    className="w-28 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs outline-none font-mono"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isPending || !managerIdDraft[u.id]}
-                    onClick={() =>
-                      handleAction(() => assignManager(u.id, managerIdDraft[u.id]))
-                    }
-                  >
-                    Assign Mgr
-                  </Button>
-                </div>
-
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={isPending}
-                  onClick={() => handleAction(() => resetKyc(u.id))}
-                >
-                  Reset KYC
-                </Button>
-
-                {confirmDeleteId === u.id ? (
-                  <div className="flex items-center gap-1 ml-auto">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={isPending}
-                      onClick={() => handleAction(() => deleteUser(u.id))}
-                    >
-                      Confirm Delete
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setConfirmDeleteId(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-red-400 hover:bg-red-500/10 ml-auto"
-                    onClick={() => setConfirmDeleteId(u.id)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                )}
-              </div>
-            </Glass>
-          ))}
-        </div>
+        <Glass className="space-y-4">
+          <h3 className="font-semibold text-sm">User Directory & Management</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-muted-foreground">
+                  <th className="p-2">User ID / Email</th>
+                  <th className="p-2">KYC Status</th>
+                  <th className="p-2">Role Scope</th>
+                  <th className="p-2">Assigned Manager</th>
+                  <th className="p-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {snapshot.users?.map((u) => (
+                  <tr key={u.id}>
+                    <td className="p-2">
+                      <p className="font-medium">{u.email ?? 'No email'}</p>
+                      <p className="font-mono text-[10px] text-muted-foreground">{u.id}</p>
+                    </td>
+                    <td className="p-2">
+                      <Pill tone={u.kycVerified ? 'green' : 'gold'}>
+                        {u.kycVerified ? 'Verified' : 'Pending'}
+                      </Pill>
+                    </td>
+                    <td className="p-2 uppercase font-mono text-[10px]">{u.adminScope ?? 'User'}</td>
+                    <td className="p-2">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="Manager ID"
+                          value={managerIdDraft[u.id] ?? u.managerId ?? ''}
+                          onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
+                          className="w-28 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] outline-none"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px]"
+                          disabled={isPending}
+                          onClick={() => handleAction(() => assignManager(u.id, managerIdDraft[u.id] ?? ''))}
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    </td>
+                    <td className="p-2 text-right space-x-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-[10px]"
+                        disabled={isPending}
+                        onClick={() => handleAction(() => resetKyc(u.id))}
+                      >
+                        Reset KYC
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 px-2 text-[10px]"
+                        disabled={isPending}
+                        onClick={() => {
+                          if (confirmDeleteId === u.id) {
+                            handleAction(() => deleteUser(u.id))
+                            setConfirmDeleteId(null)
+                          } else {
+                            setConfirmDeleteId(u.id)
+                          }
+                        }}
+                      >
+                        {confirmDeleteId === u.id ? 'Confirm?' : 'Delete'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Glass>
       )}
 
       {/* ==========================================
@@ -1023,33 +944,32 @@ export function AdminView() {
           ========================================== */}
       {activeTab === 'team' && (
         <Glass className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm">
-              Team Volume Report ({teamReport?.scope === 'director' ? 'Director View' : 'Manager View'})
-            </h3>
-          </div>
+          <h3 className="font-semibold text-sm">Team Volume Report {teamReport ? `(${teamReport.scope.toUpperCase()})` : ''}</h3>
           {!teamReport || teamReport.rows.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">No managed users assigned under your view scope.</p>
+            <p className="text-xs text-muted-foreground py-4">No downline team data or permissions available for your role.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/10 text-muted-foreground">
-                    <th className="p-2">Name / Email</th>
-                    <th className="p-2">KYC Status</th>
-                    <th className="p-2">Invested Volume</th>
+                    <th className="p-2">Member Name / Email</th>
+                    <th className="p-2">KYC Verified</th>
+                    <th className="p-2 text-right">Invested Volume</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {teamReport.rows.map((row) => (
                     <tr key={row.userId}>
-                      <td className="p-2 font-medium">{row.name ?? row.email ?? row.userId}</td>
+                      <td className="p-2">
+                        <p className="font-medium">{row.name ?? 'Unnamed'}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">{row.email ?? row.userId}</p>
+                      </td>
                       <td className="p-2">
                         <Pill tone={row.kycVerified ? 'green' : 'muted'}>
                           {row.kycVerified ? 'Verified' : 'Unverified'}
                         </Pill>
                       </td>
-                      <td className="p-2 font-semibold">{formatMoney(row.investedVolume)}</td>
+                      <td className="p-2 text-right font-semibold">{formatMoney(row.investedVolume)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1060,81 +980,56 @@ export function AdminView() {
       )}
 
       {/* ==========================================
-          TAB 7: SETTINGS & SCOPE MANAGEMENT
+          TAB 7: SCOPE & ADMINS CONFIGURATION
           ========================================== */}
       {activeTab === 'settings' && (
-        <div className="space-y-4">
-          <Glass className="space-y-3">
-            <h3 className="font-semibold text-sm">Add New Administrator</h3>
-            <p className="text-xs text-muted-foreground">
-              Add user email to the allowlist and set default privileges.
-            </p>
-            <div className="space-y-3 max-w-md">
-              <input
-                type="email"
-                placeholder="admin@pulse.com"
-                value={newAdminEmail}
-                onChange={(e) => setNewAdminEmail(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-xs outline-none focus:border-amber-400"
-              />
-              <select
-                value={newAdminScope}
-                onChange={(e) => setNewAdminScope(e.target.value as AdminScope)}
-                className="w-full rounded-xl border border-white/10 bg-neutral-900 p-2.5 text-xs outline-none focus:border-amber-400"
-              >
-                <option value="operations">Operations (KYC, Users, Cards)</option>
-                <option value="finance">Finance (Deposits, Withdrawals, Payouts)</option>
-                <option value="manager">Manager</option>
-                <option value="director">Director</option>
-                <option value="full">Full Access</option>
-              </select>
-              <Button
-                disabled={isPending || !newAdminEmail}
-                onClick={() => handleAction(() => addAdminByEmail(newAdminEmail))}
-              >
-                <UserPlus className="size-3.5 mr-1.5" /> Appoint Admin
-              </Button>
-            </div>
-          </Glass>
-
-          {/* Active Admins list */}
-          {snapshot && (
-            <Glass className="space-y-3">
-              <h3 className="font-semibold text-sm">Existing Administrator Privileges</h3>
-              <div className="divide-y divide-white/5">
-                {snapshot.users
-                  .filter((u) => u.isAdmin)
-                  .map((adm) => (
-                    <div key={adm.id} className="flex items-center justify-between py-2">
-                      <div>
-                        <p className="text-xs font-semibold">{adm.email}</p>
-                        <p className="text-[10px] text-muted-foreground font-mono">{adm.id}</p>
-                      </div>
-                      <select
-                        value={adm.adminScope ?? 'full'}
-                        disabled={isPending}
-                        onChange={(e) =>
-                          handleAction(() =>
-                            appointAdminScope(adm.id, e.target.value as AdminScope)
-                          )
-                        }
-                        className="rounded-lg border border-white/10 bg-neutral-900 px-2 py-1 text-xs outline-none"
-                      >
-                        <option value="operations">operations</option>
-                        <option value="finance">finance</option>
-                        <option value="manager">manager</option>
-                        <option value="director">director</option>
-                        <option value="full">full</option>
-                      </select>
-                    </div>
-                  ))}
+        <div className="space-y-6">
+          <Glass className="space-y-4">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <UserPlus className="size-4 text-amber-400" /> Appoint New Administrator
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase block mb-1">User Email</label>
+                <input
+                  type="email"
+                  placeholder="admin@platform.com"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
+                />
               </div>
-            </Glass>
-          )}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Admin Scope</label>
+                <select
+                  value={newAdminScope}
+                  onChange={(e) => setNewAdminScope(e.target.value as AdminScope)}
+                  className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs outline-none focus:border-amber-400"
+                >
+                  <option value="operations">Operations</option>
+                  <option value="finance">Finance</option>
+                  <option value="manager">Manager</option>
+                  <option value="director">Director</option>
+                  <option value="full">Full Access</option>
+                </select>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              disabled={isPending || !newAdminEmail}
+              onClick={() =>
+                handleAction(async () => {
+                  const res = await addAdminByEmail(newAdminEmail, newAdminScope)
+                  if (res.ok) setNewAdminEmail('')
+                  return res
+                })
+              }
+            >
+              Grant Admin Privileges
+            </Button>
+          </Glass>
         </div>
       )}
     </div>
   )
 }
-
-export default AdminView
