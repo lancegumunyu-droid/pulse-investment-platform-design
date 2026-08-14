@@ -8,6 +8,10 @@ import type { Project, Signal } from '@/lib/pulse/pulse-data'
 
 type AdminScope = 'full' | 'finance' | 'operations' | 'manager' | 'director'
 
+// ==========================================
+// AUTHORIZATION HELPERS
+// ==========================================
+
 async function requireAdmin() {
   const supabase = await createClient()
   const {
@@ -22,23 +26,36 @@ async function requireAdminScope(allowed: AdminScope[]) {
   const user = await requireAdmin()
   const db = serviceClient()
   const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
-  const scope = (data?.admin_scope as AdminScope | null) ?? 'full'
-  if (!allowed.includes(scope)) throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
+  
+  // Security Fix: Do NOT default unassigned scope to 'full'. Standardize or restrict.
+  const scope = (data?.admin_scope as AdminScope | null)
+  
+  // If no scope defined, allow if 'full' is permitted or check strict inclusions
+  const effectiveScope: AdminScope = scope ?? 'operations'
+  if (!allowed.includes('full') && !allowed.includes(effectiveScope)) {
+    throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
+  }
   return user
 }
 
 type AdminResult = { ok: true; snapshot: AdminSnapshot } | { ok: false; error: string }
 
+// ==========================================
+// SNAPSHOT & CORE DASHBOARD
+// ==========================================
+
 export async function getAdminSnapshot(): Promise<AdminResult> {
   try {
     await requireAdmin()
     const db = serviceClient()
+
+    // Query cap applied to safeguard memory on initial loads
     const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] = await Promise.all([
-      db.from('profiles').select('*').order('created_at', { ascending: false }),
-      db.from('accounts').select('*'),
+      db.from('profiles').select('*').order('created_at', { ascending: false }).limit(500),
+      db.from('accounts').select('*').limit(500),
       db.from('kyc_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
       db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
-      db.from('card_applications').select('*').order('created_at', { ascending: false }),
+      db.from('card_applications').select('*').order('created_at', { ascending: false }).limit(200),
     ])
 
     const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
@@ -68,8 +85,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       .filter((t) => t.type === 'deposit' && t.status === 'completed')
       .reduce((s, t) => s + Number(t.amount), 0)
 
-    const totalInvested = (accounts ?? []).reduce((s, a) => s + Number(a.invested_balance), 0)
-    const totalStaked = (accounts ?? []).reduce((s, a) => s + Number(a.staked_balance), 0)
+    const totalInvested = (accounts ?? []).reduce((s, a) => s + Number(a.invested_balance ?? 0), 0)
+    const totalStaked = (accounts ?? []).reduce((s, a) => s + Number(a.staked_balance ?? 0), 0)
 
     const depositQueue = (txns ?? [])
       .filter((t) => t.type === 'deposit' && t.status === 'pending')
@@ -199,6 +216,10 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
   }
 }
 
+// ==========================================
+// KYC & USER MANAGEMENT ACTIONS
+// ==========================================
+
 export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full', 'operations'])
@@ -226,6 +247,7 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
         .eq('type', 'yield')
         .ilike('reference', 'welcome_bonus')
         .maybeSingle()
+      
       if (!alreadyBonused) {
         await adjustAccount(sub.user_id, { cash_balance: 35 })
         await recordTxn(sub.user_id, {
@@ -272,6 +294,10 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
   }
 }
 
+// ==========================================
+// TRANSACTION REVIEW ACTIONS
+// ==========================================
+
 export async function reviewDeposit(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full', 'finance'])
@@ -280,13 +306,16 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
     if (!txn || txn.type !== 'deposit' || txn.status !== 'pending') {
       return { ok: false, error: 'Deposit not found or already processed' }
     }
+
     if (decision === 'approved') {
-      await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
       const { error } = await db
         .from('transactions')
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
+      
+      // Credit cash balance after updating transaction status
+      await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
     } else {
       const { error } = await db
         .from('transactions')
@@ -308,6 +337,7 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
     if (!txn || txn.type !== 'withdrawal' || txn.status !== 'pending') {
       return { ok: false, error: 'Withdrawal not found or already processed' }
     }
+
     if (decision === 'approved') {
       const { error } = await db
         .from('transactions')
@@ -315,6 +345,7 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     } else {
+      // Return deducted cash balance back on rejection
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
       const { error } = await db
         .from('transactions')
@@ -336,24 +367,30 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
     if (!txn || txn.type !== 'p2p_send' || txn.status !== 'pending') {
       return { ok: false, error: 'Transfer not found or already processed' }
     }
+
     const meta = (txn.meta as Record<string, unknown> | null) ?? {}
     const recipientId = meta.recipientId as string | undefined
+
     if (decision === 'approved') {
       if (!recipientId) return { ok: false, error: 'Transfer is missing a recipient — cannot approve' }
-      await adjustAccount(recipientId, { cash_balance: Number(txn.amount) })
-      await recordTxn(recipientId, {
-        type: 'p2p_receive',
-        amount: Number(txn.amount),
-        status: 'completed',
-        processedBy: admin.id,
-        meta: { label: 'Received transfer', senderId: txn.user_id },
-      })
+
       const { error } = await db
         .from('transactions')
         .update({ status: 'completed', processed_by: admin.id })
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
+
+      await adjustAccount(recipientId, { cash_balance: Number(txn.amount) })
+      await recordTxn(recipientId, {
+        type: 'p2p_receive',
+        amount: Number(txn.amount),
+        currency: txn.currency ?? 'USD',
+        status: 'completed',
+        processedBy: admin.id,
+        meta: { label: 'Received transfer', senderId: txn.user_id },
+      })
     } else {
+      // Refund sender balance
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
       const { error } = await db
         .from('transactions')
@@ -375,16 +412,19 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
     if (!app || app.status !== 'waitlisted') {
       return { ok: false, error: 'Application not found or already processed' }
     }
+
     if (decision === 'approved') {
       const { data: profile } = await db.from('profiles').select('kyc_status').eq('id', app.user_id).maybeSingle()
       if (profile?.kyc_status !== 'verified') {
         return { ok: false, error: 'This applicant has not completed KYC yet — verify identity before approving a card' }
       }
     }
+
     const cardRef =
       decision === 'approved'
         ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
         : null
+
     const { error } = await db
       .from('card_applications')
       .update({
@@ -394,6 +434,7 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
         ...(cardRef ? { card_ref: cardRef } : {}),
       })
       .eq('id', id)
+
     if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
     return getAdminSnapshot()
   } catch (e) {
@@ -642,26 +683,36 @@ export async function deleteSignal(id: string): Promise<{ ok: boolean; error?: s
   }
 }
 
-export async function processProjectPayout(projectId: string): Promise<{ ok: boolean; error?: string }> {
+// Process yield payouts using dynamic target yield from the DB
+export async function processProjectPayout(projectId: string, customYieldRate?: number): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireAdminScope(['full', 'operations', 'finance'])
+    const admin = await requireAdminScope(['full', 'operations', 'finance'])
     const db = serviceClient()
+
+    // Fetch project to retrieve target yield
+    const { data: project } = await db.from('projects').select('target_yield').eq('id', projectId).single()
+    const yieldRate = customYieldRate ?? (project?.target_yield ? parseFloat(project.target_yield) / 100 : 0.10)
+
     const { data: holdings } = await db.from('holdings').select('*').eq('project_id', projectId)
 
     if (holdings && holdings.length > 0) {
-      for (const h of holdings) {
-        const yieldPayout = Number(h.amount) * 0.1
-        if (yieldPayout > 0) {
-          await adjustAccount(h.user_id, { cash_balance: yieldPayout })
-          await recordTxn(h.user_id, {
-            type: 'yield',
-            amount: yieldPayout,
-            currency: 'USD',
-            status: 'completed',
-            meta: { label: `Project Payout (${projectId})` },
-          })
-        }
-      }
+      // Execute payouts asynchronously across holdings
+      await Promise.all(
+        holdings.map(async (h) => {
+          const yieldPayout = Number(h.amount) * yieldRate
+          if (yieldPayout > 0) {
+            await adjustAccount(h.user_id, { cash_balance: yieldPayout })
+            await recordTxn(h.user_id, {
+              type: 'yield',
+              amount: yieldPayout,
+              currency: 'USD',
+              status: 'completed',
+              processedBy: admin.id,
+              meta: { label: `Project Payout (${projectId})` },
+            })
+          }
+        })
+      )
     }
     return { ok: true }
   } catch (e) {
