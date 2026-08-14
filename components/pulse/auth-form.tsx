@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Sparkles, ShieldCheck, ArrowRight } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
@@ -13,12 +13,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-dvh items-center justify-center bg-[#050505]">
+        <div className="flex min-h-screen items-center justify-center bg-[#050505]">
           <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+            animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            className="relative"
           >
-            <Activity className="size-6 text-gold" />
+            <div className="absolute -inset-4 rounded-full bg-amber-500/20 blur-xl" />
+            <Activity className="relative size-8 text-amber-400" />
           </motion.div>
         </div>
       }
@@ -142,7 +144,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           if (isEmailRateLimit) {
             setError({
               type: 'warning',
-              message: 'Too many signup attempts. Please wait 5 minutes before trying again — this is a Supabase email service limit, not an error with your account.',
+              message: 'Too many signup attempts. Please wait 5 minutes before trying again.',
             })
             setEmailCooldown(300)
           } else if (errorLower.includes('already registered') || errorLower.includes('already exists')) {
@@ -150,7 +152,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           } else if (errorLower.includes('invalid email')) {
             setError({ type: 'error', message: 'Please enter a valid email address.' })
           } else if (errorLower.includes('password') && errorLower.includes('weak')) {
-            setError({ type: 'error', message: 'Password is too weak. Use at least 6 characters with a mix of letters and numbers.' })
+            setError({ type: 'error', message: 'Password is too weak. Use at least 6 characters.' })
           } else {
             setError({ type: 'error', message: authError.message || 'Failed to sign up. Please try again.' })
           }
@@ -158,7 +160,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         }
 
         if (data?.user) {
-          setError({ type: 'success', message: 'Account created! Check your email to confirm your address — check spam/promotions too.' })
+          setError({ type: 'success', message: 'Account initialized! Check your email to confirm your access.' })
           setTimeout(() => router.push('/auth/sign-up-success'), 1500)
         }
       } else {
@@ -169,12 +171,12 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           const errorLower = authError.message?.toLowerCase() || ''
           const errorCode = authError.status || 0
           if (errorCode === 429 || errorLower.includes('rate limit')) {
-            setError({ type: 'warning', message: 'Too many login attempts. Please wait 60 seconds and try again.' })
+            setError({ type: 'warning', message: 'Too many login attempts. Please wait 60 seconds.' })
             setEmailCooldown(60)
           } else if (errorLower.includes('invalid') || errorLower.includes('credentials')) {
-            setError({ type: 'error', message: 'Invalid email or password. Please check and try again.' })
+            setError({ type: 'error', message: 'Invalid credentials. Please verify your access details.' })
           } else {
-            setError({ type: 'error', message: authError.message || 'Failed to sign in. Please try again.' })
+            setError({ type: 'error', message: authError.message || 'Failed to authenticate.' })
           }
           return
         }
@@ -185,7 +187,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         }
       }
     } catch (err) {
-      setError({ type: 'error', message: (err as Error).message || 'An unexpected error occurred. Please refresh and try again.' })
+      setError({ type: 'error', message: (err as Error).message || 'An unexpected error occurred.' })
     } finally {
       inFlightRef.current = false
       setLoading(false)
@@ -194,21 +196,20 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   if (!isSupabaseConfigured()) {
     return (
-      <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10 text-center">
+      <div className="relative min-h-screen w-full flex items-center justify-center bg-[#030303] overflow-hidden px-4">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-950/20 via-black to-black" />
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="glass rounded-3xl p-8 border border-white/10 backdrop-blur-xl bg-black/40 shadow-2xl"
+          className="relative z-10 w-full max-w-md rounded-3xl p-8 border border-amber-500/20 bg-black/60 backdrop-blur-2xl shadow-2xl text-center"
         >
-          <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
-            <AlertCircle className="size-7 text-gold" />
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 size-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+          <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+            <AlertCircle className="size-7" />
           </span>
-          <h1 className="text-lg font-semibold text-white">Configuration Required</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
-            Supabase is not configured. Add{' '}
-            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs text-gold">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs text-gold">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to your environment
-            variables.
+          <h1 className="text-xl font-bold tracking-tight text-white">Configuration Required</h1>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+            Supabase connection keys are missing. Add your environment variables to initialize the terminal.
           </p>
         </motion.div>
       </div>
@@ -218,188 +219,247 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const isFormDisabled = loading || emailCooldown > 0 || (isSignUp && refStatus !== 'valid')
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-      <AnimatePresence>
-        {emailCooldown > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-4 rounded-2xl border border-gold/30 bg-gold/10 p-4 backdrop-blur-md"
-          >
-            <div className="flex items-start gap-3">
-              <Info className="mt-0.5 size-5 shrink-0 text-gold" />
-              <div className="text-sm">
-                <p className="font-semibold text-gold">Email service rate limit</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  You can retry in <span className="font-mono font-semibold text-gold">{emailCooldown}s</span>. This protects our email service from abuse.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#030303] overflow-hidden px-4 py-12 selection:bg-amber-500/30 selection:text-amber-300">
+      {/* Dynamic Ambient Cyberpunk Glows */}
+      <div className="pointer-events-none absolute -top-48 -left-48 size-[500px] rounded-full bg-amber-500/10 blur-[140px] animate-pulse" />
+      <div className="pointer-events-none absolute -bottom-48 -right-48 size-[500px] rounded-full bg-emerald-500/10 blur-[140px] animate-pulse" style={{ animationDuration: '4s' }} />
+
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f1f0a_1px,transparent_1px),linear-gradient(to_bottom,#1f1f1f0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
 
       <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mb-8 flex flex-col items-center text-center"
+        initial={{ opacity: 0, y: 30, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-md relative z-10"
       >
-        <div className="relative mb-4">
-          <div className="absolute -inset-1 rounded-2xl bg-[#e8a317]/20 blur-lg" />
-          <span className="relative flex size-14 items-center justify-center rounded-2xl glass-gold border border-gold/30 bg-black/50">
-            <Activity className="size-7 text-gold" />
-          </span>
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
-          {isSignUp ? 'Create your Pulse account' : 'Welcome back'}
-        </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {isSignUp ? 'Invest in real African projects. Grow responsibly.' : 'Sign in to your Pulse account'}
-        </p>
-      </motion.div>
+        <div className="relative rounded-[28px] border border-amber-500/30 bg-black/70 backdrop-blur-3xl p-8 shadow-2xl overflow-hidden group">
+          {/* Top luminous gold shimmer accent */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
 
-      <motion.form 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        onSubmit={submit} 
-        className="glass rounded-3xl p-6 border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl space-y-4"
-      >
-        {isSignUp && (
-          <div>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Full name</span>
-              <input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50"
-                placeholder="Your full name"
-              />
-            </label>
-          </div>
-        )}
-
-        {isSignUp && (
-          <div>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Referral code</span>
-              <div className="relative">
-                <input
-                  value={refCode}
-                  onChange={(e) => setRefCode(e.target.value)}
-                  required
-                  className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50 pr-9"
-                  placeholder="PULSE-XXXXXXXX"
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {refStatus === 'checking' && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-                  {refStatus === 'valid' && <CheckCircle2 className="size-4 text-green" />}
-                  {refStatus === 'invalid' && <XCircle className="size-4 text-destructive" />}
+          {/* Rate limit warning banner */}
+          <AnimatePresence>
+            {emailCooldown > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                exit={{ opacity: 0, y: -10, height: 0 }}
+                className="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 backdrop-blur-md"
+              >
+                <div className="flex items-start gap-3">
+                  <Info className="mt-0.5 size-5 shrink-0 text-amber-400" />
+                  <div className="text-sm">
+                    <p className="font-semibold text-amber-300">Security Rate Limit Active</p>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Retry available in <span className="font-mono font-bold text-amber-400">{emailCooldown}s</span>.
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <AnimatePresence mode="wait">
-                {refStatus === 'checking' && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-muted-foreground">Checking…</motion.p>
-                )}
-                {refStatus === 'valid' && (
-                  <motion.p initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-green flex items-center gap-1">
-                    Valid — you&apos;ll be connected to this Pulse member
-                  </motion.p>
-                )}
-                {refStatus === 'invalid' && refError && (
-                  <motion.p initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-destructive">
-                    {refError}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </label>
-          </div>
-        )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <div>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50"
-              placeholder="you@example.com"
-            />
-          </label>
-        </div>
-
-        <div>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              autoComplete={isSignUp ? 'new-password' : 'current-password'}
-              className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50"
-              placeholder="••••••••"
-            />
-          </label>
-        </div>
-
-        {!isSignUp && (
-          <div className="text-right">
-            <Link href="/auth/forgot-password" className="text-xs font-medium text-gold hover:underline transition-all">
-              Forgot password?
-            </Link>
-          </div>
-        )}
-
-        <AnimatePresence>
-          {error && (
-            <motion.p
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className={
-                error.type === 'success'
-                  ? 'rounded-xl border border-green/30 bg-green/10 px-3.5 py-2.5 text-xs text-green'
-                  : error.type === 'warning'
-                    ? 'rounded-xl border border-gold/30 bg-gold/10 px-3.5 py-2.5 text-xs text-gold'
-                    : 'rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive'
-              }
-            >
-              {error.message}
-            </motion.p>
-          )}
-        </AnimatePresence>
-
-        <motion.div whileTap={{ scale: isFormDisabled ? 1 : 0.98 }}>
-          <Button
-            type="submit"
-            size="lg"
-            disabled={isFormDisabled}
-            className="mt-2 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 transition-all duration-200 shadow-lg shadow-gold/20 disabled:opacity-50"
+          {/* Header Branding */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="flex flex-col items-center text-center mb-8"
           >
-            {loading ? <Activity className="size-5 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
-          </Button>
-        </motion.div>
-      </motion.form>
+            <div className="relative mb-4">
+              <div className="absolute -inset-2 rounded-2xl bg-amber-500/20 blur-xl animate-pulse" />
+              <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-400/20 to-black border border-amber-500/40 text-amber-400 shadow-inner shadow-amber-500/30">
+                <Sparkles className="size-7" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
+              {isSignUp ? 'Initialize Syndicate Access' : 'Authenticate Terminal'}
+            </h1>
+            <p className="mt-1.5 text-xs text-zinc-400 tracking-wide">
+              {isSignUp ? 'SADC Institutional Private Wealth Network' : 'Welcome back, executive operator'}
+            </p>
+          </motion.div>
 
-      <motion.p 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="mt-6 text-center text-sm text-muted-foreground"
-      >
-        {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-        <Link href={isSignUp ? '/auth/login' : '/auth/sign-up'} className="font-semibold text-gold hover:underline transition-all">
-          {isSignUp ? 'Sign in' : 'Create one'}
-        </Link>
-      </motion.p>
+          {/* Form */}
+          <motion.form 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            onSubmit={submit} 
+            className="space-y-4"
+          >
+            <AnimatePresence mode="popLayout">
+              {isSignUp && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, y: -10 }}
+                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <label className="block">
+                      <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Full Legal Name</span>
+                      <input
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
+                        placeholder="e.g. Alexander Vance"
+                      />
+                    </label>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, y: -10 }}
+                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -10 }}
+                    transition={{ duration: 0.3, delay: 0.05 }}
+                  >
+                    <label className="block">
+                      <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Syndicate Referral Code</span>
+                      <div className="relative">
+                        <input
+                          value={refCode}
+                          onChange={(e) => setRefCode(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-mono text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner pr-10 uppercase tracking-widest"
+                          placeholder="PULSE-XXXXXXXX"
+                        />
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                          {refStatus === 'checking' && <Activity className="size-4 animate-spin text-zinc-400" />}
+                          {refStatus === 'valid' && <CheckCircle2 className="size-4 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />}
+                          {refStatus === 'invalid' && <XCircle className="size-4 text-rose-500" />}
+                        </div>
+                      </div>
+                      <AnimatePresence mode="wait">
+                        {refStatus === 'checking' && (
+                          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-zinc-400">Verifying syndicate clearance…</motion.p>
+                        )}
+                        {refStatus === 'valid' && (
+                          <motion.p initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-emerald-400 font-medium flex items-center gap-1">
+                            ✓ Verified clearance — linked to host member
+                          </motion.p>
+                        )}
+                        {refStatus === 'invalid' && refError && (
+                          <motion.p initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-rose-400 font-medium">
+                            {refError}
+                          </motion.p>
+                        )}
+                      </AnimatePresence>
+                    </label>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
+            <div>
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Secure Email</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
+                  placeholder="name@institution.com"
+                />
+              </label>
+            </div>
+
+            <div>
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Password / Passkey</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
+                  placeholder="••••••••••••"
+                />
+              </label>
+            </div>
+
+            {!isSignUp && (
+              <div className="flex justify-end pt-1">
+                <Link href="/auth/forgot-password" className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors">
+                  Forgot secure credentials?
+                </Link>
+              </div>
+            )}
+
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, y: -5 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -5 }}
+                  className={
+                    error.type === 'success'
+                      ? 'rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300 font-medium'
+                      : error.type === 'warning'
+                        ? 'rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300 font-medium'
+                        : 'rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 font-medium'
+                  }
+                >
+                  {error.message}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <motion.div whileTap={{ scale: isFormDisabled ? 1 : 0.98 }} className="pt-2">
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isFormDisabled}
+                className="h-12 w-full bg-amber-400 font-semibold text-neutral-950 hover:bg-amber-300 shadow-lg shadow-amber-400/20 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Activity className="size-4 animate-spin text-neutral-950" /> Establishing Secure Handshake...
+                  </span>
+                ) : (
+                  <>
+                    {isSignUp ? 'Request Syndicate Access' : 'Access Terminal'}
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </Button>
+            </motion.div>
+          </motion.form>
+
+          {/* Toggle Mode */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="mt-6 text-center"
+          >
+            <Link 
+              href={isSignUp ? '/auth/login' : '/auth/sign-up'} 
+              className="text-xs text-zinc-400 hover:text-amber-400 transition-colors font-medium inline-flex items-center gap-1.5 group"
+            >
+              {isSignUp ? 'Already hold institutional membership? ' : "Don't have clearance yet? "}
+              <span className="text-amber-400 underline decoration-amber-400/40 underline-offset-4 group-hover:decoration-amber-400">
+                {isSignUp ? 'Sign In' : 'Request Membership'}
+              </span>
+            </Link>
+          </motion.div>
+
+          {/* Security Badge */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25 }}
+            className="mt-8 pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-[11px] text-zinc-500 font-mono tracking-tight"
+          >
+            <ShieldCheck className="size-4 text-emerald-400" /> End-to-End Encrypted SADC Wealth Gateway
+          </motion.div>
+        </div>
+      </motion.div>
     </div>
   )
 }
