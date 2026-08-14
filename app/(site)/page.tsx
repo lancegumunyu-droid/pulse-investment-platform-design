@@ -10,21 +10,6 @@ const STATS = [
   { label: 'Investors', value: '400+' },
 ]
 
-export default async function HomePage() {
-  // Check if user is already logged in
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    // If logged in, go straight to app
-    if (user) {
-      redirect('/app')
-    }
-  } catch (err) {
-    // If Supabase isn't configured, just show the marketing page
-    console.log('[v0] Supabase auth check skipped:', (err as Error).message)
-  }
-
 const FEATURES = [
   {
     icon: <Globe className="size-5" />,
@@ -81,6 +66,25 @@ const PROJECTS = [
     funded: 55,
   },
 ]
+
+export default async function HomePage() {
+  // Check if user is already logged in
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    // If logged in, go straight to app
+    if (user) {
+      redirect('/app')
+    }
+  } catch (err) {
+    // Re-throw Next.js redirect control error so it doesn't get swallowed
+    if ((err as Error)?.message?.includes('NEXT_REDIRECT')) {
+      throw err
+    }
+    // Otherwise, if Supabase isn't configured, show the marketing page
+    console.log('[v0] Supabase auth check skipped:', (err as Error).message)
+  }
 
   return (
     <>
