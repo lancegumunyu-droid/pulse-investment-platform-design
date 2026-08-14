@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -54,35 +54,53 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   useEffect(() => {
     const fromUrl = searchParams.get('ref')
-    if (fromUrl) setRefCode(fromUrl)
-  }, [searchParams])
+    if (fromUrl) {
+      setRefCode(fromUrl)
+    } else if (!isSignUp) {
+      // Bypass ref requirement automatically for login mode
+      setRefStatus('valid')
+    }
+  }, [searchParams, isSignUp])
+
+  const verifyCode = useCallback(async (code: string) => {
+    const clean = code.trim()
+    if (!clean) {
+      setRefStatus('idle')
+      setRefError(null)
+      return
+    }
+    setRefStatus('checking')
+    try {
+      const res = await validateReferralCode(clean)
+      if (res?.ok) {
+        setRefStatus('valid')
+        setRefError(null)
+      } else {
+        setRefStatus('invalid')
+        setRefError(res?.error || 'Invalid referral code')
+      }
+    } catch (err) {
+      setRefStatus('invalid')
+      setRefError((err as Error).message || 'Error validating code')
+    }
+  }, [])
 
   useEffect(() => {
-    if (!isSignUp) return
+    if (!isSignUp) {
+      setRefStatus('valid')
+      return
+    }
     const code = refCode.trim()
     if (!code) {
       setRefStatus('idle')
       setRefError(null)
       return
     }
-    setRefStatus('checking')
-    const t = setTimeout(async () => {
-      try {
-        const res = await validateReferralCode(code)
-        if (res.ok) {
-          setRefStatus('valid')
-          setRefError(null)
-        } else {
-          setRefStatus('invalid')
-          setRefError(res.error)
-        }
-      } catch (err) {
-        setRefStatus('invalid')
-        setRefError((err as Error).message || 'Error validating code')
-      }
+    const t = setTimeout(() => {
+      verifyCode(code)
     }, 500)
     return () => clearTimeout(t)
-  }, [refCode, isSignUp])
+  }, [refCode, isSignUp, verifyCode])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -182,7 +200,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         }
 
         if (data?.user) {
-          window.location.href = '/app'
+          router.push('/app')
+          router.refresh()
           return
         }
       }
@@ -220,11 +239,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-[#030303] overflow-hidden px-4 py-12 selection:bg-amber-500/30 selection:text-amber-300">
-      {/* Dynamic Ambient Cyberpunk Glows */}
       <div className="pointer-events-none absolute -top-48 -left-48 size-[500px] rounded-full bg-amber-500/10 blur-[140px] animate-pulse" />
       <div className="pointer-events-none absolute -bottom-48 -right-48 size-[500px] rounded-full bg-emerald-500/10 blur-[140px] animate-pulse" style={{ animationDuration: '4s' }} />
-
-      {/* Grid pattern overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f1f0a_1px,transparent_1px),linear-gradient(to_bottom,#1f1f1f0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
 
       <motion.div 
@@ -234,10 +250,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         className="w-full max-w-md relative z-10"
       >
         <div className="relative rounded-[28px] border border-amber-500/30 bg-black/70 backdrop-blur-3xl p-8 shadow-2xl overflow-hidden group">
-          {/* Top luminous gold shimmer accent */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
 
-          {/* Rate limit warning banner */}
           <AnimatePresence>
             {emailCooldown > 0 && (
               <motion.div 
@@ -259,7 +273,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             )}
           </AnimatePresence>
 
-          {/* Header Branding */}
           <motion.div 
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -280,7 +293,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </p>
           </motion.div>
 
-          {/* Form */}
           <motion.form 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -431,7 +443,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </motion.div>
           </motion.form>
 
-          {/* Toggle Mode */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -449,7 +460,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </Link>
           </motion.div>
 
-          {/* Security Badge */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
