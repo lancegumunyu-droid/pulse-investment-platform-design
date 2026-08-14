@@ -95,7 +95,7 @@ export function DashboardView() {
             <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm">
               <span className={cn(
                 "inline-flex items-center gap-1 font-semibold",
-                portfolioReturn >= 0 ? "text-emerald-400" : "text-rose-400"
+                portfolioReturnPct >= 0 ? "text-emerald-400" : "text-rose-400"
               )}>
                 {portfolioReturnPct >= 0 ? <TrendingUp className="size-4" /> : <ArrowDownRight className="size-4" />}
                 {portfolioReturnPct >= 0 ? '+' : ''}{money(portfolioReturnPct, 1)}%
