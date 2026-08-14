@@ -1,19 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   Activity,
   UserPlus,
   Trash2,
-  Shield,
   Users,
   Settings,
-  FolderKanban,
-  CreditCard,
-  ArrowUpRight,
-  ArrowDownLeft,
-  RefreshCw,
-  AlertCircle,
-  CheckCircle2,
-  Clock
+  FolderKanban
 } from 'lucide-react'
 
 // ==========================================
@@ -133,11 +125,9 @@ function Pill({
   )
 }
 
-// Helper to format currency numbers safely
 const money = (val: number) =>
   new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)
 
-// Simple toast notification system mock
 function useToast() {
   return {
     toast: ({ title, variant }: { title: string; variant?: string }) => {
@@ -168,7 +158,7 @@ export default function AdminDashboard() {
   const [snap, setSnap] = useState<SnapshotData>({
     projects: [
       { id: 'proj-1', name: 'Alpha Arbitrage Vault', status: { closed: false, deadlineOverride: '2026-12-31' } },
-      { id: 'proj-[2]', name: 'Yield Multiplier Pool', status: { closed: true, deadlineOverride: null } }
+      { id: 'proj-2', name: 'Yield Multiplier Pool', status: { closed: true, deadlineOverride: null } }
     ],
     signals: {
       'proj-1': { projectId: 'proj-1', urgency: 'Open', window: '24h', target_yield: '14.2% APY' },
@@ -189,7 +179,7 @@ export default function AdminDashboard() {
     setBusy(true)
     try {
       return await fn()
-    } catch (err) {
+    } catch {
       toast({ title: 'An error occurred during operation', variant: 'destructive' })
       return { ok: false }
     } finally {
@@ -197,7 +187,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Reload handler mock
   const loadProjectsAndSignals = useCallback(async () => {
     // Re-fetch logic or snapshot refresh
   }, [])
@@ -211,7 +200,7 @@ export default function AdminDashboard() {
     return { ok: true }
   }
 
-  const processProjectPayout = async (id: string) => {
+  const processProjectPayout = async (_id: string) => {
     return { ok: true }
   }
 
@@ -409,10 +398,10 @@ export default function AdminDashboard() {
                             }
                             className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
                           >
-                            <option value="Open">Open</option>
-                            <option value="Standard">Standard</option>
-                            <option value="New">New</option>
-                            <option value="Closing soon">Closing soon</option>
+                            <option value="Open" className="bg-neutral-900 text-white">Open</option>
+                            <option value="Standard" className="bg-neutral-900 text-white">Standard</option>
+                            <option value="New" className="bg-neutral-900 text-white">New</option>
+                            <option value="Closing soon" className="bg-neutral-900 text-white">Closing soon</option>
                           </select>
                         </div>
 
@@ -420,12 +409,8 @@ export default function AdminDashboard() {
                           <span className="mb-1 block text-[10px] text-muted-foreground uppercase tracking-wider">Window</span>
                           <input
                             type="text"
-                            defaultValue={signal.window}
-                            onBlur={(e) => {
-                              if (e.target.value !== signal.window) {
-                                handleUpdateSignal(p.id, { window: e.target.value })
-                              }
-                            }}
+                            value={signal.window}
+                            onChange={(e) => handleUpdateSignal(p.id, { window: e.target.value })}
                             className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
                           />
                         </div>
@@ -434,12 +419,8 @@ export default function AdminDashboard() {
                           <span className="mb-1 block text-[10px] text-muted-foreground uppercase tracking-wider">Target Yield</span>
                           <input
                             type="text"
-                            defaultValue={signal.target_yield}
-                            onBlur={(e) => {
-                              if (e.target.value !== signal.target_yield) {
-                                handleUpdateSignal(p.id, { target_yield: e.target.value })
-                              }
-                            }}
+                            value={signal.target_yield}
+                            onChange={(e) => handleUpdateSignal(p.id, { target_yield: e.target.value })}
                             className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs outline-none focus:border-gold/50"
                           />
                         </div>
@@ -496,7 +477,10 @@ export default function AdminDashboard() {
                   onClick={() =>
                     act(async () => {
                       const res = await assignManager(u.id, managerIdDraft[u.id])
-                      if (res.ok) toast({ title: 'Manager assigned', variant: 'success' })
+                      if (res.ok) {
+                        toast({ title: 'Manager assigned', variant: 'success' })
+                        setManagerIdDraft((prev) => ({ ...prev, [u.id]: '' }))
+                      }
                       return res
                     })
                   }
@@ -592,9 +576,9 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewAdminScope(e.target.value as AdminScopeType)}
                   className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm outline-none focus:border-gold/50"
                 >
-                  <option value="operations">Operations (KYC, Cards, Users, Signals)</option>
-                  <option value="finance">Finance (Deposits, Withdrawals, Transfers)</option>
-                  <option value="full">Full Access (All system functions & settings)</option>
+                  <option value="operations" className="bg-neutral-900 text-white">Operations (KYC, Cards, Users, Signals)</option>
+                  <option value="finance" className="bg-neutral-900 text-white">Finance (Deposits, Withdrawals, Transfers)</option>
+                  <option value="full" className="bg-neutral-900 text-white">Full Access (All system functions & settings)</option>
                 </select>
               </div>
               <Button
@@ -640,9 +624,9 @@ export default function AdminDashboard() {
                     }
                     className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs outline-none focus:border-gold/50"
                   >
-                    <option value="operations">operations</option>
-                    <option value="finance">finance</option>
-                    <option value="full">full</option>
+                    <option value="operations" className="bg-neutral-900 text-white">operations</option>
+                    <option value="finance" className="bg-neutral-900 text-white">finance</option>
+                    <option value="full" className="bg-neutral-900 text-white">full</option>
                   </select>
                 </div>
               ))}
