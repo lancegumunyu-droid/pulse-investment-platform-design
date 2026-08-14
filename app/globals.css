@@ -1,8 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-
-/* EVERGREEN TYPOGRAPHY IMPORTS (Preserving all your Pulse theme colors) */
 @import url('https://db.onlinewebfonts.com/c/53077f9a3eee9c479d37d6af20394ded?family=Cooper+BT+W01+Light');
 @import url('https://db.onlinewebfonts.com/c/5ade3423145f3b9f7031574333ca0b73?family=Cooper+BT+W01+Medium');
 
@@ -96,7 +94,6 @@
 }
 
 @layer utilities {
-  /* Evergreen Font Class Utilities */
   .font-cooper {
     font-family: 'Cooper BT W01 Light', 'Georgia', serif;
   }
