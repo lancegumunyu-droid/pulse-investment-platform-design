@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+
+/* EVERGREEN TYPOGRAPHY IMPORTS (Preserving all your Pulse theme colors) */
+@import url('https://db.onlinewebfonts.com/c/53077f9a3eee9c479d37d6af20394ded?family=Cooper+BT+W01+Light');
+@import url('https://db.onlinewebfonts.com/c/5ade3423145f3b9f7031574333ca0b73?family=Cooper+BT+W01+Medium');
+
 /* pulse theme v2 */
 
 @custom-variant dark (&:is(.dark *));
@@ -51,9 +56,6 @@
   --card-foreground: #f4f4f5;
   --popover: #0d0d0f;
   --popover-foreground: #f4f4f5;
-  /* CHANGED: primary was #f59e0b (Tailwind amber-500 — a fairly generic
-     "orange gold"). Swapped for the heritage gold #E8A317 from the brief,
-     which reads richer/deeper and less like a stock UI-kit color. */
   --primary: #e8a317;
   --primary-foreground: #0a0a0a;
   --secondary: #17171b;
@@ -69,9 +71,6 @@
 
   --gold: #e8a317;
   --gold-soft: rgba(232, 163, 23, 0.12);
-  /* NEW: champagne — a paler, warmer gold for secondary accents/text on
-     top of gold surfaces, so everything gold doesn't read as one flat
-     color (per the brief's "heritage gold and champagne gold accents"). */
   --champagne: #f0d9a8;
   --green: #10b981;
   --green-soft: rgba(16, 185, 129, 0.12);
@@ -97,6 +96,15 @@
 }
 
 @layer utilities {
+  /* Evergreen Font Class Utilities */
+  .font-cooper {
+    font-family: 'Cooper BT W01 Light', 'Georgia', serif;
+  }
+  .font-cooper-medium {
+    font-family: 'Cooper BT W01 Medium', 'Cooper BT W01 Light', 'Georgia', serif;
+    font-weight: 500;
+  }
+
   .glass {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
     backdrop-filter: blur(16px);
@@ -109,10 +117,6 @@
     border: 1px solid rgba(232, 163, 23, 0.28);
     box-shadow: 0 24px 48px -24px rgba(232, 163, 23, 0.35);
   }
-  /* NEW: "golden edge lighting" per the brief — a subtle glowing hairline
-     border for premium surfaces (project cards, featured tiles) that's a
-     step up from .glass-gold's flat border, without being as heavy as a
-     full gold background. Layer this ON TOP of .glass. */
   .glow-edge {
     position: relative;
   }
@@ -176,9 +180,6 @@
     animation: toast-in 0.25s ease-out both;
   }
 
-  /* NEW: the living golden heartbeat, moved here from an inline <style>
-     tag in ui-bits.tsx so it's a real, reusable Tailwind utility instead
-     of a one-off — see components/pulse/ui-bits.tsx's Heartbeat component. */
   @keyframes pulse-ring-slow {
     0% { transform: scale(0.85); opacity: 0.55; }
     70% { transform: scale(1.55); opacity: 0; }
@@ -206,8 +207,6 @@
     animation: heartbeat-icon 0.9s ease-in-out infinite;
   }
 
-  /* NEW: gentle shimmer sweep for premium project cards — a soft light
-     pass every few seconds, not a constant distracting effect. */
   @keyframes shimmer-sweep {
     0% { transform: translateX(-120%); }
     100% { transform: translateX(120%); }
