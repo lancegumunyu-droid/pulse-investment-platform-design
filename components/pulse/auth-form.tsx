@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Activity, AlertCircle, Info } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
@@ -12,8 +13,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-dvh items-center justify-center bg-background">
-          <Activity className="size-6 animate-spin text-gold" />
+        <div className="flex min-h-dvh items-center justify-center bg-[#050505]">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          >
+            <Activity className="size-6 text-gold" />
+          </motion.div>
         </div>
       }
     >
@@ -189,18 +195,22 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   if (!isSupabaseConfigured()) {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10 text-center">
-        <div className="glass rounded-3xl p-8">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass rounded-3xl p-8 border border-white/10 backdrop-blur-xl bg-black/40 shadow-2xl"
+        >
           <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
             <AlertCircle className="size-7 text-gold" />
           </span>
-          <h1 className="text-lg font-semibold">Configuration Required</h1>
+          <h1 className="text-lg font-semibold text-white">Configuration Required</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
             Supabase is not configured. Add{' '}
-            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to your environment
+            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs text-gold">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+            <code className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-xs text-gold">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to your environment
             variables.
           </p>
-        </div>
+        </motion.div>
       </div>
     )
   }
@@ -209,127 +219,187 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-      {emailCooldown > 0 && (
-        <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4">
-          <div className="flex items-start gap-3">
-            <Info className="mt-0.5 size-5 shrink-0 text-gold" />
-            <div className="text-sm">
-              <p className="font-semibold text-gold">Email service rate limit</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                You can retry in <span className="font-mono font-semibold text-gold">{emailCooldown}s</span>. This protects our email service from abuse.
-              </p>
+      <AnimatePresence>
+        {emailCooldown > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4 rounded-2xl border border-gold/30 bg-gold/10 p-4 backdrop-blur-md"
+          >
+            <div className="flex items-start gap-3">
+              <Info className="mt-0.5 size-5 shrink-0 text-gold" />
+              <div className="text-sm">
+                <p className="font-semibold text-gold">Email service rate limit</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  You can retry in <span className="font-mono font-semibold text-gold">{emailCooldown}s</span>. This protects our email service from abuse.
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="mb-8 flex flex-col items-center text-center">
-        <span className="mb-4 flex size-14 items-center justify-center rounded-2xl glass-gold">
-          <Activity className="size-7 text-gold" />
-        </span>
-        <h1 className="text-2xl font-semibold tracking-tight">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-8 flex flex-col items-center text-center"
+      >
+        <div className="relative mb-4">
+          <div className="absolute -inset-1 rounded-2xl bg-[#e8a317]/20 blur-lg" />
+          <span className="relative flex size-14 items-center justify-center rounded-2xl glass-gold border border-gold/30 bg-black/50">
+            <Activity className="size-7 text-gold" />
+          </span>
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-white">
           {isSignUp ? 'Create your Pulse account' : 'Welcome back'}
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {isSignUp ? 'Invest in real African projects. Grow responsibly.' : 'Sign in to your Pulse account'}
         </p>
-      </div>
+      </motion.div>
 
-      <form onSubmit={submit} className="glass rounded-3xl p-5">
+      <motion.form 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        onSubmit={submit} 
+        className="glass rounded-3xl p-6 border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl space-y-4"
+      >
         {isSignUp && (
+          <div>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Full name</span>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50"
+                placeholder="Your full name"
+              />
+            </label>
+          </div>
+        )}
+
+        {isSignUp && (
+          <div>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Referral code</span>
+              <div className="relative">
+                <input
+                  value={refCode}
+                  onChange={(e) => setRefCode(e.target.value)}
+                  required
+                  className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50 pr-9"
+                  placeholder="PULSE-XXXXXXXX"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {refStatus === 'checking' && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                  {refStatus === 'valid' && <CheckCircle2 className="size-4 text-green" />}
+                  {refStatus === 'invalid' && <XCircle className="size-4 text-destructive" />}
+                </div>
+              </div>
+              <AnimatePresence mode="wait">
+                {refStatus === 'checking' && (
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-muted-foreground">Checking…</motion.p>
+                )}
+                {refStatus === 'valid' && (
+                  <motion.p initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-green flex items-center gap-1">
+                    Valid — you&apos;ll be connected to this Pulse member
+                  </motion.p>
+                )}
+                {refStatus === 'invalid' && refError && (
+                  <motion.p initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-1.5 text-xs text-destructive">
+                    {refError}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </label>
+          </div>
+        )}
+
+        <div>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Full name</span>
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</span>
             <input
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              className="pulse-input"
-              placeholder="Your full name"
+              autoComplete="email"
+              className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50"
+              placeholder="you@example.com"
             />
           </label>
-        )}
+        </div>
 
-        {isSignUp && (
-          <label className="mt-4 block">
-            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Referral code</span>
+        <div>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</span>
             <input
-              value={refCode}
-              onChange={(e) => setRefCode(e.target.value)}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              className="pulse-input"
-              placeholder="PULSE-XXXXXXXX"
+              minLength={6}
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              className="pulse-input transition-all duration-200 focus:ring-2 focus:ring-gold/40 focus:border-gold/50"
+              placeholder="••••••••"
             />
-            {refStatus === 'checking' && <p className="mt-1.5 text-xs text-muted-foreground">Checking…</p>}
-            {refStatus === 'valid' && <p className="mt-1.5 text-xs text-green">Valid — you&apos;ll be connected to this Pulse member</p>}
-            {refStatus === 'invalid' && refError && <p className="mt-1.5 text-xs text-destructive">{refError}</p>}
           </label>
-        )}
-
-        <label className="mt-4 block">
-          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            className="pulse-input"
-            placeholder="you@example.com"
-          />
-        </label>
-
-        <label className="mt-4 block">
-          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            autoComplete={isSignUp ? 'new-password' : 'current-password'}
-            className="pulse-input"
-            placeholder="••••••••"
-          />
-        </label>
+        </div>
 
         {!isSignUp && (
-          <div className="mt-2 text-right">
-            <Link href="/auth/forgot-password" className="text-xs font-medium text-gold">
+          <div className="text-right">
+            <Link href="/auth/forgot-password" className="text-xs font-medium text-gold hover:underline transition-all">
               Forgot password?
             </Link>
           </div>
         )}
 
-        {error ? (
-          <p
-            className={
-              error.type === 'success'
-                ? 'mt-3 rounded-xl border border-green/30 bg-green/10 px-3 py-2 text-xs text-green'
-                : error.type === 'warning'
-                  ? 'mt-3 rounded-xl border border-gold/30 bg-gold/10 px-3 py-2 text-xs text-gold'
-                  : 'mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive'
-            }
+        <AnimatePresence>
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className={
+                error.type === 'success'
+                  ? 'rounded-xl border border-green/30 bg-green/10 px-3.5 py-2.5 text-xs text-green'
+                  : error.type === 'warning'
+                    ? 'rounded-xl border border-gold/30 bg-gold/10 px-3.5 py-2.5 text-xs text-gold'
+                    : 'rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive'
+              }
+            >
+              {error.message}
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        <motion.div whileTap={{ scale: isFormDisabled ? 1 : 0.98 }}>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={isFormDisabled}
+            className="mt-2 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 transition-all duration-200 shadow-lg shadow-gold/20 disabled:opacity-50"
           >
-            {error.message}
-          </p>
-        ) : null}
+            {loading ? <Activity className="size-5 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
+          </Button>
+        </motion.div>
+      </motion.form>
 
-        <Button
-          type="submit"
-          size="lg"
-          disabled={isFormDisabled}
-          className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
-        >
-          {loading ? <Activity className="size-4 animate-spin" /> : isSignUp ? 'Create account' : 'Sign in'}
-        </Button>
-      </form>
-
-      <p className="mt-5 text-center text-sm text-muted-foreground">
+      <motion.p 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="mt-6 text-center text-sm text-muted-foreground"
+      >
         {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-        <Link href={isSignUp ? '/auth/login' : '/auth/sign-up'} className="font-semibold text-gold">
+        <Link href={isSignUp ? '/auth/login' : '/auth/sign-up'} className="font-semibold text-gold hover:underline transition-all">
           {isSignUp ? 'Sign in' : 'Create one'}
         </Link>
-      </p>
+      </motion.p>
     </div>
   )
 }
