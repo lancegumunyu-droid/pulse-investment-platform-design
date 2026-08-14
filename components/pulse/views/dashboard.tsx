@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ArrowDownRight, ArrowUpRight, Building2, ChevronRight, 
   Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, 
-  TrendingUp, Zap, Sparkles, AlertCircle 
+  TrendingUp, Zap, Sparkles, AlertCircle, ShieldAlert,
+  Wallet, Layers, Activity, Lock, Globe2
 } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
@@ -20,25 +21,26 @@ const sectorIcon: Record<ProjectSector, typeof Sun> = {
   Infrastructure: Building2,
 }
 
-// Enhanced Stagger Animation Config
+// Ultra-smooth Framer Motion Motion Config
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.06,
-      delayChildren: 0.02,
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
     },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 14 },
+  hidden: { opacity: 0, y: 18, scale: 0.98 },
   visible: {
     opacity: 1,
     y: 0,
+    scale: 1,
     transition: {
-      duration: 0.45,
+      duration: 0.5,
       ease: [0.16, 1, 0.3, 1],
     },
   },
@@ -49,9 +51,10 @@ export function DashboardView() {
   const upcoming = nextTier(currentTier.id)
   const progress = upcoming ? Math.min(100, (totalInvested / upcoming.minInvest) * 100) : 100
 
-  // Calculate dynamic performance metrics
+  // Precision Performance Calculations
   const initialBenchmark = 250
   const portfolioReturnPct = portfolioValue > 0 ? ((portfolioValue / initialBenchmark) - 1) * 100 : 0
+  const totalReturnDollars = Math.max(0, portfolioValue - initialBenchmark)
 
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
   
@@ -70,69 +73,102 @@ export function DashboardView() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-6 pb-8"
+      className="space-y-7 pb-12 font-sans selection:bg-amber-500/30 selection:text-amber-200"
     >
-      {/* Portfolio Total Hero Card */}
+      {/* Top Intelligence Status Strip */}
+      <motion.div variants={itemVariants} className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <span className="relative flex size-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+          </span>
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
+            SADC Capital Network &bull; Live Terminal
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-400">
+            {currentTier.name} Member
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Hero Financial Command Center */}
       <motion.div variants={itemVariants}>
-        <Glass gold className="relative overflow-hidden border border-gold/30 bg-gradient-to-b from-neutral-900/90 to-black/80 backdrop-blur-2xl p-6 shadow-2xl">
-          <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-gold/15 blur-3xl" />
-          <div className="pointer-events-none absolute -left-12 -bottom-12 size-48 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="group relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-zinc-900/90 via-black/95 to-black p-6 sm:p-8 shadow-[0_0_50px_-12px_rgba(232,163,23,0.15)] transition-all duration-500 hover:border-amber-500/50">
           
+          {/* Futuristic Background Glow Halos */}
+          <div className="pointer-events-none absolute -right-16 -top-16 size-64 rounded-full bg-amber-500/10 blur-[90px] transition-all group-hover:bg-amber-500/15" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 size-72 rounded-full bg-emerald-500/10 blur-[100px]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.03]" />
+
           <div className="relative z-10">
+            {/* Header / Tier Badge */}
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gold">
-                <Sparkles className="size-3.5" /> Total portfolio value
-              </span>
-              <Pill tone="gold" className="font-mono text-[11px]">{currentTier.name}</Pill>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-400">
+                <Sparkles className="size-4 animate-pulse text-amber-400" />
+                <span>Total Net Portfolio Value</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 backdrop-blur-md">
+                  +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
+                </span>
+              </div>
             </div>
-            
-            <div className="mt-2 flex items-baseline gap-3">
-              <h1 className="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-white">
+
+            {/* Balance Display */}
+            <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <h1 className="font-mono text-4xl sm:text-6xl font-black tracking-tight text-white drop-shadow-md">
                 ${money(portfolioValue)}
               </h1>
+              <span className="font-mono text-sm font-semibold text-zinc-500">USDT Equiv.</span>
             </div>
 
-            <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm">
+            {/* Performance Indicators */}
+            <div className="mt-3 flex items-center gap-3 text-xs sm:text-sm">
               <span className={cn(
-                "inline-flex items-center gap-1 font-semibold",
-                portfolioReturnPct >= 0 ? "text-emerald-400" : "text-rose-400"
+                "inline-flex items-center gap-1.5 font-bold font-mono px-2 py-0.5 rounded-md",
+                portfolioReturnPct >= 0 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
               )}>
                 {portfolioReturnPct >= 0 ? <TrendingUp className="size-4" /> : <ArrowDownRight className="size-4" />}
-                {portfolioReturnPct >= 0 ? '+' : ''}{money(portfolioReturnPct, 1)}%
+                {portfolioReturnPct >= 0 ? '+' : ''}${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)
               </span>
-              <span className="text-muted-foreground">Cumulative return since inception</span>
+              <span className="text-zinc-400 font-medium text-xs">Total cumulative yield earned</span>
             </div>
 
-            {/* Core Breakdown Mini-Stats Grid */}
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <MiniStat label="Available Cash" value={`$${money(state.cash, 0)}`} sub="Ready to deploy" />
-              <MiniStat label="Active Principal" value={`$${money(totalInvested, 0)}`} sub="Earning yield" />
+            {/* Asset Allocation Grid Mini-Terminal */}
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <MiniStatCard 
+                icon={<Wallet className="size-4 text-amber-400" />} 
+                label="Available Cash" 
+                value={`$${money(state.cash, 0)}`} 
+                sub="Liquid / Ready" 
+              />
+              <MiniStatCard 
+                icon={<Activity className="size-4 text-emerald-400" />} 
+                label="Active Principal" 
+                value={`$${money(totalInvested, 0)}`} 
+                sub="Deployed in Ventures" 
+              />
+              <MiniStatCard 
+                icon={<Layers className="size-4 text-amber-400" />} 
+                label="PULSE Vault" 
+                value={`${money(state.pulse + state.staked, 0)}`} 
+                sub={`${money(state.staked, 0)} Staked`}
+                className="col-span-2 sm:col-span-1"
+              />
             </div>
 
-            {/* Token Asset Pod */}
-            <div className="mt-3.5 flex items-center justify-between rounded-2xl border border-gold/20 bg-white/[0.02] p-4 backdrop-blur-md">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pulse Token Allocation</p>
-                <p className="mt-0.5 font-mono text-xl font-bold text-gold">{money(state.pulse + state.staked, 0)} <span className="text-xs font-normal text-muted-foreground">PULSE</span></p>
-              </div>
-              <div className="text-right">
-                <div className="inline-flex items-center gap-2 text-xs text-muted-foreground bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/5">
-                  <span className="text-white font-medium">{money(state.pulse, 0)} liquid</span>
-                  <span className="h-2 w-px bg-white/10" />
-                  <span className="text-gold font-medium">{money(state.staked, 0)} staked</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="mt-5 grid grid-cols-2 gap-3">
+            {/* Command Action CTAs */}
+            <div className="mt-6 grid grid-cols-2 gap-3">
               <motion.div whileTap={{ scale: 0.98 }}>
                 <Button
                   size="lg"
-                  className="h-12 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-lg shadow-gold/20 transition-all duration-200"
+                  className="h-13 w-full rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 font-bold text-black hover:brightness-110 shadow-[0_0_25px_rgba(232,163,23,0.35)] transition-all duration-300 border border-amber-300/40"
                   onClick={() => openModal('deposit')}
                 >
-                  <ArrowDownRight className="size-4 mr-1.5" /> Deposit Funds
+                  <ArrowDownRight className="size-5 mr-1.5 stroke-[2.5]" /> Deposit Capital
                 </Button>
               </motion.div>
 
@@ -140,56 +176,63 @@ export function DashboardView() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-12 w-full border-white/15 bg-white/[0.03] font-semibold text-white hover:bg-white/[0.08] hover:border-white/30 transition-all duration-200"
+                  className="h-13 w-full rounded-2xl border-white/15 bg-zinc-900/80 font-semibold text-white hover:bg-white/[0.08] hover:border-white/30 backdrop-blur-xl transition-all duration-200"
                   onClick={() => openModal('withdraw')}
                 >
-                  <ArrowUpRight className="size-4 mr-1.5" /> Withdraw
+                  <ArrowUpRight className="size-5 mr-1.5 stroke-[2]" /> Withdraw Yield
                 </Button>
               </motion.div>
             </div>
           </div>
-        </Glass>
+        </div>
       </motion.div>
 
-      {/* Tier Progress Card */}
+      {/* Tier Progression Gauge */}
       <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-5 backdrop-blur-2xl">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Investor Tier Status</p>
-              <p className="mt-0.5 text-lg font-semibold text-white">{currentTier.name}</p>
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <Lock className="size-5" />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400">Institutional Tier</p>
+                <p className="text-base font-bold text-white mt-0.5">{currentTier.name} VIP</p>
+              </div>
             </div>
-            <Pill tone="green">{currentTier.yieldLabel}</Pill>
+            <Pill tone="green" className="font-mono text-xs">{currentTier.yieldLabel}</Pill>
           </div>
           
           {upcoming ? (
-            <div className="mt-4">
-              <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
-                <span>Progress to {upcoming.name}</span>
-                <span className="font-mono text-gold">${money(totalInvested, 0)} / ${money(upcoming.minInvest, 0)}</span>
+            <div className="mt-5 space-y-2">
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-zinc-400">Next Unlock: <span className="text-white">{upcoming.name}</span></span>
+                <span className="font-mono text-amber-400">${money(totalInvested, 0)} / ${money(upcoming.minInvest, 0)}</span>
               </div>
               <ProgressBar value={progress} tone="gold" />
             </div>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">You have attained the highest institutional tier. Thank you for building with Pulse.</p>
+            <p className="mt-4 text-xs text-zinc-400">You have unlocked Maximum Sovereign Tier privileges.</p>
           )}
           
-          <motion.button
-            whileHover={{ x: 2 }}
+          <button
             onClick={() => setView('invest')}
-            className="mt-4 flex w-full items-center justify-between text-sm font-medium text-gold hover:text-gold/80 transition-colors"
+            className="mt-4 flex w-full items-center justify-between border-t border-white/5 pt-3.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors group"
           >
-            <span>Review all investor tiers & benefits</span> 
-            <ChevronRight className="size-4" />
-          </motion.button>
-        </Glass>
+            <span>Explore tier perks, fee waivers & private deal access</span> 
+            <ChevronRight className="size-4 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
       </motion.div>
 
-      {/* Active Holdings */}
+      {/* Active Deployed Positions */}
       {state.holdings.length > 0 && (
-        <motion.div variants={itemVariants}>
-          <SectionTitle title="Active portfolio allocations" subtitle="Your live deployed holdings. Early termination incurs a $15 administrative fee." />
-          <div className="space-y-3 mt-3">
+        <motion.div variants={itemVariants} className="space-y-3">
+          <SectionTitle 
+            title="Active Capital Allocations" 
+            subtitle="Real-time performance tracking for deployed SADC syndicate holdings." 
+          />
+          <div className="space-y-3">
             <AnimatePresence mode="popLayout">
               {state.holdings.map((h) => {
                 const project = PROJECTS.find((p) => p.id === h.projectId)
@@ -204,48 +247,46 @@ export function DashboardView() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                   >
-                    <Glass gold={!closed} className="glow-edge shimmer-sweep p-4.5 border border-white/10 bg-black/40">
+                    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/80 p-5 backdrop-blur-xl transition-all hover:border-amber-500/30">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-base text-white">{project?.name ?? 'Venture Holding'}</p>
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className="font-mono text-xs text-gold font-medium">${money(h.amount, 0)} principal</span>
+                        <div className="space-y-1">
+                          <p className="font-bold text-base text-white tracking-tight">{project?.name ?? 'SADC Venture Position'}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-amber-400">${money(h.amount, 0)} USDT</span>
+                            <span className="text-zinc-600">&bull;</span>
                             {deadlineDate && (
-                              <>
-                                <span className="size-1 rounded-full bg-white/20" />
-                                <span className="text-xs text-muted-foreground">
-                                  {closed ? 'Matured' : 'Closes'} {deadlineDate.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                                </span>
-                              </>
+                              <span className="text-xs text-zinc-400">
+                                {closed ? 'Matured' : 'Closes'} {deadlineDate.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                              </span>
                             )}
                           </div>
                         </div>
-                        <Pill tone={closed ? 'muted' : 'gold'}>{closed ? 'Closed' : 'Active'}</Pill>
+                        <Pill tone={closed ? 'muted' : 'gold'} className="font-mono text-xs">
+                          {closed ? 'Matured' : 'Earning Yield'}
+                        </Pill>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between pt-3 border-t border-white/5">
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <AlertCircle className="size-3.5" /> Early exit fee: $15
+                      <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+                        <span className="text-[11px] text-zinc-500 flex items-center gap-1.5">
+                          <AlertCircle className="size-3.5 text-zinc-400" /> Early exit fee: $15
                         </span>
-                        <motion.div whileTap={{ scale: 0.97 }}>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-white/12 bg-white/[0.03] text-xs font-medium text-muted-foreground hover:text-white hover:border-white/20 transition-all"
-                            onClick={async () => {
-                              const res = await api.closeInvestment(h.id)
-                              if (res.ok) {
-                                toast({ title: 'Holding liquidated', description: '$15 fee applied, balance returned to available cash.', variant: 'info' })
-                              } else {
-                                toast({ title: 'Liquidation failed', description: res.error, variant: 'error' })
-                              }
-                            }}
-                          >
-                            Close position
-                          </Button>
-                        </motion.div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-white/15 bg-white/[0.02] text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 hover:border-white/30"
+                          onClick={async () => {
+                            const res = await api.closeInvestment(h.id)
+                            if (res.ok) {
+                              toast({ title: 'Holding liquidated', description: '$15 fee applied, funds returned to cash.', variant: 'info' })
+                            } else {
+                              toast({ title: 'Liquidation failed', description: res.error, variant: 'error' })
+                            }
+                          }}
+                        >
+                          Liquidate Position
+                        </Button>
                       </div>
-                    </Glass>
+                    </div>
                   </motion.div>
                 )
               })}
@@ -254,117 +295,131 @@ export function DashboardView() {
         </motion.div>
       )}
 
-      {/* Live Projects Feed */}
-      <motion.div variants={itemVariants}>
-        <SectionTitle title="Live SADC opportunities" subtitle="Institutional-grade regional ventures available for capital deployment." />
-        <div className="space-y-3.5 mt-3">
+      {/* Institutional SADC Deal Pipeline */}
+      <motion.div variants={itemVariants} className="space-y-4">
+        <SectionTitle 
+          title="Featured Regional Opportunities" 
+          subtitle="Direct sovereign & institutional venture opportunities verified by Pulse." 
+        />
+        
+        <div className="space-y-4">
           {PROJECTS.map((p) => {
             const Icon = sectorIcon[p.sector] || Building2
             const funded = liveFunding ? p.funded + (liveFunding[p.id] ?? 0) : p.funded
             const pct = Math.min(100, Math.round((funded / p.goal) * 100))
             
             return (
-              <Glass key={p.id} className="glow-edge shimmer-sweep p-5 border border-white/10 bg-black/40 backdrop-blur-xl">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3.5">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gold/10 text-gold border border-gold/20 shadow-inner">
-                      <Icon className="size-5" />
-                    </span>
+              <div 
+                key={p.id} 
+                className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-zinc-900/80 to-black/90 p-6 backdrop-blur-2xl transition-all duration-300 hover:border-amber-500/40 hover:shadow-[0_0_30px_rgba(232,163,23,0.1)]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-inner group-hover:bg-amber-500/20 transition-colors">
+                      <Icon className="size-6" />
+                    </div>
                     <div>
-                      <p className="font-semibold text-base text-white">{p.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{p.country} &bull; <span className="text-white/80">{p.sector}</span></p>
+                      <h3 className="font-bold text-lg text-white group-hover:text-amber-300 transition-colors">{p.name}</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5">
+                        <Globe2 className="size-3.5 text-zinc-500" />
+                        <span>{p.country}</span> &bull; <span className="text-zinc-200 font-medium">{p.sector}</span>
+                      </p>
                     </div>
                   </div>
-                  <Pill tone="green" className="font-mono">{p.targetYield}</Pill>
+                  <div className="text-right">
+                    <span className="inline-block rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-xs font-bold text-emerald-400">
+                      {p.targetYield}
+                    </span>
+                  </div>
                 </div>
 
-                <p className="mt-3.5 text-sm leading-relaxed text-muted-foreground">{p.summary}</p>
+                <p className="mt-4 text-xs sm:text-sm leading-relaxed text-zinc-400 line-clamp-2">{p.summary}</p>
                 
-                <div className="mt-4">
-                  <div className="mb-1.5 flex justify-between text-xs">
-                    <span className="text-gold font-medium">{pct}% funded</span>
-                    <span className="font-mono text-muted-foreground">${money(funded, 0)} / ${money(p.goal, 0)}</span>
+                {/* Funding Progress Meter */}
+                <div className="mt-5 space-y-2">
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-amber-400 font-bold">{pct}% Allocated</span>
+                    <span className="text-zinc-400">${money(funded, 0)} / ${money(p.goal, 0)}</span>
                   </div>
                   <ProgressBar value={pct} tone="green" />
                 </div>
 
-                <div className="mt-4 pt-3.5 flex items-center justify-between border-t border-white/5">
-                  <Pill tone={p.risk === 'Higher' ? 'danger' : p.risk === 'Moderate' ? 'gold' : 'muted'}>
+                {/* Footer Row */}
+                <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
+                  <Pill tone={p.risk === 'Higher' ? 'danger' : p.risk === 'Moderate' ? 'gold' : 'muted'} className="text-[10px] uppercase font-bold">
                     {p.risk} Risk Profile
                   </Pill>
-                  <motion.div whileTap={{ scale: 0.95 }}>
-                    <Button
-                      size="sm"
-                      className="bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-md shadow-gold/15 transition-all px-4"
-                      onClick={() => openModal('invest', { projectId: p.id })}
-                    >
-                      Deploy Capital
-                    </Button>
-                  </motion.div>
+                  <Button
+                    size="sm"
+                    className="rounded-xl bg-amber-500 font-bold text-black hover:bg-amber-400 shadow-md shadow-amber-500/10 transition-all px-5 h-9"
+                    onClick={() => openModal('invest', { projectId: p.id })}
+                  >
+                    Deploy Capital
+                  </Button>
                 </div>
-              </Glass>
+              </div>
             )
           })}
         </div>
       </motion.div>
 
-      {/* Quick Action Tiles Grid */}
-      <motion.div variants={itemVariants}>
-        <SectionTitle title="Quick actions" />
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <QuickActionTile
+      {/* Command Action Matrix */}
+      <motion.div variants={itemVariants} className="space-y-3">
+        <SectionTitle title="Tactical Command Shortcuts" />
+        <div className="grid grid-cols-2 gap-3">
+          <ProActionTile
             icon={<Rocket className="size-5" />}
             tone="gold"
             title="Buy $PULSE"
-            subtitle="Private syndicate sale"
+            subtitle="Syndicate Presale"
             onClick={() => setView('sale')}
           />
-          <QuickActionTile
+          <ProActionTile
             icon={<Zap className="size-5" />}
             tone="green"
             title="Stake Tokens"
-            subtitle="24.8% APY yield"
+            subtitle="24.8% APY Vault"
             onClick={() => setView('stake')}
           />
-          <QuickActionTile
+          <ProActionTile
             icon={<Radio className="size-5" />}
             tone="gold"
             title="Market Signals"
-            subtitle="Live intelligence feed"
+            subtitle="Real-time Intel"
             onClick={() => setView('signals')}
           />
-          <QuickActionTile
+          <ProActionTile
             icon={<ShieldCheck className="size-5" />}
             tone="green"
             title="Verify KYC"
-            subtitle={state.kyc === 'verified' ? 'Fully verified' : 'Unlock full limits'}
+            subtitle={state.kyc === 'verified' ? 'Fully Cleared' : 'Increase Limits'}
             onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))}
           />
         </div>
       </motion.div>
 
-      {/* Referral Banner */}
+      {/* Syndicate Black Referral Pass */}
       <motion.div variants={itemVariants}>
-        <Glass className="p-5 border border-white/10 bg-black/40 backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-6 shadow-2xl">
+          <div className="pointer-events-none absolute right-0 top-0 size-48 bg-amber-500/10 blur-3xl" />
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Syndicate Referral Code</p>
-              <p className="mt-1 font-mono text-xl font-bold text-gold tracking-wider">{state.referralCode}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{state.referralCount} active referrals &bull; Accelerate tier bonuses</p>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Syndicate Pass</p>
+              <p className="font-mono text-2xl font-black text-white tracking-wider">{state.referralCode}</p>
+              <p className="text-xs text-zinc-400">{state.referralCount} Referred Partners &bull; Unlock Yield Multipliers</p>
             </div>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
+            <button
               onClick={() => {
                 navigator.clipboard?.writeText(state.referralCode)
-                toast({ title: 'Referral code copied to clipboard', variant: 'info' })
+                toast({ title: 'Referral code copied!', variant: 'info' })
               }}
-              className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-muted-foreground transition-all hover:bg-gold/20 hover:text-gold hover:border-gold/30 shadow-inner"
+              className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-amber-400 hover:bg-amber-500 hover:text-black transition-all shadow-inner"
               aria-label="Copy referral code"
             >
-              <Copy className="size-4" />
-            </motion.button>
+              <Copy className="size-5" />
+            </button>
           </div>
-        </Glass>
+        </div>
       </motion.div>
 
       <motion.div variants={itemVariants}>
@@ -374,7 +429,32 @@ export function DashboardView() {
   )
 }
 
-function QuickActionTile({
+function MiniStatCard({ 
+  icon, 
+  label, 
+  value, 
+  sub, 
+  className 
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  value: string; 
+  sub?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("rounded-2xl border border-white/10 bg-black/40 p-3.5 backdrop-blur-md", className)}>
+      <div className="flex items-center gap-1.5 text-zinc-400">
+        {icon}
+        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+      </div>
+      <p className="mt-1.5 font-mono text-lg font-extrabold text-white tracking-tight">{value}</p>
+      {sub && <p className="mt-0.5 text-[10px] font-medium text-zinc-500">{sub}</p>}
+    </div>
+  )
+}
+
+function ProActionTile({
   icon,
   title,
   subtitle,
@@ -388,37 +468,25 @@ function QuickActionTile({
   onClick: () => void
 }) {
   return (
-    <motion.button
-      whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.15)' }}
-      whileTap={{ scale: 0.97 }}
+    <button
       onClick={onClick}
-      className="flex flex-col rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md p-4 text-left transition-all group"
+      className="group relative flex flex-col rounded-2xl border border-white/10 bg-zinc-950/60 p-4 text-left backdrop-blur-md transition-all duration-300 hover:border-amber-500/40 hover:bg-zinc-900/80"
     >
       <div className="flex items-center justify-between w-full">
         <span
           className={cn(
-            'flex size-10 items-center justify-center rounded-xl border shadow-inner transition-transform group-hover:scale-105',
+            'flex size-10 items-center justify-center rounded-xl border shadow-inner transition-transform group-hover:scale-110',
             tone === 'gold' 
-              ? 'bg-gold/10 border-gold/20 text-gold' 
+              ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' 
               : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
           )}
         >
           {icon}
         </span>
-        <ChevronRight className="size-4 text-muted-foreground group-hover:text-white transition-colors" />
+        <ChevronRight className="size-4 text-zinc-600 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
       </div>
-      <p className="mt-3.5 text-sm font-semibold text-white tracking-tight">{title}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-    </motion.button>
-  )
-}
-
-function MiniStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3.5 backdrop-blur-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-base font-bold text-white tracking-tight">{value}</p>
-      {sub && <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">{sub}</p>}
-    </div>
+      <p className="mt-3.5 text-sm font-bold text-white tracking-tight">{title}</p>
+      <p className="text-xs text-zinc-400 mt-0.5">{subtitle}</p>
+    </button>
   )
 }
