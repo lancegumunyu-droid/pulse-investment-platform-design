@@ -29,28 +29,36 @@ const COLS = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-white/[0.06] bg-background">
+    <footer className="border-t border-white/[0.08] bg-background text-foreground">
       <div className="mx-auto max-w-6xl px-5 py-14">
         <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2.5" aria-label="Pulse home">
-              <span className="flex size-8 items-center justify-center rounded-lg glass-gold">
-                <Activity className="size-4 text-gold" />
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-90"
+              aria-label="Pulse home"
+            >
+              <span className="flex size-8 items-center justify-center rounded-lg border border-gold/30 bg-gold-soft text-gold shadow-sm">
+                <Activity className="size-4" />
               </span>
-              <span className="font-semibold tracking-tight">Pulse</span>
+              <span className="font-bold tracking-tight text-foreground">Pulse</span>
             </Link>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground text-pretty">
               Connecting capital to impactful SADC projects. Transparency, performance, growth.
             </p>
-            <p className="mt-3 text-xs text-muted-foreground">
+            <a
+              href="mailto:contact@pulseinvest.africa"
+              className="mt-3 block text-xs text-muted-foreground transition-colors hover:text-gold"
+            >
               contact@pulseinvest.africa
-            </p>
+            </a>
           </div>
 
+          {/* Navigation Columns */}
           {COLS.map((col) => (
             <div key={col.title}>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 {col.title}
               </p>
               <ul className="space-y-2.5">
@@ -58,7 +66,7 @@ export function SiteFooter() {
                   <li key={l.href}>
                     <Link
                       href={l.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="text-sm text-muted-foreground transition-colors hover:text-gold"
                     >
                       {l.label}
                     </Link>
@@ -69,7 +77,8 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/[0.06] pt-8 text-xs text-muted-foreground md:flex-row md:items-center">
+        {/* Bottom Metadata & Disclaimer */}
+        <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/[0.08] pt-8 text-xs text-muted-foreground md:flex-row md:items-center">
           <p>&copy; {new Date().getFullYear()} Pulse Investment Group. All rights reserved.</p>
           <p className="max-w-xl text-pretty leading-relaxed">
             Investments carry risk of capital loss. Variable yields depend entirely on real project performance and
