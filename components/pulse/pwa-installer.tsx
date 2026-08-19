@@ -1,19 +1,27 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Download, Share, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+const DISMISS_KEY = 'pulse_pwa_prompt_dismissed'
+const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // Re-prompt after 7 days
+
 export function PWAInstaller() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
+  const [isIos, setIsIos] = useState(false)
+  const [showIosGuide, setShowIosGuide] = useState(false)
 
   useEffect(() => {
-    // Detect standalone mode (App already installed)
+    // Detect if app is already running in standalone mode (installed PWA)
     const checkStandalone = () => {
       const isStandaloneMode =
         window.matchMedia('(display-mode: standalone)').matches ||
@@ -22,6 +30,15 @@ export function PWAInstaller() {
     }
 
     checkStandalone()
+
+    // Detect iOS browser (Safari / Chrome on iOS don't support beforeinstallprompt)
+    const ua = window.navigator.userAgent
+    const isIosDevice = /iPhone|iPad|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream
+    setIsIos(isIosDevice)
+
+    // Check if user recently dismissed the prompt
+    const dismissedAt = localStorage.getItem(DISMISS_KEY)
+    const isDismissed = dismissedAt && Date.now() - Number(dismissedAt) < DISMISS_DURATION_MS
 
     // Register Service Worker in production
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
@@ -32,11 +49,11 @@ export function PWAInstaller() {
         })
     }
 
-    // Capture native install prompt
+    // Handle standard PWA prompt for Android / Chrome / Edge
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setInstallPrompt(e as BeforeInstallPromptEvent)
-      if (!window.matchMedia('(display-mode: standalone)').matches) {
+      if (!isStandalone && !isDismissed) {
         setIsVisible(true)
       }
     }
@@ -45,18 +62,30 @@ export function PWAInstaller() {
       setIsVisible(false)
       setInstallPrompt(null)
       setIsStandalone(true)
+      localStorage.removeItem(DISMISS_KEY)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
 
+    // On iOS Safari, if not standalone and not recently dismissed, show prompt
+    if (isIosDevice && !isStandalone && !isDismissed) {
+      const timer = setTimeout(() => setIsVisible(true), 3000)
+      return () => clearTimeout(timer)
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [])
+  }, [isStandalone])
 
   const handleInstallClick = async () => {
+    if (isIos) {
+      setShowIosGuide((v) => !v)
+      return
+    }
+
     if (!installPrompt) return
 
     await installPrompt.prompt()
@@ -70,64 +99,64 @@ export function PWAInstaller() {
 
   const handleDismiss = () => {
     setIsVisible(false)
+    localStorage.setItem(DISMISS_KEY, String(Date.now()))
   }
 
-  if (isStandalone || !isVisible || !installPrompt) {
+  if (isStandalone || !isVisible || (!installPrompt && !isIos)) {
     return null
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-sm animate-toast-in">
-      <div className="glass-gold relative flex flex-col gap-3 rounded-2xl p-4 shadow-2xl backdrop-blur-xl border border-[#e8a317]/30 bg-zinc-950/90">
+    <div className="fixed bottom-20 right-4 z-50 max-w-sm animate-toast-in sm:bottom-6 sm:right-6">
+      <div className="glass relative flex flex-col gap-3 rounded-2xl border border-gold/30 bg-background/95 p-4 shadow-2xl backdrop-blur-xl">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8a317]/10 text-[#e8a317] border border-[#e8a317]/30">
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-            </div>
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gold-soft text-gold">
+              <Download className="size-5" />
+            </span>
             <div>
-              <h4 className="text-sm font-semibold text-zinc-100">Install Pulse App</h4>
-              <p className="text-xs text-zinc-400">
+              <h4 className="text-sm font-semibold text-foreground">Install Pulse App</h4>
+              <p className="text-xs text-muted-foreground">
                 Get real-time investment updates and fast access to SADC projects.
               </p>
             </div>
           </div>
           <button
             onClick={handleDismiss}
-            className="text-zinc-400 hover:text-zinc-200 transition-colors p-1"
+            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
             aria-label="Close"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="size-4" />
           </button>
         </div>
 
+        {/* iOS Step-by-step instructions tooltip */}
+        {isIos && showIosGuide && (
+          <div className="mt-1 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 font-medium text-foreground">
+              <Share className="size-4 text-gold" />
+              <span>Tap Share in Safari menu</span>
+            </div>
+            <p>Then scroll down and select <span className="font-semibold text-foreground">"Add to Home Screen"</span>.</p>
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-2 pt-1">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleDismiss}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-100 transition-colors"
+            className="h-8 text-xs text-muted-foreground hover:text-foreground"
           >
             Not now
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
             onClick={handleInstallClick}
-            className="rounded-lg bg-[#e8a317] px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-[#e8a317]/90 transition-colors shadow-md"
+            className={cn('h-8 bg-gold px-3.5 text-xs font-semibold text-primary-foreground hover:bg-gold/90')}
           >
-            Install
-          </button>
+            {isIos ? (showIosGuide ? 'Hide instructions' : 'How to install') : 'Install'}
+          </Button>
         </div>
       </div>
     </div>
