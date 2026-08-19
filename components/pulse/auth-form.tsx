@@ -55,15 +55,14 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   useEffect(() => {
     const fromUrl = searchParams.get('ref')
     if (fromUrl) {
-      setRefCode(fromUrl)
+      setRefCode(fromUrl.toUpperCase())
     } else if (!isSignUp) {
-      // Bypass ref requirement automatically for login mode
       setRefStatus('valid')
     }
   }, [searchParams, isSignUp])
 
   const verifyCode = useCallback(async (code: string) => {
-    const clean = code.trim()
+    const clean = code.trim().toUpperCase()
     if (!clean) {
       setRefStatus('idle')
       setRefError(null)
@@ -105,8 +104,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (inFlightRef.current) return
-    if (emailCooldown > 0) return
+    if (inFlightRef.current || emailCooldown > 0) return
 
     if (!email.trim()) {
       setError({ type: 'error', message: 'Please enter your email address' })
@@ -139,13 +137,14 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       if (isSignUp) {
         const cleanEmail = email.trim().toLowerCase()
         const cleanName = fullName.trim()
-        const cleanCode = refCode.trim()
+        const cleanCode = refCode.trim().toUpperCase()
 
+        const origin = typeof window !== 'undefined' ? window.location.origin : ''
         const { data, error: authError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: `${origin}/auth/callback`,
             data: { full_name: cleanName, ref_code: cleanCode },
           },
         })
@@ -217,7 +216,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     return (
       <div className="relative min-h-screen w-full flex items-center justify-center bg-[#030303] overflow-hidden px-4">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-950/20 via-black to-black" />
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="relative z-10 w-full max-w-md rounded-3xl p-8 border border-amber-500/20 bg-black/60 backdrop-blur-2xl shadow-2xl text-center"
@@ -235,7 +234,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     )
   }
 
-  const isFormDisabled = loading || emailCooldown > 0 || (isSignUp && refStatus !== 'valid')
+  const isFormDisabled = loading || emailCooldown > 0
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-[#030303] overflow-hidden px-4 py-12 selection:bg-amber-500/30 selection:text-amber-300">
@@ -243,7 +242,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       <div className="pointer-events-none absolute -bottom-48 -right-48 size-[500px] rounded-full bg-emerald-500/10 blur-[140px] animate-pulse" style={{ animationDuration: '4s' }} />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f1f0a_1px,transparent_1px),linear-gradient(to_bottom,#1f1f1f0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -254,11 +253,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
           <AnimatePresence>
             {emailCooldown > 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: -10, height: 0 }}
                 animate={{ opacity: 1, y: 0, height: 'auto' }}
                 exit={{ opacity: 0, y: -10, height: 0 }}
-                className="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 backdrop-blur-md"
+                className="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 backdrop-blur-md overflow-hidden"
               >
                 <div className="flex items-start gap-3">
                   <Info className="mt-0.5 size-5 shrink-0 text-amber-400" />
@@ -273,7 +272,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             )}
           </AnimatePresence>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
@@ -293,11 +292,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </p>
           </motion.div>
 
-          <motion.form 
+          <motion.form
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            onSubmit={submit} 
+            onSubmit={submit}
             className="space-y-4"
           >
             <AnimatePresence mode="popLayout">
@@ -308,6 +307,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                     animate={{ opacity: 1, height: 'auto', y: 0 }}
                     exit={{ opacity: 0, height: 0, y: -10 }}
                     transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
                   >
                     <label className="block">
                       <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Full Legal Name</span>
@@ -326,13 +326,14 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                     animate={{ opacity: 1, height: 'auto', y: 0 }}
                     exit={{ opacity: 0, height: 0, y: -10 }}
                     transition={{ duration: 0.3, delay: 0.05 }}
+                    className="overflow-hidden"
                   >
                     <label className="block">
                       <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Syndicate Referral Code</span>
                       <div className="relative">
                         <input
                           value={refCode}
-                          onChange={(e) => setRefCode(e.target.value)}
+                          onChange={(e) => setRefCode(e.target.value.toUpperCase())}
                           required
                           className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-mono text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner pr-10 uppercase tracking-widest"
                           placeholder="PULSE-XXXXXXXX"
@@ -411,10 +412,10 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                   exit={{ opacity: 0, height: 0, y: -5 }}
                   className={
                     error.type === 'success'
-                      ? 'rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300 font-medium'
+                      ? 'rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300 font-medium overflow-hidden'
                       : error.type === 'warning'
-                        ? 'rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300 font-medium'
-                        : 'rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 font-medium'
+                        ? 'rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300 font-medium overflow-hidden'
+                        : 'rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 font-medium overflow-hidden'
                   }
                 >
                   {error.message}
@@ -443,14 +444,14 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </motion.div>
           </motion.form>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
             className="mt-6 text-center"
           >
-            <Link 
-              href={isSignUp ? '/auth/login' : '/auth/sign-up'} 
+            <Link
+              href={isSignUp ? '/auth/login' : '/auth/sign-up'}
               className="text-xs text-zinc-400 hover:text-amber-400 transition-colors font-medium inline-flex items-center gap-1.5 group"
             >
               {isSignUp ? 'Already hold institutional membership? ' : "Don't have clearance yet? "}
@@ -460,7 +461,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </Link>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.25 }}
