@@ -35,8 +35,8 @@
   --color-green-soft: var(--green-soft);
   --color-danger: var(--danger);
 
-  --font-sans: 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', ui-monospace, monospace;
+  --font-sans: var(--font-geist-sans), 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), 'Geist Mono', 'Geist Mono Fallback', ui-monospace, monospace;
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -83,6 +83,7 @@
   }
   html {
     @apply bg-background;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -90,10 +91,61 @@
       radial-gradient(60rem 60rem at 80% -10%, rgba(232, 163, 23, 0.09), transparent 60%),
       radial-gradient(50rem 50rem at -10% 20%, rgba(16, 185, 129, 0.06), transparent 55%);
     background-attachment: fixed;
+    overflow-x: hidden;
   }
 }
 
 @layer utilities {
+  /* Responsive Hero Typography Scale */
+  .text-hero {
+    font-size: 36px;
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  @media (min-width: 640px) {
+    .text-hero {
+      font-size: 44px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .text-hero {
+      font-size: 56px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .text-hero {
+      font-size: 64px;
+    }
+  }
+
+  /* Technical Financial Data Labels */
+  .font-technical {
+    font-family: var(--font-mono);
+    letter-spacing: -0.01em;
+  }
+
+  /* Mobile Safe Area Insets (iOS Notches & Gesture Home Bars) */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  /* Legacy Typography Utilities */
   .font-cooper {
     font-family: 'Cooper BT W01 Light', 'Georgia', serif;
   }
@@ -102,6 +154,7 @@
     font-weight: 500;
   }
 
+  /* Glassmorphism Styles */
   .glass {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
     backdrop-filter: blur(16px);
@@ -150,6 +203,8 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Animations */
   @keyframes pulse-rise {
     from {
       opacity: 0;
