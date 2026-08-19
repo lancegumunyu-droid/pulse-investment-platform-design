@@ -2,11 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 
-  // If env vars are missing (e.g. cold dev start before env is hydrated),
-  // pass through without crashing.
+  // Pass through if env vars are missing during cold starts or deployment builds
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.next({ request })
   }
@@ -15,8 +16,6 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
-  // With Fluid compute, don't put this client in a global environment
-  // variable. Always create a new one on each request.
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
@@ -27,28 +26,33 @@ export async function updateSession(request: NextRequest) {
         supabaseResponse = NextResponse.next({
           request,
         })
-        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        )
       },
     },
   })
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
+  // Do not insert code between createServerClient and getUser()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // CHANGED: this app's protected route is /app, not /protected.
-  // /protected was unused leftover from the starter template — this
-  // check never matched, so unauthenticated requests were passing
-  // straight through to /app with no gate at the middleware layer.
-  if (request.nextUrl.pathname.startsWith('/app') && !user) {
+  const { pathname } = request.nextUrl
+
+  // Gate protected route (/app)
+  if (pathname.startsWith('/app') && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
+  // Redirect authenticated users away from auth pages to dashboard
+  if ((pathname === '/auth/login' || pathname === '/auth/sign-up') && user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/app'
+    return NextResponse.redirect(url)
+  }
+
   return supabaseResponse
 }
