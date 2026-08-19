@@ -1,0 +1,94 @@
+You are continuing an existing Next.js 16 Pulse investment platform.
+
+Do not recreate the project from scratch.
+Do not replace existing Pulse views.
+Do not deploy or mutate production without approval.
+
+Project stack:
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS v4
+- shadcn/ui
+- Supabase Auth and PostgreSQL
+- Vercel Cron
+- Three.js / React Three Fiber
+- GSAP
+- Motion
+- Lenis
+
+Project structure:
+- app/page.tsx is the entry route.
+- components/pulse/app.tsx owns the main shell and navigation.
+- components/pulse/store.tsx owns current local fallback state.
+- lib/pulse-data.ts contains fallback data.
+- app/auth/callback/route.ts handles Supabase auth callback.
+- lib/supabase/client.ts is the browser client.
+- lib/supabase/server.ts is the server client.
+- lib/supabase/proxy.ts refreshes sessions.
+- app/api/admin/session/route.ts verifies approved admin users.
+- app/api/cron/auto-close/route.ts processes matured holdings.
+- vercel.json contains the cron schedule and headers.
+
+Brand:
+- Premium financial technology platform.
+- Dark charcoal background.
+- Gold primary accent: #f59e0b.
+- Warm neutral text.
+- Maximum two font families.
+- Use Geist for UI/body.
+- Use Geist Mono only for technical/data labels.
+- Mobile-first responsive design.
+- No purple gradients.
+- No decorative filler shapes.
+- No emojis as icons.
+- Use semantic design tokens.
+- Keep accessibility and contrast strong.
+
+Typography:
+- Mobile hero: 36px.
+- Tablet hero: 44px.
+- Desktop hero: 56–64px.
+- Body: 16–18px.
+- Small text: never below 12px.
+- Buttons: 16px minimum.
+- Navigation: 12px minimum.
+- Use responsive Tailwind classes such as sm:, md:, lg:.
+
+Security:
+- Never expose SUPABASE_SERVICE_ROLE_KEY.
+- Never expose SUPABASE_SECRET_KEY.
+- Never expose CRON_SECRET.
+- All financial mutations must run server-side.
+- Admin authorization must use Supabase session plus approved admin profile.
+- Never use a hardcoded production admin password.
+- Preserve RLS.
+- Validate all amounts, quantities, IDs, and transaction states server-side.
+
+Financial workflow:
+User action
+→ server validation
+→ database transaction
+→ approval queue
+→ admin approval
+→ ledger entry
+→ wallet update
+→ audit log
+
+Current UI fallback state is acceptable for preview only.
+Do not claim real financial persistence until all wallet, investment, transaction, approval, and audit operations are connected to Supabase.
+
+Mobile roadmap:
+1. Make the web app fully responsive.
+2. Add app/manifest.ts and PWA icons.
+3. Add installable PWA behavior.
+4. Later wrap the PWA using Capacitor for iOS and Android.
+5. Do not create a separate React Native app unless explicitly requested.
+
+Before editing:
+- Inspect all existing files.
+- Preserve current navigation.
+- Check whether next.config.ts and next.config.mjs both exist.
+- Keep only one Next config.
+- Run typecheck and production build.
+- Verify mobile and desktop in a real browser.
