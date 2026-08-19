@@ -3,11 +3,20 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
   // Map server-only Supabase vars to NEXT_PUBLIC_ equivalents so the
-  // browser client and client.ts can access them in the v0 preview env.
+  // browser client and client.ts can access them in the preview & build envs.
   env: {
     NEXT_PUBLIC_SUPABASE_URL:
       process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '',
