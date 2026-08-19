@@ -12,7 +12,16 @@ import {
 import { useRouter } from 'next/navigation'
 import { tierForAmount, TIERS, TOKEN } from '@/lib/pulse-data'
 import { createClient } from '@/lib/supabase/client'
-import type { Snapshot, SnapshotHolding, SnapshotTxn, LeaderboardRow, FounderRow, MyReferralRow, BadgeRow, SavedWallet } from '@/lib/pulse/types'
+import type {
+  Snapshot,
+  SnapshotHolding,
+  SnapshotTxn,
+  LeaderboardRow,
+  FounderRow,
+  MyReferralRow,
+  BadgeRow,
+  SavedWallet,
+} from '@/lib/pulse/types'
 import {
   buyToken as buyTokenAction,
   sellToken as sellTokenAction,
