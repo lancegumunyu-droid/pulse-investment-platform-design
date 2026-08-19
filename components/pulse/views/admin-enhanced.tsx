@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import confetti from 'canvas-confetti'
 import { Check, Lock, ShieldCheck, Plus, Edit2, Trash2, X, Save } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, SectionTitle, Stat } from '../ui-bits'
@@ -128,8 +129,9 @@ export function AdminEnhancedView() {
                       size="sm"
                       className="bg-green font-semibold text-background hover:bg-green/90"
                       onClick={() => {
-                        dispatch({ type: 'APPROVE_TXN', id: t.id })
-                        toast({ title: 'Withdrawal approved', description: `$${money(t.amount)} disbursed.`, variant: 'success' })
+dispatch({ type: 'APPROVE_TXN', id: t.id })
+              confetti({ particleCount: 70, spread: 55, origin: { y: 0.72 }, colors: ['#f59e0b', '#fef3c7', '#111111'] })
+              toast({ title: 'Withdrawal approved', description: `$${money(t.amount)} disbursed.`, variant: 'success' })
                       }}
                     >
                       <Check className="size-4" /> Approve

@@ -4,7 +4,8 @@
  * Notifies admin and credits investors
  */
 
-import type { Signal, Holding, Txn } from '@/components/pulse/store'
+import type { Holding, Txn } from '@/components/pulse/store'
+import type { Signal } from '@/lib/pulse-data'
 
 export interface SignalWithClosingDate extends Signal {
   closingDate: number // Unix timestamp

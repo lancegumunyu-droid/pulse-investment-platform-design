@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import confetti from 'canvas-confetti'
 import { ArrowDownRight, ArrowUpRight, ShieldCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { money, usePulse } from './store'
@@ -248,6 +249,7 @@ function DepositModal({ onClose }: { onClose: () => void }) {
     // Simulated NOWPayments confirmation flow.
     setTimeout(() => {
       dispatch({ type: 'DEPOSIT', amount: usd, currency: 'USDT' })
+      confetti({ particleCount: 90, spread: 62, origin: { y: 0.72 }, colors: ['#f59e0b', '#fef3c7', '#111111'] })
       toast({ title: 'Deposit confirmed', description: `$${money(usd)} credited via ${currency}.`, variant: 'success' })
       setProcessing(false)
       onClose()

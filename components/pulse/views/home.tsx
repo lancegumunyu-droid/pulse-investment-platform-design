@@ -4,15 +4,26 @@ import { ArrowRight, TrendingUp, Shield, Zap, Globe, Users, BarChart3 } from 'lu
 import { usePulse } from '../store'
 import { Glass, Pill } from '../ui-bits'
 import { Button } from '@/components/ui/button'
+import { motion } from 'motion/react'
+import dynamic from 'next/dynamic'
+
+const HeroScene = dynamic(() => import('../hero-scene').then((module) => module.HeroScene), { ssr: false })
 
 export function HomeView() {
   const { setView } = usePulse()
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="relative space-y-8 pb-20">
+      <HeroScene />
       {/* Hero Section */}
-      <div className="space-y-6 pt-4">
+      <motion.div
+        className="space-y-6 pt-4"
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.65, ease: 'easeOut' }}
+      >
         <div className="space-y-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold/80">SADC project intelligence</p>
           <h1 className="text-4xl font-bold leading-tight text-balance">
             Build wealth through <span className="text-gold">smart investing</span>
           </h1>
@@ -55,7 +66,7 @@ export function HomeView() {
             <p className="text-xs text-muted-foreground mt-1">Avg. annual yield</p>
           </div>
         </Glass>
-      </div>
+      </motion.div>
 
       {/* How It Works */}
       <div className="space-y-4">
