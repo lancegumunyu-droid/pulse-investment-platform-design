@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, X } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, AlertCircle, Clock, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { money, usePulse } from './store'
 import { RiskNote } from './ui-bits'
@@ -10,9 +10,6 @@ import { cn } from '@/lib/utils'
 
 const KYC_REQUIRED_ABOVE = 500
 
-// African countries only, SADC given first priority — per explicit
-// product decision. Shared between the Nationality and Country of
-// residence fields since both are African-only.
 const AFRICA_SADC = [
   'Angola', 'Botswana', 'Comoros', 'DR Congo', 'Eswatini', 'Lesotho', 'Madagascar',
   'Malawi', 'Mauritius', 'Mozambique', 'Namibia', 'Seychelles', 'South Africa',
@@ -88,12 +85,6 @@ function KycModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(state.kyc === 'pending' ? 2 : 0)
   const [form, setForm] = useState({ name: '', nationality: 'Botswana', country: 'Botswana', idNumber: '', dob: '', phone: '', address: '' })
 
-  // Real, but honest-scope, validation: format checks we can actually do
-  // client-side (phone shape, ID sanity, minimum age). This is NOT
-  // identity verification — confirming a document is genuine, or that
-  // its format matches what that specific country actually issues,
-  // needs a real provider (Smile Identity, Onfido, Persona). Flagging
-  // that clearly rather than letting format-looks-ok pass as "verified."
   const phoneValid = /^\+?[0-9\s\-()]{7,16}$/.test(form.phone.trim())
   const idValid = /^[A-Za-z0-9\-\s]{5,20}$/.test(form.idNumber.trim())
   const ageValid = (() => {
@@ -120,22 +111,32 @@ function KycModal({ onClose }: { onClose: () => void }) {
     }
     setStep(2)
     toast({
-      title: 'Submitted for review',
-      description: 'Our team will verify your identity shortly.',
+      title: 'KYC Submitted',
+      description: 'Your verification details have been sent to admin for review.',
       variant: 'success',
     })
-    setTimeout(onClose, 1200)
+    setTimeout(onClose, 1500)
   }
 
   const canSubmit = form.name.trim().length >= 2 && idValid && ageValid && phoneValid && form.address.trim().length >= 5
 
   return (
     <ModalShell title="Identity verification" icon={<ShieldCheck className="size-5" />} onClose={onClose}>
-      {step < 2 ? (
+      {state.kyc === 'pending' || step === 2 ? (
+        <div className="flex flex-col items-center py-8 text-center">
+          <span className="flex size-14 items-center justify-center rounded-2xl bg-gold-soft text-gold">
+            <Clock className="size-7 animate-pulse" />
+          </span>
+          <p className="mt-4 font-semibold text-foreground">KYC Verification Pending</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            An admin is currently reviewing your submission. You will be notified automatically once approved.
+          </p>
+        </div>
+      ) : (
         <>
           <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
             KYC is required to protect investors and comply with SADC financial regulations. You must be 18 or older
-            to invest with Pulse. Your details are used only for verification.
+            to invest with Pulse.
           </p>
           <div className="space-y-3">
             <Field label="Full legal name">
@@ -189,9 +190,6 @@ function KycModal({ onClose }: { onClose: () => void }) {
                   ))}
                 </optgroup>
               </select>
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Pulse is currently open to residents of African countries only, with SADC given first priority.
-              </p>
             </Field>
             <Field label="National ID / Passport number">
               <input
@@ -247,14 +245,6 @@ function KycModal({ onClose }: { onClose: () => void }) {
           </Button>
           <p className="mt-3 text-center text-xs text-muted-foreground">A Pulse admin reviews every submission before approval.</p>
         </>
-      ) : (
-        <div className="flex flex-col items-center py-8 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-gold-soft text-gold">
-            <ShieldCheck className="size-7 animate-pulse" />
-          </span>
-          <p className="mt-4 font-semibold">Submitted for review</p>
-          <p className="mt-1 text-sm text-muted-foreground">You&apos;ll get full access once an admin approves your identity.</p>
-        </div>
       )}
     </ModalShell>
   )
@@ -274,7 +264,13 @@ function InvestModal({ onClose }: { onClose: () => void }) {
 
   const confirm = async () => {
     if (needsKyc) {
-      toast({ title: 'Verification required', description: `KYC is required for investments over $${KYC_REQUIRED_ABOVE}.`, variant: 'error' })
+      toast({
+        title: state.kyc === 'pending' ? 'KYC Pending Review' : 'Verification required',
+        description: state.kyc === 'pending'
+          ? 'Your KYC is currently under admin review. Please wait for approval.'
+          : `KYC is required for investments over $${KYC_REQUIRED_ABOVE}.`,
+        variant: 'error',
+      })
       onClose()
       openModal('kyc')
       return
@@ -290,7 +286,11 @@ function InvestModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Investment failed', description: res.error, variant: 'error' })
       return
     }
-    toast({ title: 'Investment confirmed', description: `$${money(value)} allocated to ${project.name}.`, variant: 'success' })
+    toast({
+      title: 'Investment Confirmed',
+      description: `$${money(value)} allocated to ${project.name}. Admin dates and updates synced.`,
+      variant: 'success',
+    })
     onClose()
   }
 
@@ -303,6 +303,13 @@ function InvestModal({ onClose }: { onClose: () => void }) {
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{project.summary}</p>
       </div>
+
+      {state.kyc === 'pending' && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-gold/30 bg-gold-soft p-3 text-xs text-gold">
+          <Clock className="size-4 shrink-0" />
+          <span>Your KYC is under admin review. Larger transactions remain locked until approval.</span>
+        </div>
+      )}
 
       <Field label="Amount (USDT)">
         <input
@@ -332,15 +339,12 @@ function InvestModal({ onClose }: { onClose: () => void }) {
       </div>
 
       {needsKyc ? (
-        <p className="mt-3 text-xs text-gold">Investments over ${KYC_REQUIRED_ABOVE} require identity verification.</p>
+        <p className="mt-3 text-xs text-gold">Investments over ${KYC_REQUIRED_ABOVE} require verified identity status.</p>
       ) : null}
 
       <Button
         size="lg"
-        className={cn(
-          'mt-4 h-12 w-full text-base font-semibold',
-          'bg-gold text-primary-foreground hover:bg-gold/90',
-        )}
+        className={cn('mt-4 h-12 w-full text-base font-semibold bg-gold text-primary-foreground hover:bg-gold/90')}
         disabled={value <= 0 || busy}
         onClick={confirm}
       >
@@ -497,7 +501,11 @@ function DepositModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Deposit failed', description: res.error, variant: 'error' })
       return
     }
-    toast({ title: 'Deposit submitted', description: 'Pending admin verification — this can take a little while.', variant: 'info' })
+    toast({
+      title: 'Deposit submitted to Admin',
+      description: 'Your request is pending admin verification. You will receive a notification when credited.',
+      variant: 'info',
+    })
     onClose()
   }
 
@@ -530,9 +538,6 @@ function DepositModal({ onClose }: { onClose: () => void }) {
             <Copy className="size-3.5" /> Copy
           </button>
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Only send {label}. Sending on the wrong network will result in lost funds.
-        </p>
       </div>
 
       <Field label="Transaction reference / TXID" className="mt-4">
@@ -544,18 +549,16 @@ function DepositModal({ onClose }: { onClose: () => void }) {
           onChange={(e) => setTxRef(e.target.value)}
         />
       </Field>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        After you send the payment on your side, paste the transaction ID here so we can match it to your deposit.
-      </p>
 
       <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
         <Row label="Pay with" value={label} />
         <Row label="Credited on approval" value={`$${money(usd)}`} tone="green" />
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        Your deposit stays pending until an admin confirms your transaction on-chain and approves it.
-      </p>
+      <div className="mt-3 flex items-start gap-2 rounded-xl bg-white/[0.03] p-3 text-xs text-muted-foreground">
+        <AlertCircle className="mt-0.5 size-4 shrink-0 text-gold" />
+        <span>Your deposit stays pending until an admin confirms your transaction and updates your dates/balance.</span>
+      </div>
 
       <Button
         size="lg"
@@ -580,13 +583,17 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
 
   const submit = async () => {
     if (state.kyc !== 'verified') {
-      toast({ title: 'Verification required', description: 'Complete KYC before withdrawing.', variant: 'error' })
+      toast({
+        title: state.kyc === 'pending' ? 'KYC Pending' : 'Verification required',
+        description: state.kyc === 'pending' ? 'KYC must be approved by admin before withdrawing.' : 'Complete KYC before withdrawing.',
+        variant: 'error',
+      })
       onClose()
       openModal('kyc')
       return
     }
     if (!address.trim()) {
-      toast({ title: 'Enter the wallet address you want your withdrawal sent to', variant: 'error' })
+      toast({ title: 'Enter destination wallet address', variant: 'error' })
       return
     }
     if (insufficient) {
@@ -598,7 +605,11 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Withdrawal failed', description: res.error, variant: 'error' })
       return
     }
-    toast({ title: 'Withdrawal requested', description: 'Funds will arrive after admin approval.', variant: 'info' })
+    toast({
+      title: 'Withdrawal Requested',
+      description: 'Submitted for admin approval and disbursement notification.',
+      variant: 'info',
+    })
     onClose()
   }
 
@@ -606,7 +617,11 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
     <ModalShell title="Withdraw to wallet" icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
       <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
         <Row label="Withdrawable balance" value={`$${money(state.cash)}`} />
-        <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
+        <Row
+          label="KYC status"
+          value={state.kyc === 'verified' ? 'Verified' : state.kyc === 'pending' ? 'Pending Review' : 'Required'}
+          tone={state.kyc === 'verified' ? 'green' : 'danger'}
+        />
       </div>
 
       <SavedWalletsPanel />
@@ -626,30 +641,12 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       </Field>
 
       <Field label="Network" className="mt-4">
-        <select
-          className={inputCls}
-          value={network}
-          onChange={(e) => setNetwork(e.target.value)}
-        >
+        <select className={inputCls} value={network} onChange={(e) => setNetwork(e.target.value)}>
           <option>USDT (TRC-20)</option>
           <option>USDT (ERC-20)</option>
           <option>USDT (BEP-20)</option>
           <option>BTC</option>
         </select>
-      </Field>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Choose the network your receiving wallet actually supports — sending on the wrong one loses funds and can't be
-        reversed.
-      </p>
-
-      <Field label="Exchange / broker (optional)" className="mt-4">
-        <input
-          type="text"
-          className={inputCls}
-          placeholder="e.g. Binance, Bybit, your personal wallet"
-          value={broker}
-          onChange={(e) => setBroker(e.target.value)}
-        />
       </Field>
 
       <Button
@@ -660,7 +657,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
       >
         Request withdrawal
       </Button>
-      <p className="mt-3 text-xs text-muted-foreground">Withdrawals are reviewed and disbursed by the platform admin.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Withdrawals are reviewed, updated, and disbursed by the platform admin.</p>
     </ModalShell>
   )
 }
@@ -674,7 +671,11 @@ function TransferModal({ onClose }: { onClose: () => void }) {
 
   const submit = async () => {
     if (state.kyc !== 'verified') {
-      toast({ title: 'Verification required', description: 'Complete KYC before sending funds.', variant: 'error' })
+      toast({
+        title: state.kyc === 'pending' ? 'KYC Pending' : 'Verification required',
+        description: state.kyc === 'pending' ? 'Your KYC is under admin review.' : 'Complete KYC before sending funds.',
+        variant: 'error',
+      })
       onClose()
       openModal('kyc')
       return
@@ -692,7 +693,11 @@ function TransferModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Transfer failed', description: res.error, variant: 'error' })
       return
     }
-    toast({ title: 'Transfer requested', description: 'Held pending admin approval, for both your safety.', variant: 'info' })
+    toast({
+      title: 'Transfer Requested',
+      description: 'Held pending admin review. You and recipient will receive updates on approval.',
+      variant: 'info',
+    })
     onClose()
   }
 
@@ -700,7 +705,11 @@ function TransferModal({ onClose }: { onClose: () => void }) {
     <ModalShell title="Send to another user" icon={<Send className="size-5" />} onClose={onClose}>
       <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
         <Row label="Available balance" value={`$${money(state.cash)}`} />
-        <Row label="KYC status" value={state.kyc === 'verified' ? 'Verified' : 'Required'} tone={state.kyc === 'verified' ? 'green' : 'danger'} />
+        <Row
+          label="KYC status"
+          value={state.kyc === 'verified' ? 'Verified' : state.kyc === 'pending' ? 'Pending Review' : 'Required'}
+          tone={state.kyc === 'verified' ? 'green' : 'danger'}
+        />
       </div>
       <Field label="Recipient username or Pulse ID">
         <input
@@ -716,8 +725,7 @@ function TransferModal({ onClose }: { onClose: () => void }) {
         </Field>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        For safety, transfers are held and reviewed by an admin before the recipient is credited — the same as
-        deposits and withdrawals. Your balance is deducted now and refunded in full if the transfer is declined.
+        For safety, transfers are held and reviewed by an admin before the recipient is credited.
       </p>
       <Button
         size="lg"
