@@ -32,7 +32,6 @@ export function SiteFooter() {
     <footer className="border-t border-white/[0.08] bg-background text-foreground">
       <div className="mx-auto max-w-6xl px-5 py-14">
         <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
-          {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link
               href="/"
@@ -55,7 +54,6 @@ export function SiteFooter() {
             </a>
           </div>
 
-          {/* Navigation Columns */}
           {COLS.map((col) => (
             <div key={col.title}>
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
@@ -77,7 +75,6 @@ export function SiteFooter() {
           ))}
         </div>
 
-        {/* Bottom Metadata & Disclaimer */}
         <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/[0.08] pt-8 text-xs text-muted-foreground md:flex-row md:items-center">
           <p>&copy; {new Date().getFullYear()} Pulse Investment Group. All rights reserved.</p>
           <p className="max-w-xl text-pretty leading-relaxed">
