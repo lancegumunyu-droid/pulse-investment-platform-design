@@ -1,7 +1,7 @@
 /**
- * Auto-Close Signals System
- * Monitors signal closing dates and automatically closes them when reached
- * Notifies admin and credits investors
+ * Demo-only auto-close calculation helper.
+ * It is not connected to production persistence or wallet balances.
+ * Production auto-close remains disabled until the Supabase maturity and ledger migration is installed.
  */
 
 import type { Holding, Txn } from '@/components/pulse/store'

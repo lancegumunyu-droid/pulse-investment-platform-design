@@ -8,12 +8,11 @@ import { Glass, Pill, SectionTitle, Stat } from '../ui-bits'
 import { PROJECTS, SIGNALS } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
 
-const ADMIN_PASSWORD = 'pulse-admin'
-
 export function AdminEnhancedView() {
   const { state, dispatch, toast, totalInvested } = usePulse()
   const [authed, setAuthed] = useState(false)
   const [pw, setPw] = useState('')
+  const [authenticating, setAuthenticating] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'signals' | 'projects' | 'payments'>('dashboard')
   
   // Signal management
@@ -43,12 +42,33 @@ export function AdminEnhancedView() {
 
   const pending = useMemo(() => state.txns.filter((t) => t.status === 'pending'), [state.txns])
 
-  const login = () => {
-    if (pw === ADMIN_PASSWORD) {
-      setAuthed(true)
-      toast({ title: 'Admin access granted', variant: 'success' })
-    } else {
-      toast({ title: 'Incorrect password', description: 'Hint: pulse-admin (demo).', variant: 'error' })
+  const login = async () => {
+    if (authenticating) return
+    setAuthenticating(true)
+    try {
+      if (process.env.NODE_ENV !== 'production' && pw === 'pulse-admin') {
+        setAuthed(true)
+        toast({ title: 'Demo admin access granted', description: 'Local preview only.', variant: 'success' })
+        return
+      }
+
+      const response = await fetch('/api/admin/session', { cache: 'no-store' })
+      if (!response.ok) {
+        toast({ title: 'Admin access denied', description: 'Sign in with an approved Pulse administrator account.', variant: 'error' })
+        return
+      }
+
+      const result = (await response.json()) as { authorized?: boolean }
+      if (result.authorized) {
+        setAuthed(true)
+        toast({ title: 'Admin access granted', variant: 'success' })
+      } else {
+        toast({ title: 'Admin access denied', description: 'Your account is not approved for administration.', variant: 'error' })
+      }
+    } catch {
+      toast({ title: 'Unable to verify access', description: 'Please try again after signing in.', variant: 'error' })
+    } finally {
+      setAuthenticating(false)
     }
   }
 
@@ -61,8 +81,8 @@ export function AdminEnhancedView() {
             <span className="flex size-12 items-center justify-center rounded-2xl bg-gold-soft text-gold">
               <ShieldCheck className="size-6" />
             </span>
-            <p className="mt-3 font-semibold">Enter admin password</p>
-            <p className="mt-1 text-xs text-muted-foreground">Demo password: pulse-admin</p>
+            <p className="mt-3 font-semibold">Verify admin access</p>
+            <p className="mt-1 text-xs text-muted-foreground">Production access requires a signed-in, approved administrator account.</p>
           </div>
           <input
             type="password"
@@ -74,8 +94,8 @@ export function AdminEnhancedView() {
             placeholder="Password"
             className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm outline-none focus:border-gold/50 focus:ring-2 focus:ring-gold/20"
           />
-          <Button size="lg" className="mt-4 h-12 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90" onClick={login}>
-            Unlock
+          <Button size="lg" className="mt-4 h-12 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90" onClick={login} disabled={authenticating}>
+            {authenticating ? 'Verifying…' : 'Verify access'}
           </Button>
         </Glass>
       </div>

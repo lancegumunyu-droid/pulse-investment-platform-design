@@ -5,7 +5,18 @@ export type Database = {
     Tables: {
       holdings: { Row: Record<string, Json>; Insert: Record<string, Json>; Update: Record<string, Json> }
       transactions: { Row: Record<string, Json>; Insert: Record<string, Json>; Update: Record<string, Json> }
-      profiles: { Row: Record<string, Json>; Insert: Record<string, Json>; Update: Record<string, Json> }
+      profiles: {
+        Row: {
+          id: string
+          email: string | null
+          full_name: string | null
+          role: string | null
+          admin_approved: boolean | null
+          admin_scope: string | null
+        }
+        Insert: Record<string, Json>
+        Update: Record<string, Json>
+      }
       projects: { Row: Record<string, Json>; Insert: Record<string, Json>; Update: Record<string, Json> }
       signals: { Row: Record<string, Json>; Insert: Record<string, Json>; Update: Record<string, Json> }
       admin_allowlist: { Row: Record<string, Json>; Insert: Record<string, Json>; Update: Record<string, Json> }
