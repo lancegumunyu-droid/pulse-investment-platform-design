@@ -59,7 +59,7 @@ export function Pill({
   className,
 }: {
   children: ReactNode
-  tone?: 'gold' | 'green' | 'muted' | 'danger' | 'red'
+  tone?: 'gold' | 'green' | 'muted' | 'danger'
   className?: string
 }) {
   const tones = {
@@ -67,7 +67,6 @@ export function Pill({
     green: 'border-green/20 bg-green-soft text-green',
     muted: 'border-white/10 bg-white/[0.04] text-muted-foreground',
     danger: 'border-destructive/20 bg-destructive/10 text-destructive',
-    red: 'border-destructive/20 bg-destructive/10 text-destructive', // Alias for TopBar compatibility
   }
 
   return (
@@ -139,22 +138,6 @@ export function Stat({
   )
 }
 
-/**
- * Heartbeat — the "living golden heartbeat" brand mark. A pulsing ring +
- * icon that beats steadily when idle/online, and beats faster with a
- * brighter flash while `active` (e.g. mid-transaction: depositing,
- * withdrawing, submitting KYC).
- *
- * Animation classes (animate-heartbeat-ring-slow/fast,
- * animate-heartbeat-icon-slow/fast) are defined in app/globals.css.
- *
- * Usage:
- *   <Heartbeat />                    — idle, steady beat (use in headers)
- *   <Heartbeat active />             — faster/brighter (use during a
- *                                      pending deposit/withdrawal/etc.)
- *   <Heartbeat size={28} />          — bigger, e.g. for a splash/loading
- *                                      screen
- */
 export function Heartbeat({
   active = false,
   size = 20,
