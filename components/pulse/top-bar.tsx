@@ -9,7 +9,6 @@ import { NotificationBell } from './notification-bell'
 export function TopBar() {
   const { state, portfolioValue, openModal, setView } = usePulse()
 
-  // Heartbeat beats faster whenever any transaction is pending
   const hasPendingActivity = state.txns.some((t) => t.status === 'pending')
 
   return (
@@ -20,7 +19,6 @@ export function TopBar() {
       className="sticky top-0 z-40 border-b border-white/10 bg-background/80 backdrop-blur-xl shadow-lg shadow-black/40"
     >
       <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3 sm:max-w-xl md:max-w-2xl lg:max-w-4xl">
-        {/* Brand logo & heartbeat */}
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => setView('dashboard')}
@@ -38,9 +36,7 @@ export function TopBar() {
           </span>
         </motion.button>
 
-        {/* Right action tools */}
         <div className="flex items-center gap-2.5">
-          {/* Portfolio quick view */}
           <motion.button
             whileTap={{ scale: 0.96 }}
             onClick={() => setView('wallet')}
@@ -55,10 +51,8 @@ export function TopBar() {
             </p>
           </motion.button>
 
-          {/* Notifications */}
           <NotificationBell />
 
-          {/* KYC Status Indicator */}
           {state.kyc === 'verified' ? (
             <motion.span
               initial={{ scale: 0.9, opacity: 0 }}
@@ -87,7 +81,6 @@ export function TopBar() {
         </div>
       </div>
 
-      {/* KYC Alert Banner */}
       {state.kyc !== 'verified' && (
         <motion.button
           initial={{ opacity: 0, height: 0 }}
@@ -96,7 +89,7 @@ export function TopBar() {
           onClick={() => openModal('kyc')}
           className="block w-full border-t border-gold/20 bg-gold/10 px-4 py-1.5 text-center text-[11px] font-medium text-gold backdrop-blur-md transition-colors hover:bg-gold/15 focus-visible:outline-none"
         >
-          <Pill tone={state.kyc === 'rejected' ? 'red' : 'gold'}>
+          <Pill tone={state.kyc === 'rejected' ? 'danger' : 'gold'}>
             {state.kyc === 'pending'
               ? 'Verification under review'
               : state.kyc === 'rejected'
