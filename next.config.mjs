@@ -11,12 +11,14 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: '*',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.*',
       },
     ],
   },
-  // Map server-only Supabase vars to NEXT_PUBLIC_ equivalents so the
-  // browser client and client.ts can access them in the preview & build envs.
   env: {
     NEXT_PUBLIC_SUPABASE_URL:
       process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '',
