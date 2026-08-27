@@ -106,11 +106,15 @@ export default function RootLayout({
             <Analytics />
           </>
         )}
-        <Script
-          src="https://embeds.iubenda.com/widgets/eb95717b-6f45-46b1-a6bc-b0eff100cf1a.js"
-          strategy="afterInteractive"
-        />
-        <Script src="https://cdn.iubenda.com/iubenda.js" strategy="afterInteractive" />
+        {process.env.NODE_ENV === 'production' && (
+          <>
+            <Script
+              src="https://embeds.iubenda.com/widgets/eb95717b-6f45-46b1-a6bc-b0eff100cf1a.js"
+              strategy="afterInteractive"
+            />
+            <Script src="https://cdn.iubenda.com/iubenda.js" strategy="afterInteractive" />
+          </>
+        )}
       </body>
     </html>
   )
