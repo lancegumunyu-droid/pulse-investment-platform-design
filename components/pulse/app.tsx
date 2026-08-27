@@ -40,6 +40,22 @@ export function PulseApp() {
         <main className="flex-1 px-4 pb-28 pt-5">
           <Screen />
         </main>
+        <footer className="flex flex-wrap justify-center gap-x-4 gap-y-2 px-4 pb-5 text-center text-xs text-muted-foreground">
+          <a
+            href="https://www.iubenda.com/privacy-policy/92520629"
+            className="iubenda-black iubenda-noiframe iubenda-embed underline-offset-4 hover:text-foreground hover:underline"
+            title="Privacy Policy"
+          >
+            Privacy Policy
+          </a>
+          <a
+            href="https://www.iubenda.com/privacy-policy/92520629/cookie-policy"
+            className="iubenda-black iubenda-noiframe iubenda-embed underline-offset-4 hover:text-foreground hover:underline"
+            title="Cookie Policy"
+          >
+            Cookie Policy
+          </a>
+        </footer>
         <BottomNav />
         <Modals />
         <Toaster />
