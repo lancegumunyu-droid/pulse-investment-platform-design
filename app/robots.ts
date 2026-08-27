@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://pulseinvest.uk/sitemap.xml',
+    sitemap: 'https://pulse-invest-lancegumunyu-droids-projects.vercel.app/sitemap.xml',
   }
 }
