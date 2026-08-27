@@ -55,6 +55,9 @@ export function PulseApp() {
           >
             Cookie Policy
           </a>
+          <a href="/notice-at-collection" className="underline-offset-4 hover:text-foreground hover:underline">
+            Notice at Collection
+          </a>
         </footer>
         <BottomNav />
         <Modals />
