@@ -41,13 +41,13 @@ export const metadata: Metadata = {
     siteName: 'Pulse Invest',
     title: 'Pulse Invest — Transparent project investing',
     description: siteDescription,
-    images: [{ url: '/pulse-icon.png', width: 1024, height: 1024, alt: 'Pulse Invest' }],
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Pulse Invest — Transparent project investing' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Pulse Invest — Transparent project investing',
     description: siteDescription,
-    images: ['/pulse-icon.png'],
+    images: ['https://pulseinvest.uk/og-image.png'],
   },
   icons: {
     icon: [
