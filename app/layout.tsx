@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { PWAInstaller } from '@/components/pulse/pwa-installer'
+import { GooglePiRuntime } from '@/components/pulse/google-pi'
 import './globals.css'
 
 const geistSans = Geist({
@@ -27,6 +28,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://pulseinvest.uk'),
   title: {
     default: 'Pulse — Invest in real African projects',
     template: '%s | Pulse',
@@ -56,6 +58,12 @@ export const metadata: Metadata = {
         color: '#f59e0b',
       },
     ],
+  },
+  verification: {
+    google: 'googlec3f80f65cdb022b2',
+  },
+  alternates: {
+    canonical: 'https://pulseinvest.uk',
   },
   openGraph: {
     type: 'website',
@@ -87,6 +95,7 @@ export default function RootLayout({
     >
       <body className="font-sans text-zinc-100 antialiased selection:bg-[#f59e0b] selection:text-black min-h-screen flex flex-col">
         {children}
+        <GooglePiRuntime />
         <PWAInstaller />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

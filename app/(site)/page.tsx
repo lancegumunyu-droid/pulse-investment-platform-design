@@ -83,8 +83,19 @@ export default async function HomePage() {
     redirect('/app')
   }
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Pulse Investment Group',
+    url: 'https://pulseinvest.uk',
+    email: 'support@pulseinvest.uk',
+    description: 'A transparent platform showcasing SADC investment projects and digital asset education. Returns are variable and capital is at risk.',
+    sameAs: ['https://minepi.com', 'https://developers.minepi.com'],
+  }
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-white/[0.06]">
         <div className="mx-auto max-w-6xl px-5 pb-24 pt-20 md:pt-32">
