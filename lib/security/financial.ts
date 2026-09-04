@@ -29,9 +29,16 @@ export const withdrawalBreakdown = (gross: number) => ({
   retained: Number((gross * 0.95 * 0.3).toFixed(2)),
 })
 
+export function requestIdentity(request: Request, userId?: string) {
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  const ip = forwarded || realIp || 'unknown'
+  return `${userId ? `user:${userId}` : 'anonymous'}:ip:${ip}`
+}
+
 export async function enforceRateLimit(key: string, financial = true) {
   const limiter = financial ? financialLimiter : publicLimiter
-  if (!limiter) return { success: true, configured: false }
+  if (!limiter) return { success: false, configured: false, reason: 'rate_limiter_unavailable' }
   return { ...(await limiter.limit(key)), configured: true }
 }
 

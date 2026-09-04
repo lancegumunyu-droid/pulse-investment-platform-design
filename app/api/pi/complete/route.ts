@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { enforceRateLimit, idempotencyKey, claimIdempotency } from '@/lib/security/financial'
+import { enforceRateLimit, idempotencyKey, claimIdempotency, requestIdentity } from '@/lib/security/financial'
 import { z } from 'zod'
 
 const schema = z.object({ paymentId: z.string().trim().min(1).max(200), amount: z.number().finite().positive().max(1_000_000) }).strict()
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  const limit = await enforceRateLimit(`user:${user.id}`, true)
+  const limit = await enforceRateLimit(requestIdentity(request, user.id), true)
   if (!limit.success) return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   const key = idempotencyKey(request)
   if (!key) return NextResponse.json({ error: 'idempotency_key_required' }, { status: 400 })
