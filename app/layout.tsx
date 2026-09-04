@@ -103,7 +103,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark bg-[#050505]`}
+      className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} ${spaceGrotesk.variable} dark bg-[#050505]`}
     >
       <body className="font-sans text-zinc-100 antialiased selection:bg-[#f59e0b] selection:text-black min-h-screen flex flex-col">
         {children}

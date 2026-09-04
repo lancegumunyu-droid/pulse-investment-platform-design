@@ -40,7 +40,7 @@ export function DashboardView() {
   }, [api])
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8 pb-16 font-sans text-neutral-100 antialiased">
+    <div className="pulse-home mx-auto w-full max-w-5xl space-y-7 pb-16 text-neutral-100 antialiased">
       
       {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
@@ -59,7 +59,7 @@ export function DashboardView() {
       </div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <div className="pulse-surface overflow-hidden rounded-3xl shadow-xl">
+      <div className="glow-edge glass-gold pulse-surface overflow-hidden rounded-[2rem] shadow-2xl">
         <div className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
@@ -73,7 +73,7 @@ export function DashboardView() {
 
           <div>
             <div className="flex items-baseline gap-2">
-              <h1 className="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-white">
+              <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">
                 ${money(portfolioValue)}
               </h1>
               <span className="font-mono text-xs font-semibold text-neutral-500">USDT</span>
@@ -257,14 +257,14 @@ export function DashboardView() {
 
       {/* 6. SHORTCUT GRID */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 px-1">
-          Quick Actions
+        <h3 className="font-display px-1 text-lg font-bold tracking-tight text-white">
+          Quick actions
         </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <ActionTile icon={<Rocket className="size-4 text-amber-400" />} label="Buy $PULSE" onClick={() => setView('sale')} />
-          <ActionTile icon={<Zap className="size-4 text-emerald-400" />} label="Stake Vault" onClick={() => setView('stake')} />
-          <ActionTile icon={<Radio className="size-4 text-amber-400" />} label="Signals Feed" onClick={() => setView('signals')} />
-          <ActionTile icon={<ShieldCheck className="size-4 text-emerald-400" />} label="Verify KYC" onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))} />
+        <div className="grid grid-cols-2 gap-3">
+          <ActionTile icon={<Rocket className="size-4 text-amber-400" />} label="Buy $PULSE" detail="Private sale" onClick={() => setView('sale')} />
+          <ActionTile icon={<Zap className="size-4 text-emerald-400" />} label="Stake Vault" detail="24.8% APY" onClick={() => setView('stake')} />
+          <ActionTile icon={<Radio className="size-4 text-amber-400" />} label="Signals Feed" detail="3 live deals" onClick={() => setView('signals')} />
+          <ActionTile icon={<ShieldCheck className="size-4 text-emerald-400" />} label="Verify KYC" detail="Get access" onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))} />
         </div>
       </div>
 
@@ -292,16 +292,16 @@ export function DashboardView() {
   )
 }
 
-function ActionTile({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+function ActionTile({ icon, label, detail, onClick }: { icon: React.ReactNode; label: string; detail: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="pulse-tile flex min-h-16 items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/90 p-3 text-left transition-colors"
+      className="quick-action-tile pulse-tile flex min-h-32 flex-col items-start justify-between gap-5 rounded-2xl border border-neutral-800/90 bg-neutral-900/80 p-4 text-left transition-colors"
     >
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700">
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 border border-amber-400/30 shadow-[0_0_18px_rgba(245,158,11,.16)]">
         {icon}
       </div>
-      <span className="text-xs font-bold text-white">{label}</span>
+      <div className="space-y-1"><span className="block font-display text-sm font-bold text-white">{label}</span><span className="block text-xs text-neutral-400">{detail}</span></div>
     </button>
   )
 }
