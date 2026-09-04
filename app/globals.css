@@ -137,12 +137,15 @@
     transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
   }
   .pulse-action:hover { transform: translateY(-2px); box-shadow: 0 0 26px rgba(234,179,8,.32); filter: brightness(1.05); }
-  .pulse-tile { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+  .pulse-tile, .pulse-tab { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, background-position .35s ease; }
   .pulse-tile:hover, .pulse-tile:focus-within { transform: translateY(-4px); border-color: rgba(232,163,23,.42); box-shadow: 0 0 18px rgba(234,179,8,.22); }
+  .pulse-tab:hover, .pulse-tab:focus-visible { border-color: rgba(234,179,8,.34); box-shadow: 0 0 18px rgba(234,179,8,.16); }
+  .pulse-tab-active { background: linear-gradient(110deg, rgba(234,179,8,.18), rgba(255,255,255,.05), rgba(234,179,8,.18)); background-size: 220% 100%; animation: pulse-shimmer 3.2s ease-in-out infinite; box-shadow: 0 0 18px rgba(234,179,8,.22); }
+  @keyframes pulse-shimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
   .pulse-scroll { scrollbar-width: thin; scrollbar-color: rgba(232,163,23,.55) transparent; }
   @keyframes pulse-beat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.08); } 22% { transform: scale(1); } 32% { transform: scale(1.04); } 45% { transform: scale(1); } }
   .animate-pulse-beat { animation: pulse-beat 1.8s ease-in-out infinite; transform-origin: center; }
-  @media (prefers-reduced-motion: reduce) { .animate-pulse-beat, .pulse-tile, .pulse-action { animation: none; transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse-beat, .pulse-tile, .pulse-action, .pulse-tab-active { animation: none; transition: none; } }
 
   /* Mobile Safe Area Insets (iOS Notches & Gesture Home Bars) */
   .pt-safe {

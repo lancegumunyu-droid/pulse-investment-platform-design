@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Globe, ShieldCheck, TrendingUp, Zap } from 'lucide-react'
@@ -50,6 +51,7 @@ const PROJECTS = [
     sector: 'Energy',
     target: '24–28%',
     funded: 78,
+    image: '/projects/kalahari-solar.png',
   },
   {
     name: 'Limpopo AgriHub',
@@ -57,6 +59,7 @@ const PROJECTS = [
     sector: 'Agriculture',
     target: '18–22%',
     funded: 91,
+    image: '/projects/limpopo-agri.png',
   },
   {
     name: 'Harare Fintech Bridge',
@@ -64,6 +67,7 @@ const PROJECTS = [
     sector: 'Fintech',
     target: '28–34%',
     funded: 55,
+    image: '/projects/harare-fintech.png',
   },
 ]
 
@@ -118,7 +122,7 @@ export default async function HomePage() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/auth/sign-up"
-              className="inline-flex items-center gap-2 rounded-xl bg-gold px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              className="pulse-action inline-flex items-center gap-2 rounded-xl bg-gold px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             >
               Start investing <ArrowRight className="size-4" />
             </Link>
@@ -187,8 +191,10 @@ export default async function HomePage() {
 
           <div className="grid gap-4 md:grid-cols-3">
             {PROJECTS.map((p) => (
-              <div key={p.name} className="group rounded-2xl border border-white/[0.08] bg-background p-6">
-                <div className="flex items-center justify-between">
+              <div key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-background p-6">
+                <Image src={p.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-20 transition-transform duration-500 group-hover:scale-105" aria-hidden="true" />
+                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-transparent" aria-hidden="true" />
+                <div className="relative flex items-center justify-between">
                   <span className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs font-medium">
                     {p.sector}
                   </span>

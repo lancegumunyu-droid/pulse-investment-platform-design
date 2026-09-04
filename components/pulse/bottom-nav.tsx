@@ -24,7 +24,7 @@ export function BottomNav() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       aria-label="Syndicate Navigation"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-amber-500/20 bg-[#030303]/90 backdrop-blur-2xl shadow-[0_-10px_35px_rgba(0,0,0,0.8)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-gold/25 bg-background/90 backdrop-blur-2xl shadow-[0_-10px_35px_rgba(0,0,0,0.8)]"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-between px-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 relative">
         {ITEMS.map(({ view: v, label, icon: Icon, badge }) => {
@@ -35,8 +35,8 @@ export function BottomNav() {
               whileTap={{ scale: 0.92 }}
               onClick={() => setView(v)}
               className={cn(
-                'relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1 text-[10px] font-medium transition-colors select-none group',
-                active ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-200'
+                'pulse-tab relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1 text-[10px] font-medium transition-all select-none group',
+                active ? 'text-gold pulse-tab-active' : 'text-muted-foreground hover:text-foreground'
               )}
               aria-current={active ? 'page' : undefined}
             >
