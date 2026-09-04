@@ -172,6 +172,8 @@ export function DashboardView() {
                     variant="outline"
                     className="h-8 border-neutral-700 bg-neutral-800 text-xs font-medium text-neutral-200 hover:text-white"
                     onClick={async () => {
+                      const confirmed = window.confirm(`Close ${project?.name ?? 'this position'}? Final yield will be calculated by the server.`)
+                      if (!confirmed) return
                       const res = await api.closeInvestment(h.id)
                       if (res.ok) {
                         toast({ title: 'Position Liquidated', description: 'Funds returned to cash balance.', variant: 'info' })

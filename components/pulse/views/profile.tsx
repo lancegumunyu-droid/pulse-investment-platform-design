@@ -64,10 +64,7 @@ export function ProfileView() {
     setSavingUsername(false)
   }
 
-  const referralLink =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/auth/sign-up?ref=${referralCode}`
-      : `https://pulse-invest.vercel.app/auth/sign-up?ref=${referralCode}`
+  const referralLink = `https://pulseinvest.uk/?ref=${encodeURIComponent(referralCode)}`
 
   const copyRef = () => {
     navigator.clipboard?.writeText(referralLink)
