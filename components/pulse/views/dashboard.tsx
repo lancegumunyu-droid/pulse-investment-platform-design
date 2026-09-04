@@ -120,7 +120,7 @@ export function DashboardView() {
       </div>
 
       {/* 3. TIER STATUS BAR */}
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-3">
+      <div className="glow-card rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Lock className="size-4 text-amber-400" />
@@ -158,7 +158,7 @@ export function DashboardView() {
               return (
                 <div 
                   key={h.id}
-                  className="pulse-tile flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 transition-colors"
+                  className="glow-card pulse-tile flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 transition-colors"
                 >
                   <div className="space-y-0.5">
                     <p className="font-semibold text-sm text-white">{project?.name ?? 'SADC Venture Position'}</p>
@@ -209,7 +209,7 @@ export function DashboardView() {
             return (
               <div 
                 key={p.id}
-                className="pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
+                className="glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
               >
                 {p.image && <div className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `linear-gradient(90deg, #0d0d0f 10%, transparent 85%), url(${p.image})` }} aria-hidden="true" />}
                 <div className="relative">
@@ -269,7 +269,7 @@ export function DashboardView() {
       </div>
 
       {/* 7. REFERRAL SECTION */}
-      <div className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+      <div className="glow-card flex items-center justify-between rounded-2xl border border-amber-500/25 bg-neutral-900 p-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Referral Access Pass</p>
           <p className="font-mono text-lg font-bold text-white mt-0.5">{state.referralCode}</p>
