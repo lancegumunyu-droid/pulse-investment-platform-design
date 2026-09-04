@@ -86,6 +86,7 @@ export interface Project {
   goal: number
   risk: 'Lower' | 'Moderate' | 'Higher'
   summary: string
+  image?: string
   status?: 'Open' | 'Closed'
   deadline?: string | null
 }
@@ -102,6 +103,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 1_000_000,
     risk: 'Lower',
     summary: '85 MW solar installation with a 20-year power purchase agreement with the national utility.',
+    image: '/projects/kalahari-solar.png',
     status: 'Open',
     deadline: '2026-09-15',
   },

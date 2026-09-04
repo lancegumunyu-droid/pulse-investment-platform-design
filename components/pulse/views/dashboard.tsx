@@ -40,7 +40,7 @@ export function DashboardView() {
   }, [api])
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-16 font-sans text-neutral-100 antialiased">
+    <div className="mx-auto w-full max-w-5xl space-y-8 pb-16 font-sans text-neutral-100 antialiased">
       
       {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
@@ -59,7 +59,7 @@ export function DashboardView() {
       </div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <div className="overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 shadow-xl">
+      <div className="pulse-surface overflow-hidden rounded-3xl shadow-xl">
         <div className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
@@ -86,7 +86,7 @@ export function DashboardView() {
           <div className="grid grid-cols-2 gap-3 pt-2">
             <Button
               size="lg"
-              className="h-11 rounded-xl bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 transition-colors shadow-sm"
+              className="pulse-action h-11 rounded-xl bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 transition-colors shadow-sm"
               onClick={() => openModal('deposit')}
             >
               <ArrowDownRight className="size-4 mr-2 stroke-[2.5]" /> Deposit Capital
@@ -158,7 +158,7 @@ export function DashboardView() {
               return (
                 <div 
                   key={h.id}
-                  className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4 transition-colors hover:border-neutral-700"
+                  className="pulse-tile flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 transition-colors"
                 >
                   <div className="space-y-0.5">
                     <p className="font-semibold text-sm text-white">{project?.name ?? 'SADC Venture Position'}</p>
@@ -209,8 +209,10 @@ export function DashboardView() {
             return (
               <div 
                 key={p.id}
-                className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 space-y-4 hover:border-neutral-700 transition-colors"
+                className="pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
               >
+                {p.image && <div className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `linear-gradient(90deg, #0d0d0f 10%, transparent 85%), url(${p.image})` }} aria-hidden="true" />}
+                <div className="relative">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700 text-amber-400">
@@ -240,11 +242,12 @@ export function DashboardView() {
                   <span className="text-xs text-neutral-400 font-medium">Risk Profile: <span className="text-neutral-200">{p.risk}</span></span>
                   <Button
                     size="sm"
-                    className="bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 text-xs px-4"
+                    className="pulse-action bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 text-xs px-4"
                     onClick={() => openModal('invest', { projectId: p.id })}
                   >
                     Deploy Capital
                   </Button>
+                </div>
                 </div>
               </div>
             )
@@ -293,7 +296,7 @@ function ActionTile({ icon, label, onClick }: { icon: React.ReactNode; label: st
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-3 text-left transition-colors hover:border-neutral-700 hover:bg-neutral-800/80"
+      className="pulse-tile flex min-h-16 items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/90 p-3 text-left transition-colors"
     >
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700">
         {icon}
