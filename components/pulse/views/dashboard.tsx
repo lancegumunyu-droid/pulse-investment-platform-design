@@ -45,7 +45,18 @@ export function DashboardView() {
 
   return (
     <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
-      <style>{`\n        @keyframes pulsePureGlow { 0%, 100% { opacity: .4; transform: scale(1); } 50% { opacity: .85; transform: scale(1.03); } }\n        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.25); box-shadow: 0 0 10px rgba(245,158,11,.1); } 50% { border-color: rgba(245,158,11,.7); box-shadow: 0 0 25px rgba(245,158,11,.35); } }\n        @keyframes pulseEmerald { 0%, 100% { border-color: rgba(16,185,129,.3); box-shadow: 0 0 10px rgba(16,185,129,.15); } 50% { border-color: rgba(16,185,129,.7); box-shadow: 0 0 22px rgba(16,185,129,.35); } }\n        @keyframes pulseConicSpin { to { transform: rotate(360deg); } }\n        .pulse-pure-glow { animation: pulsePureGlow 2.5s ease-in-out infinite; }\n        .pulse-pure-shimmer { animation: pulseShimmer 3.5s ease-in-out infinite; }\n        .pulse-pure-emerald { animation: pulseEmerald 3.5s ease-in-out infinite; }\n        .pulse-conic-spin { animation: pulseConicSpin 8s linear infinite; }\n        @media (prefers-reduced-motion: reduce) { .pulse-pure-glow, .pulse-pure-shimmer, .pulse-pure-emerald, .pulse-conic-spin { animation: none; } }\n      `}</style>\n      {/* 1. STATUS HEADER */}
+      <style>{`
+        @keyframes pulsePureGlow { 0%, 100% { opacity: .4; transform: scale(1); } 50% { opacity: .85; transform: scale(1.03); } }
+        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.25); box-shadow: 0 0 10px rgba(245,158,11,.1); } 50% { border-color: rgba(245,158,11,.7); box-shadow: 0 0 25px rgba(245,158,11,.35); } }
+        @keyframes pulseEmerald { 0%, 100% { border-color: rgba(16,185,129,.3); box-shadow: 0 0 10px rgba(16,185,129,.15); } 50% { border-color: rgba(16,185,129,.7); box-shadow: 0 0 22px rgba(16,185,129,.35); } }
+        @keyframes pulseConicSpin { to { transform: rotate(360deg); } }
+        .pulse-pure-glow { animation: pulsePureGlow 2.5s ease-in-out infinite; }
+        .pulse-pure-shimmer { animation: pulseShimmer 3.5s ease-in-out infinite; }
+        .pulse-pure-emerald { animation: pulseEmerald 3.5s ease-in-out infinite; }
+        .pulse-conic-spin { animation: pulseConicSpin 8s linear infinite; }
+        @media (prefers-reduced-motion: reduce) { .pulse-pure-glow, .pulse-pure-shimmer, .pulse-pure-emerald, .pulse-conic-spin { animation: none; } }
+      `}</style>
+      {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex items-center gap-2.5">
           <span className="relative flex size-2">
@@ -90,13 +101,13 @@ export function DashboardView() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 pt-1">
+          <div className="grid min-w-0 grid-cols-2 gap-2.5 pt-1">
             <motion.div whileTap={{ scale: 0.97 }}>
             <Button
               aria-label="Deposit capital"
 
               size="lg"
-              className="pulse-action h-10 min-w-0 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-2 text-xs font-black text-neutral-950 shadow-[0_0_20px_rgba(245,158,11,.38)] transition-colors hover:from-amber-300 hover:to-amber-200 sm:px-3"
+              className="pulse-action h-11 w-full min-w-0 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-2 text-xs font-black text-neutral-950 shadow-[0_0_20px_rgba(245,158,11,.38)] transition-colors hover:from-amber-300 hover:to-amber-200 sm:px-3"
               onClick={() => openModal('deposit')}
             >
               <ArrowDownRight className="size-3.5 shrink-0 stroke-[2.5]" /><span className="truncate">Deposit Capital</span>
@@ -106,7 +117,7 @@ export function DashboardView() {
             <Button
               size="lg"
               variant="outline"
-              className="h-10 min-w-0 rounded-xl border border-neutral-700/90 bg-gradient-to-r from-neutral-800 to-neutral-900 px-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(0,0,0,.45)] transition-colors hover:border-neutral-500 hover:bg-neutral-800 sm:px-3"
+              className="h-11 w-full min-w-0 rounded-xl border border-neutral-700/90 bg-gradient-to-r from-neutral-800 to-neutral-900 px-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(0,0,0,.45)] transition-colors hover:border-neutral-500 hover:bg-neutral-800 sm:px-3"
               onClick={() => openModal('withdraw')}
             >
               <ArrowUpRight className="size-3.5 shrink-0 stroke-[2]" /><span className="truncate">Withdraw Earnings</span>
@@ -170,8 +181,13 @@ export function DashboardView() {
               const closed = isProjectClosed(h.projectId)
 
               return (
-                <div 
+                <motion.div
                   key={h.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  whileHover={{ scale: 1.01 }}
+                  transition={{ duration: 0.4 }}
                   className="pulse-pure-shimmer glow-card pulse-tile flex min-w-0 flex-col items-stretch justify-between gap-3 rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/95 via-neutral-800/70 to-neutral-900/95 p-4 shadow-[0_0_20px_rgba(0,0,0,.5)] transition-colors sm:flex-row sm:items-center sm:p-5"
                 >
                   <div className="min-w-0 space-y-0.5">
@@ -198,7 +214,7 @@ export function DashboardView() {
                   >
                     Liquidate
                   </Button>
-                </div>
+                </motion.div>
               )
             })}
           </div>
@@ -221,8 +237,13 @@ export function DashboardView() {
             const pct = Math.min(100, Math.round((funded / p.goal) * 100))
 
             return (
-              <div 
+              <motion.div
                 key={p.id}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.15 }}
+                whileHover={{ y: -3, scale: 1.01 }}
+                transition={{ duration: 0.45 }}
                 className="pulse-pure-shimmer group glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
               >
                 {p.image && (
@@ -269,7 +290,7 @@ export function DashboardView() {
                   </Button>
                 </div>
                 </div>
-              </div>
+                </motion.div>
             )
           })}
         </div>
