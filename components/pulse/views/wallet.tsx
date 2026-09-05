@@ -145,9 +145,8 @@ function DynamicMetallicCard({
       </div>
     </div>
   )
-}
-
-export function WalletView({ userData }: { userData?: any }) {
+                               }
+              export function WalletView({ userData }: { userData?: any }) {
   const openModal = usePulse((state) => state.openModal)
   
   const [activities, setActivities] = useState<any[]>(userData?.activities || [
@@ -433,4 +432,24 @@ export function WalletView({ userData }: { userData?: any }) {
                   </div>
                 </div>
 
-                <div
+                <div className="text-right">
+                  <span className={`text-xs font-mono font-black block ${
+                    isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
+                  }`}>
+                    {item.amount}
+                  </span>
+                  <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.type || 'tx'}</span>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="pt-2">
+        <RiskNote />
+      </motion.div>
+    </motion.div>
+  )
+      }
+          
