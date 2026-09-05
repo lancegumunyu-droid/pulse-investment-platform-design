@@ -437,38 +437,57 @@ export function WalletView() {
             <h3 className="text-2xl font-black text-white font-mono tracking-tight">
               ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </h3>
-          </div>
-          <div className="flex items-center gap-1 bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 px-2.5 py-1 rounded-full text-xs font-bold font-mono shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-            <TrendingUp className="size-3.5 text-emerald-400" />
-            <span>+${totalYield24h.toFixed(2)} (24h)</span>
-          </div>
+                {/* Asset Holdings Breakdown */}
+      <motion.div variants={itemVariants} className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+            <Coins className="size-3.5 text-amber-400" />
+            Active Asset Holdings
+          </h4>
+          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/30">
+            {assets.length} Assets
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
-          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            <Button
-              onClick={() => openModal('deposit')}
-              className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_20px_rgba(245,166,35,0.3)] h-11 flex items-center justify-center gap-2 cursor-pointer border border-amber-300/40"
+        <div className="space-y-3">
+          {assets.map((asset) => (
+            <motion.div
+              key={asset.id}
+              whileHover={{ scale: 1.015 }}
+              className="rounded-2xl border border-white/10 p-4 bg-[#101217]/90 shadow-lg flex items-center justify-between hover:border-amber-500/50 transition-colors cursor-pointer"
             >
-              <ArrowDownLeft className="size-4 stroke-[2.5]" />
-              <span>Deposit Capital</span>
-            </Button>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            <Button
-              onClick={() => openModal('withdraw')}
-              variant="outline"
-              className="w-full bg-white/5 border border-white/15 hover:bg-white/10 text-white font-bold text-xs rounded-xl h-11 flex items-center justify-center gap-2 cursor-pointer shadow-md"
-            >
-              <ArrowUpRight className="size-4 stroke-[2.5] text-amber-400" />
-              <span>Withdraw / Yield</span>
-            </Button>
-          </motion.div>
+              <div className="flex items-center gap-3">
+                <div 
+                  className="size-10 rounded-xl flex items-center justify-center font-black font-mono text-black shadow-lg"
+                  style={{ backgroundColor: asset.color }}
+                >
+                  {asset.symbol.slice(0, 3)}
+                </div>
+                <div>
+                  <h5 className="text-sm font-extrabold text-white">{asset.name}</h5>
+                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
+                    {asset.chain} • {asset.symbol}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-black font-mono text-white">
+                  ${asset.fiatValueUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-[11px] font-mono text-emerald-400 font-bold">
+                  {asset.balance.toLocaleString('en-US', { maximumFractionDigits: 4 })} {asset.symbol}
+                </p>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </motion.div>
 
-      <SellPulseForCashCard />
-
-      <motion.div variants={itemVariants} className="space-y-3">
-        <div class
+      {/* Risk Note */}
+      <motion.div variants={itemVariants}>
+        <RiskNote />
+      </motion.div>
+    </motion.div>
+  )
+          }
+          
