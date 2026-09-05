@@ -20,7 +20,7 @@ export function createClient() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     throw new Error(
       'Supabase is not configured. Go to Settings → Vars in your v0 project ' +
-      'and confirm NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.',
+      'and confirm NEXT_PUBLIC_SUPABASE_URL plus a Supabase publishable or anon key are set.',
     )
   }
   return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY)
