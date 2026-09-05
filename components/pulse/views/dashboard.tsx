@@ -57,13 +57,13 @@ export function DashboardView() {
         @media (prefers-reduced-motion: reduce) { .pulse-pure-glow, .pulse-pure-shimmer, .pulse-pure-emerald, .pulse-conic-spin { animation: none; } }
       `}</style>
       {/* 1. STATUS HEADER */}
-      <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-        <div className="flex items-center gap-2.5">
+      <div className="flex flex-col items-start justify-between gap-2 border-b border-neutral-800 pb-4 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 items-center gap-2.5">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
           </span>
-          <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-400 sm:text-xs">
             SADC Capital Network &bull; Live Terminal
           </span>
         </div>
@@ -179,6 +179,7 @@ export function DashboardView() {
             {state.holdings.map((h) => {
               const project = PROJECTS.find((p) => p.id === h.projectId)
               const closed = isProjectClosed(h.projectId)
+              const HoldingIcon = project ? sectorIcon[project.sector] : Sun
 
               return (
                 <motion.div
@@ -190,17 +191,22 @@ export function DashboardView() {
                   transition={{ duration: 0.4 }}
                   className="pulse-pure-shimmer glow-card pulse-tile flex min-w-0 flex-col items-stretch justify-between gap-3 rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/95 via-neutral-800/70 to-neutral-900/95 p-4 shadow-[0_0_20px_rgba(0,0,0,.5)] transition-colors sm:flex-row sm:items-center sm:p-5"
                 >
-                  <div className="min-w-0 space-y-0.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-400 shadow-[0_0_14px_rgba(245,158,11,.25)]">
+                      <HoldingIcon className="size-5" />
+                    </div>
+                    <div className="min-w-0 space-y-0.5">
                     <p className="truncate text-sm font-semibold text-white">{project?.name ?? 'SADC Venture Position'}</p>
                     <p className="text-xs text-neutral-400 font-mono">
                       <span className="text-amber-400 font-bold">${money(h.amount, 0)} USDT</span> &bull; {closed ? 'Matured' : 'Generating Yield'}
                     </p>
+                    </div>
                   </div>
 
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 border-neutral-700 bg-neutral-800 text-xs font-medium text-neutral-200 hover:text-white"
+                    className="h-9 w-full border-neutral-700 bg-neutral-800 text-xs font-medium text-neutral-200 hover:text-white sm:w-auto"
                     onClick={async () => {
                       const confirmed = window.confirm(`Close ${project?.name ?? 'this position'}? Final yield will be calculated by the server.`)
                       if (!confirmed) return
@@ -279,11 +285,11 @@ export function DashboardView() {
                   <ProgressBar value={pct} tone="green" />
                 </div>
 
-                <div className="flex items-center justify-between border-t border-neutral-800/80 pt-3.5">
-                  <span className="text-xs text-neutral-400 font-medium">Risk Profile: <span className="text-neutral-200">{p.risk}</span></span>
+                <div className="flex flex-col items-stretch justify-between gap-3 border-t border-neutral-800/80 pt-3.5 sm:flex-row sm:items-center">
+                  <span className="text-xs font-medium text-neutral-400">Risk Profile: <span className="text-neutral-200">{p.risk}</span></span>
                   <Button
                     size="sm"
-                    className="pulse-action w-full min-w-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-bold text-neutral-950 shadow-[0_0_18px_rgba(245,158,11,.35)] hover:bg-amber-300 sm:w-auto sm:px-4"
+                    className="pulse-action h-10 w-full min-w-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-bold text-neutral-950 shadow-[0_0_18px_rgba(245,158,11,.35)] hover:bg-amber-300 sm:w-auto sm:px-4"
                     onClick={() => openModal('invest', { projectId: p.id })}
                   >
                     Deploy Capital
