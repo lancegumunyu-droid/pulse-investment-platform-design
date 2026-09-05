@@ -1,6 +1,182 @@
 'use client'
 
 import React, { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Wallet, TrendingUp, Users, ShieldCheck, ArrowRightLeft } from 'lucide-react'
+import { usePulse } from '../store'
+import { WalletView } from './wallet'
+
+const tabs = [
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
+  { id: 'invest', label: 'Invest', icon: TrendingUp },
+  { id: 'swap', label: 'Swap', icon: ArrowRightLeft },
+  { id: 'community', label: 'Community', icon: Users },
+  { id: 'security', label: 'Security', icon: ShieldCheck },
+]
+
+export function PulseDashboardContainer({ initialData }: { initialData?: any }) {
+  const [activeTab, setActiveTab] = useState('wallet')
+  const activeModal = usePulse((state) => state.activeModal)
+  const closeModal = usePulse((state) => state.closeModal)
+
+  // Default mock user data state if none provided
+  const userData = initialData || {
+    name: 'Aiden Vance',
+    cashBalance: '$1,250.00',
+    withdrawalAddress: '0x8F92...3B11',
+    pulseWallet: {
+      liquid: '4,500',
+      staked: '12,000',
+      total: '16,500'
+    },
+    activities: [
+      {
+        id: 1,
+        title: 'Staking Reward Payout',
+        date: '04/06/2026',
+        status: 'completed',
+        amount: '+148.50 PULSE',
+        type: 'reward'
+      },
+      {
+        id: 2,
+        title: 'USDT Deposit (TRC-20)',
+        date: '01/06/2026',
+        status: 'completed',
+        amount: '+$500.00',
+        type: 'income'
+      }
+    ]
+  }
+
+  return (
+    <div className="min-h-screen bg-[#090a0f] text-zinc-100 flex flex-col justify-between relative overflow-x-hidden">
+      {/* Top Header Navigation bar */}
+      <header className="w-full border-b border-white/10 bg-[#0c0e14]/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="size-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black font-black font-mono shadow-[0_0_15px_rgba(245,166,35,0.4)]">
+            ⚡
+          </div>
+          <div>
+            <h1 className="text-xs font-black tracking-wider text-white">PULSE NETWORK</h1>
+            <p className="text-[9px] font-mono text-amber-400">RWA ECOSYSTEM</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <div className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-zinc-300 flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            {userData.name}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Dynamic Workspace Area */}
+      <main className="flex-1 w-full max-w-md mx-auto px-2 py-4">
+        <AnimatePresence mode="wait">
+          {activeTab === 'wallet' && (
+            <motion.div
+              key="wallet"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <WalletView userData={userData} />
+            </motion.div>
+          )}
+
+          {activeTab !== 'wallet' && (
+            <motion.div
+              key="placeholder"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex flex-col items-center justify-center py-20 text-center px-4 space-y-3"
+            >
+              <div className="size-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl shadow-[0_0_20px_rgba(245,166,35,0.2)]">
+                🚧
+              </div>
+              <h3 className="text-sm font-bold text-white capitalize">{activeTab} View Loading</h3>
+              <p className="text-xs text-zinc-400 max-w-xs">This module is configured to integrate seamlessly with your core state engine.</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Global Bottom Navigation Dock */}
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-3 z-30 pointer-events-none">
+        <div className="pointer-events-auto bg-[#101217]/90 backdrop-blur-xl border border-white/15 rounded-3xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] grid grid-cols-5 gap-1">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative flex flex-col items-center justify-center py-2 rounded-2xl transition-all cursor-pointer ${
+                  isActive ? 'text-amber-400 bg-amber-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                }`}
+              >
+                <Icon className={`size-4 transition-transform ${isActive ? 'scale-110 stroke-[2.5]' : 'stroke-[1.75]'}`} />
+                <span className="text-[9px] font-medium font-mono mt-1 tracking-tight">{tab.label}</span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeIndicator"
+                    className="absolute -bottom-0.5 w-4 h-0.5 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(245,166,35,0.8)]" 
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+
+      {/* Global Action Modals Overlay Container */}
+      <AnimatePresence>
+        {activeModal && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="w-full max-w-md bg-[#12100d] border border-amber-500/40 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="text-sm font-black text-white uppercase tracking-wider font-mono">
+                  {activeModal} Action Window
+                </h3>
+                <button 
+                  onClick={closeModal}
+                  className="size-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="py-4 text-center space-y-2">
+                <p className="text-xs text-zinc-300">
+                  Ready to execute <span className="font-mono text-amber-400 uppercase font-bold">{activeModal}</span> workflow sequence via secure protocol.
+                </p>
+              </div>
+
+              <button
+                onClick={closeModal}
+                className="w-full bg-amber-400 hover:bg-amber-500 text-black font-extrabold text-xs rounded-xl h-10 flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)]"
+              >
+                Close & Return
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+        }
+'use client'
+
+import React, { useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { 
   ArrowUpRight, 
@@ -98,7 +274,6 @@ function DynamicMetallicCard({
               `,
             }}
           >
-            {/* Shimmer light sweep overlay */}
             <motion.div 
               className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none"
             />
@@ -210,7 +385,6 @@ export function WalletView({ userData }: { userData?: any }) {
       animate="visible" 
       className="space-y-4 max-w-md mx-auto pb-32 pt-1 px-2 text-zinc-100 font-sans"
     >
-      {/* Header with entrance motion */}
       <motion.div variants={itemVariants} className="space-y-0.5 px-1">
         <div className="flex items-center gap-2">
           <motion.div 
@@ -224,7 +398,6 @@ export function WalletView({ userData }: { userData?: any }) {
         <p className="text-[11px] text-zinc-400 pl-7">Real-time ledger tracking for deposits, withdrawals, and payouts.</p>
       </motion.div>
 
-      {/* Cash Wallet Card with Glow & Hover Motion */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.01, boxShadow: '0 15px 35px rgba(245,166,35,0.15)' }}
@@ -278,7 +451,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </div>
       </motion.div>
 
-      {/* Withdrawal Address Card */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -305,7 +477,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </motion.div>
       </motion.div>
 
-      {/* Pulse Wallet & Selling Drawer */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -386,7 +557,6 @@ export function WalletView({ userData }: { userData?: any }) {
         )}
       </motion.div>
 
-      {/* Pulse Card View with 3D Motion Tilt */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -418,9 +588,18 @@ export function WalletView({ userData }: { userData?: any }) {
         </p>
       </motion.div>
 
-      {/* Live Activity Feed */}
       <motion.div variants={itemVariants} className="space-y-2.5 pt-2">
         <div className="flex items-center justify-between px-1">
           <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Live Activity Feed</h4>
           <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1.5 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> Live Sync Acti
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> Live Sync Active
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          {activities.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="rounded-2xl border border-white/10 p-6 text-center bg-[#101217]"
+      
