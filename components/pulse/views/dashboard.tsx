@@ -40,7 +40,7 @@ export function DashboardView() {
   }, [api])
 
   return (
-    <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
+    <div className="pulse-home mx-auto w-full max-w-5xl space-y-7 pb-16 text-neutral-100 antialiased">
       
       {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
@@ -60,7 +60,7 @@ export function DashboardView() {
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
       <div className="glow-edge glass-gold pulse-surface overflow-hidden rounded-[2rem] shadow-2xl">
-        <div className="space-y-5 p-5 sm:p-6">
+        <div className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Total Net Portfolio Value
@@ -83,7 +83,7 @@ export function DashboardView() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 pt-1">
+          <div className="grid grid-cols-2 gap-3 pt-2">
             <Button
               size="lg"
               className="pulse-action h-11 rounded-xl bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 transition-colors shadow-sm"
@@ -209,15 +209,9 @@ export function DashboardView() {
             return (
               <div 
                 key={p.id}
-                className="group glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
+                className="glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
               >
-                {p.image && (
-                  <div className="relative -mx-5 -mt-5 mb-4 h-36 overflow-hidden border-b border-white/10 bg-neutral-950 sm:-mx-6 sm:-mt-6">
-                    <img src={p.image} alt={`${p.name} project`} className="h-full w-full object-cover object-center opacity-90 transition duration-700 group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent" />
-                    <div className="absolute bottom-3 left-4 rounded-full border border-amber-300/30 bg-black/45 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-200 backdrop-blur-sm">Verified project</div>
-                  </div>
-                )}
+                {p.image && <div className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `linear-gradient(90deg, #0d0d0f 10%, transparent 85%), url(${p.image})` }} aria-hidden="true" />}
                 <div className="relative">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
