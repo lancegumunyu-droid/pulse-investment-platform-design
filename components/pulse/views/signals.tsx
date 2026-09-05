@@ -193,7 +193,7 @@ export function SignalsView() {
 
               return (
                 <motion.div key={s.id} variants={itemVariants} layout>
-                  <Glass className="glow-card border border-white/10 bg-black/40 backdrop-blur-xl p-5 space-y-4 shadow-xl">
+                  <Glass className="signal-card glow-card border border-white/10 bg-black/40 backdrop-blur-xl p-5 space-y-4 shadow-xl">
                     <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
                       <div className="flex items-center gap-2">
                         <span className="relative flex size-2.5">
