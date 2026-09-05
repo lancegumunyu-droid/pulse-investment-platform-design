@@ -22,33 +22,33 @@ export interface Signal {
   updated_at?: string
 }
 
-// High-Octane Spring Stagger Physics
+// Stagger Container Physics
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
+      staggerChildren: 0.12,
       delayChildren: 0.05,
     },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  hidden: { opacity: 0, y: 35, scale: 0.94 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
     transition: {
       type: 'spring',
-      stiffness: 280,
-      damping: 22,
+      stiffness: 300,
+      damping: 24,
     },
   },
 }
 
-// 3D Perspective Reactive Signal Card Component
+// High-Fidelity 3D Perspective Reactive Signal Card
 function SignalCard3D({
   signal,
   project,
@@ -65,28 +65,25 @@ function SignalCard3D({
   const [mousePos, setMousePos] = useState({ x: 200, y: 100 })
   const [isHovered, setIsHovered] = useState(false)
 
-  // Framer Motion Values for 3D Tilt Effect
+  // Framer Motion Values for Realtime 3D Tilt
   const x = useMotionValue(0)
   const y = useMotionValue(0)
 
-  const mouseXSpring = useSpring(x, { stiffness: 300, damping: 30 })
-  const mouseYSpring = useSpring(y, { stiffness: 300, damping: 30 })
+  const mouseXSpring = useSpring(x, { stiffness: 400, damping: 30 })
+  const mouseYSpring = useSpring(y, { stiffness: 400, damping: 30 })
 
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['8deg', '-8deg'])
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-8deg', '8deg'])
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['12deg', '-12deg'])
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-12deg', '12deg'])
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const width = rect.width
-    const height = rect.height
-
     const mouseX = e.clientX - rect.left
     const mouseY = e.clientY - rect.top
 
     setMousePos({ x: mouseX, y: mouseY })
 
-    const xPct = mouseX / width - 0.5
-    const yPct = mouseY / height - 0.5
+    const xPct = mouseX / rect.width - 0.5
+    const yPct = mouseY / rect.height - 0.5
 
     x.set(xPct)
     y.set(yPct)
@@ -122,9 +119,7 @@ function SignalCard3D({
     <motion.div
       variants={itemVariants}
       layout
-      style={{
-        perspective: 1000,
-      }}
+      style={{ perspective: 1200 }}
       className="w-full"
     >
       <motion.div
@@ -132,79 +127,93 @@ function SignalCard3D({
           rotateX: isHovered ? rotateX : 0,
           rotateY: isHovered ? rotateY : 0,
           transformStyle: 'preserve-3d',
-          background: `radial-gradient(320px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 166, 35, 0.15), transparent 80%), linear-gradient(180deg, rgba(20, 24, 33, 0.96) 0%, rgba(10, 12, 16, 0.99) 100%)`,
+          background: `radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 166, 35, 0.18), transparent 80%), linear-gradient(180deg, rgba(24, 28, 38, 0.95) 0%, rgba(10, 12, 16, 0.99) 100%)`,
         }}
         onPointerMove={handlePointerMove}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
-        whileHover={{ scale: 1.02 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-        className="relative overflow-hidden rounded-3xl border border-white/10 p-5 shadow-2xl space-y-4 transition-colors duration-300 hover:border-amber-500/60 backdrop-blur-2xl group cursor-pointer"
+        whileHover={{ scale: 1.025 }}
+        transition={{ type: 'spring', stiffness: 450, damping: 28 }}
+        className="relative overflow-hidden rounded-3xl border border-white/15 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.6)] space-y-4 transition-colors duration-300 hover:border-amber-500/70 backdrop-blur-2xl group cursor-pointer"
       >
-        {/* Top Ambient Shimmer Sweep */}
-        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/70 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+        {/* Animated Sweep Shimmer Edge */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
 
-        {/* Dynamic Specular Edge Reflection */}
-        <div 
-          className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        {/* Dynamic Specular Spotlight Following Cursor */}
+        <div
+          className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
           style={{
-            background: `radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 255, 255, 0.08), transparent 40%)`
+            background: `radial-gradient(450px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 255, 255, 0.12), transparent 50%)`,
           }}
         />
 
-        {/* Header Row: Urgency Badge & Target Yield */}
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 relative z-10" style={{ transform: 'translateZ(20px)' }}>
+        {/* Header Row: Urgency & Target Yield (3D Depth: 25px) */}
+        <div
+          className="flex items-center justify-between gap-3 border-b border-white/10 pb-3.5 relative z-10"
+          style={{ transform: 'translateZ(25px)' }}
+        >
           <div className="flex items-center gap-2">
-            <span className="relative flex size-2.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex size-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,166,35,0.9)]" />
+            <span className="relative flex size-3">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-80" />
+              <span className="relative inline-flex size-3 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,166,35,1)]" />
             </span>
             <Pill tone={getUrgencyTone(signal.urgency)}>
-              <span className="font-mono font-black uppercase tracking-wider text-[9px]">{signal.urgency}</span>
+              <span className="font-mono font-black uppercase tracking-wider text-[9px]">
+                {signal.urgency}
+              </span>
             </Pill>
           </div>
 
-          <div className="bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 px-3 py-1 rounded-full text-xs font-black font-mono flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="bg-gradient-to-r from-emerald-950/90 to-emerald-900/80 border border-emerald-500/50 text-emerald-400 px-3.5 py-1 rounded-full text-xs font-black font-mono flex items-center gap-1.5 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+          >
             <TrendingUp className="size-3.5 text-emerald-400" />
             <span>{signal.target_yield}</span>
-          </div>
+          </motion.div>
         </div>
 
-        {/* Main Signal Content */}
-        <div className="space-y-1.5 relative z-10" style={{ transform: 'translateZ(25px)' }}>
+        {/* Signal Content Block (3D Depth: 30px) */}
+        <div className="space-y-1.5 relative z-10" style={{ transform: 'translateZ(30px)' }}>
           <h4 className="text-base font-extrabold text-white leading-snug group-hover:text-amber-400 transition-colors flex items-center gap-2">
             <span>{signal.title}</span>
-            <Sparkles className="size-3.5 text-amber-400/80 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Sparkles className="size-4 text-amber-400/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </h4>
           <p className="text-xs leading-relaxed text-zinc-300 font-medium">{signal.detail}</p>
         </div>
 
-        {/* Underlying Project Progress Bar */}
+        {/* Underlying Asset Progress Bar (3D Depth: 20px) */}
         {project && (
-          <div className="space-y-2 relative z-10 bg-black/50 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md" style={{ transform: 'translateZ(15px)' }}>
+          <div
+            className="space-y-2 relative z-10 bg-black/60 p-3.5 rounded-2xl border border-white/10 backdrop-blur-md shadow-inner"
+            style={{ transform: 'translateZ(20px)' }}
+          >
             <div className="flex justify-between text-[10px] font-semibold text-zinc-400">
               <span className="uppercase tracking-wider font-mono flex items-center gap-1">
-                <ShieldCheck className="size-3 text-amber-400" />
+                <ShieldCheck className="size-3.5 text-amber-400" />
                 Underlying Asset Target
               </span>
               <span className="text-emerald-400 font-mono font-black">{pct}% allocated</span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-900/90 p-0.5 border border-white/10">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-950 p-0.5 border border-white/10">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}
-                transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-                className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 rounded-full shadow-[0_0_12px_rgba(245,166,35,0.6)]"
+                transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 rounded-full shadow-[0_0_15px_rgba(245,166,35,0.7)]"
               />
             </div>
           </div>
         )}
 
-        {/* Footer & Action Button */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/10 relative z-10" style={{ transform: 'translateZ(30px)' }}>
+        {/* Footer & One-Click Invest CTA (3D Depth: 35px) */}
+        <div
+          className="flex items-center justify-between pt-2 border-t border-white/10 relative z-10"
+          style={{ transform: 'translateZ(35px)' }}
+        >
           <div className="flex flex-col text-xs text-zinc-400">
             <div className="flex items-center gap-1 font-bold text-white text-[11px]">
-              <Clock className="size-3 text-amber-400" />
+              <Clock className="size-3.5 text-amber-400" />
               <span>{displayWindow || 'Execution Window Active'}</span>
             </div>
             {formattedDate && (
@@ -214,10 +223,10 @@ function SignalCard3D({
             )}
           </div>
 
-          <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}>
+          <motion.div whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}>
             <Button
               size="sm"
-              className="bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_25px_rgba(245,166,35,0.4)] flex items-center gap-1.5 px-4 h-9 cursor-pointer border border-amber-300/40"
+              className="bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_25px_rgba(245,166,35,0.5)] flex items-center gap-1.5 px-4 h-9 cursor-pointer border border-amber-300/50"
               onClick={() => onInvest(signal.project_id)}
             >
               <Zap className="size-3.5 fill-black" />
@@ -228,6 +237,50 @@ function SignalCard3D({
         </div>
       </motion.div>
     </motion.div>
+  )
+}
+
+// High-Shimmer Animated Skeleton Loader
+function SignalsSkeletonLoader() {
+  return (
+    <div className="space-y-4">
+      {[1, 2].map((i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: i * 0.1 }}
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#12151c]/90 p-5 space-y-4 shadow-2xl"
+        >
+          {/* Animated Shimmer Wave */}
+          <motion.div
+            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent"
+            animate={{ translateX: ['-100%', '100%'] }}
+            transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+          />
+
+          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+            <div className="h-5 w-24 rounded-full bg-white/10 animate-pulse" />
+            <div className="h-6 w-20 rounded-full bg-emerald-500/20 animate-pulse" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="h-5 w-3/4 rounded-lg bg-white/10 animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-white/5 animate-pulse" />
+          </div>
+
+          <div className="h-14 w-full rounded-2xl bg-black/40 border border-white/5 p-3 space-y-2">
+            <div className="h-3 w-1/3 rounded bg-white/10 animate-pulse" />
+            <div className="h-2 w-full rounded-full bg-white/10 animate-pulse" />
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <div className="h-4 w-28 rounded bg-white/10 animate-pulse" />
+            <div className="h-9 w-32 rounded-xl bg-amber-500/20 animate-pulse" />
+          </div>
+        </motion.div>
+      ))}
+    </div>
   )
 }
 
@@ -280,7 +333,7 @@ export function SignalsView() {
     setIsRefreshing(false)
   }, [loadSignals, fetchFunding])
 
-  // Realtime Subscriptions & Polling setup
+  // Realtime Setup
   useEffect(() => {
     loadSignals(true)
     fetchFunding()
@@ -335,22 +388,22 @@ export function SignalsView() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="pulse-signals space-y-4 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
+      className="pulse-signals space-y-5 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
     >
-      {/* Header */}
+      {/* Dynamic Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <motion.div
-            whileHover={{ scale: 1.08, rotate: 8 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative p-2.5 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent border border-cyan-500/40 text-cyan-400 shrink-0 shadow-[0_0_25px_rgba(6,182,212,0.3)]"
+            whileHover={{ scale: 1.1, rotate: 12 }}
+            whileTap={{ scale: 0.9 }}
+            className="relative p-2.5 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent border border-cyan-500/40 text-cyan-400 shrink-0 shadow-[0_0_25px_rgba(6,182,212,0.4)]"
           >
             <Radio className="size-5 text-cyan-400 animate-pulse" />
           </motion.div>
           <div>
             <h2 className="text-base font-extrabold text-white leading-tight tracking-wide flex items-center gap-1.5">
               Investment Signals
-              <span className="bg-cyan-500/20 text-cyan-300 text-[9px] font-mono font-black px-2 py-0.5 rounded-full border border-cyan-500/40 uppercase tracking-widest">
+              <span className="bg-cyan-500/20 text-cyan-300 text-[9px] font-mono font-black px-2 py-0.5 rounded-full border border-cyan-500/40 uppercase tracking-widest shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                 Live Feed
               </span>
             </h2>
@@ -374,27 +427,9 @@ export function SignalsView() {
         </motion.div>
       </motion.div>
 
-      {/* Main Signal Feed */}
+      {/* Main Signal Feed & Loader State */}
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0.5 }}
-              animate={{ opacity: [0.5, 0.9, 0.5] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-              className="rounded-3xl border border-white/10 bg-[#101217] p-5 space-y-3"
-            >
-              <div className="flex justify-between items-center">
-                <div className="h-4 w-1/4 rounded-md bg-white/10 animate-pulse" />
-                <div className="h-5 w-1/5 rounded-full bg-emerald-500/20 animate-pulse" />
-              </div>
-              <div className="h-5 w-3/4 rounded-md bg-white/10 animate-pulse" />
-              <div className="h-12 w-full rounded-2xl bg-white/5 animate-pulse" />
-              <div className="h-9 w-full rounded-xl bg-white/10 animate-pulse" />
-            </motion.div>
-          ))}
-        </div>
+        <SignalsSkeletonLoader />
       ) : signals.length === 0 ? (
         <motion.div variants={itemVariants}>
           <Glass className="flex flex-col items-center justify-center py-12 text-center border border-white/10 bg-[#101217]/90 rounded-3xl shadow-xl space-y-3">
@@ -439,5 +474,5 @@ export function SignalsView() {
       </motion.div>
     </motion.div>
   )
-        }
-         
+      }
+            
