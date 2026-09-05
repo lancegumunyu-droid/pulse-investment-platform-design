@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Radio, RotateCcw, Zap, Inbox, TrendingUp, Clock, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { usePulseStore } from '../store'
+import { usePulse } from '../store'
 import { Glass, Pill, RiskNote } from '../ui-bits'
 import { PROJECTS as INITIAL_PROJECTS } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
@@ -233,7 +233,7 @@ function SignalCard3D({
 
 export function SignalsView() {
   const supabase = useMemo(() => createClient(), [])
-  const openModal = usePulseStore((state) => state.openModal)
+  const { api, openModal } = usePulse()
 
   const [signals, setSignals] = useState<Signal[]>([])
   const [loading, setLoading] = useState(true)
@@ -262,15 +262,16 @@ export function SignalsView() {
   // Fetch Live Funding
   const fetchFunding = useCallback(async () => {
     try {
-      const res = await fetch('/api/projects/funding')
-      if (res.ok) {
-        const json = await res.json()
-        setLiveFunding(json.funding || null)
+      if (api?.liveProjectFunding) {
+        const res = await api.liveProjectFunding()
+        if (res?.ok && res.funding) {
+          setLiveFunding(res.funding)
+        }
       }
     } catch (err) {
       console.error('Error fetching live funding:', err)
     }
-  }, [])
+  }, [api])
 
   // Refresh Trigger
   const handleRefresh = useCallback(async () => {
@@ -423,7 +424,7 @@ export function SignalsView() {
                   signal={signal}
                   project={project}
                   liveFunding={liveFunding}
-                  onInvest={(projectId) => openModal('invest', projectId)}
+                  onInvest={(projectId) => openModal('invest', { projectId })}
                   getUrgencyTone={getUrgencyTone}
                 />
               )
@@ -438,5 +439,5 @@ export function SignalsView() {
       </motion.div>
     </motion.div>
   )
-      }
-        
+        }
+         
