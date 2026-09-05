@@ -47,7 +47,7 @@ export function DashboardView() {
     <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
       <style>{`
         @keyframes pulsePureGlow { 0%, 100% { opacity: .4; transform: scale(1); } 50% { opacity: .85; transform: scale(1.03); } }
-        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.25); box-shadow: 0 0 10px rgba(245,158,11,.1); } 50% { border-color: rgba(245,158,11,.7); box-shadow: 0 0 25px rgba(245,158,11,.35); } }
+        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.25); box-shadow: 0 0 10px rgba(245,158,11,.1), inset 0 0 8px rgba(245,158,11,.03); } 35% { border-color: rgba(16,185,129,.5); box-shadow: 0 0 20px rgba(16,185,129,.2), inset 0 0 14px rgba(16,185,129,.06); } 65% { border-color: rgba(245,158,11,.8); box-shadow: 0 0 32px rgba(245,158,11,.38), inset 0 0 20px rgba(245,158,11,.12); } }
         @keyframes pulseEmerald { 0%, 100% { border-color: rgba(16,185,129,.3); box-shadow: 0 0 10px rgba(16,185,129,.15); } 50% { border-color: rgba(16,185,129,.7); box-shadow: 0 0 22px rgba(16,185,129,.35); } }
         @keyframes pulseConicSpin { to { transform: rotate(360deg); } }
         @keyframes pulseLiquidMove { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
