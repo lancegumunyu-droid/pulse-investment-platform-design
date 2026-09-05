@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Vote, CheckCircle2, AlertCircle, TrendingUp, Sparkles } from 'lucide-react'
+import { Zap, Vote, CheckCircle2, AlertCircle, TrendingUp, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RiskNote } from '../ui-bits'
 
@@ -38,20 +38,29 @@ const GOVERNANCE_PROPOSALS: GovernanceProposal[] = [
   },
 ]
 
+// Home Dashboard Motion Stagger Physics
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.03 },
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
+    },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 300,
+      damping: 24,
+    },
   },
 }
 
@@ -89,12 +98,16 @@ export function StakeView() {
       animate="visible"
       className="space-y-4 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
     >
-      {/* Header Section */}
+      {/* Header Section with Neon Glow Icon */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="relative p-2.5 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 border border-amber-500/30 text-amber-400 shrink-0 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+          <motion.div 
+            whileHover={{ scale: 1.08, rotate: 5 }}
+            whileTap={{ scale: 0.95 }}
+            className="relative p-2.5 rounded-2xl bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent border border-amber-500/40 text-amber-400 shrink-0 shadow-[0_0_25px_rgba(245,158,11,0.25)]"
+          >
             <Zap className="size-5 fill-amber-400/30 animate-pulse" />
-          </div>
+          </motion.div>
           <div>
             <h2 className="text-base font-extrabold text-white leading-tight tracking-wide flex items-center gap-1.5">
               Stake & earn
@@ -106,51 +119,58 @@ export function StakeView() {
         </div>
       </motion.div>
 
-      {/* APY & Staked Hero Card */}
+      {/* Hero APY & Staked Banner with Spotlight Motion */}
       <motion.div variants={itemVariants}>
-        <div 
+        <motion.div
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           onPointerMove={handlePointerMove}
           style={{
-            background: `radial-gradient(220px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 158, 11, 0.12), transparent 80%), linear-gradient(135deg, #18140c 0%, #0d0c08 100%)`
+            background: `radial-gradient(240px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 158, 11, 0.16), transparent 80%), linear-gradient(135deg, #1c170d 0%, #0a0a08 100%)`
           }}
-          className="relative overflow-hidden rounded-2xl border border-amber-500/30 p-4 shadow-[0_0_25px_rgba(245,158,11,0.1)] transition-all duration-300 hover:border-amber-500/50"
+          className="relative overflow-hidden rounded-2xl border border-amber-500/35 p-4 shadow-[0_0_30px_rgba(245,158,11,0.12)] transition-colors duration-300 hover:border-amber-500/60"
         >
-          {/* Animated Shimmer Sweep */}
+          {/* Animated Ambient Shimmer Sweep */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent -translate-x-full animate-[shimmer_3.5s_infinite]" />
 
           <div className="flex justify-between items-start relative z-10">
             <div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <span className="text-[9px] font-black uppercase tracking-widest text-amber-400/90 font-mono">
                   CURRENT APY
                 </span>
                 <Sparkles className="size-3 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
               </div>
-              <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400 tracking-tight mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.4)]">
+              <motion.div 
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                className="text-3xl font-black font-mono text-amber-400 tracking-tight mt-0.5 drop-shadow-[0_0_15px_rgba(245,158,11,0.45)]"
+              >
                 24.8%
-              </div>
+              </motion.div>
             </div>
             <div className="text-right">
               <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 font-mono">
                 STAKED
               </span>
-              <div className="text-lg sm:text-xl font-bold font-mono text-white mt-0.5">
+              <div className="text-xl font-bold font-mono text-white mt-0.5">
                 3,300
               </div>
-              <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center justify-end gap-0.5">
+              <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center justify-end gap-1">
                 <TrendingUp className="size-3" /> ≈ $65.47/yr rewards
               </span>
             </div>
           </div>
-        </div>
+        </motion.div>
       </motion.div>
 
-      {/* Stake / Unstake Form Box */}
+      {/* Stake / Unstake Interactive Box with Animated Spring Tabs */}
       <motion.div variants={itemVariants}>
         <div className="relative rounded-2xl border border-white/10 bg-[#111111]/90 backdrop-blur-md p-4 shadow-2xl space-y-3.5">
           
-          {/* Animated Tab Switcher */}
-          <div className="relative grid grid-cols-2 gap-1 p-1 rounded-xl bg-black/60 border border-white/10">
+          {/* Interactive Spring Pill Tabs */}
+          <div className="relative grid grid-cols-2 gap-1 p-1.5 rounded-xl bg-black/70 border border-white/10">
             <button
               type="button"
               onClick={() => setActiveTab('stake')}
@@ -170,16 +190,16 @@ export function StakeView() {
               Unstake
             </button>
 
-            {/* Sliding Glow Indicator */}
+            {/* Sliding Pill Background with Layout Animation */}
             <AnimatePresence>
               <motion.div
-                layoutId="activeTabGlow"
-                className="absolute inset-y-1 rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                layoutId="activeTabPill"
+                className="absolute inset-y-1.5 rounded-lg bg-gradient-to-r from-amber-400 via-amber-400 to-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.5)]"
                 style={{
-                  left: activeTab === 'stake' ? '0.25rem' : 'calc(50% + 0.125rem)',
-                  width: 'calc(50% - 0.375rem)'
+                  left: activeTab === 'stake' ? '0.375rem' : 'calc(50% + 0.1875rem)',
+                  width: 'calc(50% - 0.5625rem)'
                 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 32 }}
               />
             </AnimatePresence>
           </div>
@@ -188,13 +208,15 @@ export function StakeView() {
             <div>
               <div className="flex justify-between text-[11px] font-semibold text-zinc-400 mb-1.5">
                 <span>Amount (PULSE)</span>
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   type="button"
                   onClick={() => setStakeAmount('45171')}
-                  className="text-amber-400 hover:text-amber-300 font-mono text-[10px] font-black uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 transition-all hover:bg-amber-500/20"
+                  className="text-amber-400 hover:text-amber-300 font-mono text-[10px] font-black uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/25 transition-all hover:bg-amber-500/20"
                 >
                   Max 45,171
-                </button>
+                </motion.button>
               </div>
               <div className="relative">
                 <input
@@ -202,52 +224,59 @@ export function StakeView() {
                   placeholder="0"
                   value={stakeAmount}
                   onChange={(e) => setStakeAmount(e.target.value)}
-                  className="w-full bg-black/70 border border-white/10 text-white placeholder:text-zinc-600 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 focus:outline-none h-12 text-base rounded-xl font-mono px-3.5 transition-all"
+                  className="w-full bg-black/80 border border-white/10 text-white placeholder:text-zinc-600 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 focus:outline-none h-12 text-base rounded-xl font-mono px-3.5 transition-all shadow-inner"
                 />
               </div>
             </div>
 
-            <Button
-              type="submit"
-              disabled={isSubmitting || !stakeAmount || Number(stakeAmount) <= 0}
-              className="w-full h-12 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)] active:scale-[0.99] flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Zap className="size-4 fill-black" />
-                  <span>{activeTab === 'stake' ? 'Stake PULSE' : 'Unstake PULSE'}</span>
-                </>
-              )}
-            </Button>
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                type="submit"
+                disabled={isSubmitting || !stakeAmount || Number(stakeAmount) <= 0}
+                className="w-full h-12 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_25px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Zap className="size-4 fill-black" />
+                    <span>{activeTab === 'stake' ? 'Stake PULSE' : 'Unstake PULSE'}</span>
+                    <ArrowRight className="size-4" />
+                  </>
+                )}
+              </Button>
+            </motion.div>
           </form>
         </div>
       </motion.div>
 
-      {/* Governance Proposals Section */}
+      {/* Governance Section */}
       <motion.div variants={itemVariants} className="space-y-3 pt-1">
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0 shadow-[0_0_12px_rgba(245,158,11,0.15)]">
+          <motion.div 
+            whileHover={{ scale: 1.1 }}
+            className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+          >
             <Vote className="size-4" />
-          </div>
+          </motion.div>
           <div>
             <h3 className="text-sm font-extrabold text-white leading-tight">Governance</h3>
             <p className="text-[11px] text-zinc-400">Staked holders shape the platform.</p>
           </div>
         </div>
 
-        {/* Animated Proposal Cards */}
+        {/* Governance Proposal Cards with Spring Hover Physics */}
         <div className="space-y-3">
           {GOVERNANCE_PROPOSALS.map((prop) => {
             const hasVoted = votedProposals[prop.id]
             return (
               <motion.div
                 key={prop.id}
-                whileHover={{ y: -2 }}
-                className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#141414] to-[#0a0a0a] p-4 shadow-xl space-y-3 transition-all duration-300 hover:border-amber-500/30"
+                whileHover={{ y: -3, scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#141414] to-[#0a0a0a] p-4 shadow-xl space-y-3 transition-colors duration-300 hover:border-amber-500/40"
               >
-                {/* Ambient Shimmer Light Header */}
+                {/* Header Shimmer Bar */}
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/40 to-transparent -translate-x-full animate-[shimmer_4s_infinite]" />
 
                 <div className="flex items-start justify-between gap-2">
@@ -255,63 +284,67 @@ export function StakeView() {
                   <span
                     className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border shrink-0 ${
                       prop.status === 'Active'
-                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
-                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
                     }`}
                   >
                     {prop.status}
                   </span>
                 </div>
 
-                {/* Progress Visualizer */}
+                {/* Animated Dynamic Progress Indicator */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-[10px] font-mono font-bold">
                     <span className="text-emerald-400">For {prop.forPct}%</span>
                     <span className="text-zinc-400">Against {prop.againstPct}%</span>
                   </div>
                   <div className="h-2 w-full bg-black/70 rounded-full overflow-hidden border border-white/5 flex p-0.5">
-                    <div
-                      className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                      style={{ width: `${prop.forPct}%` }}
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${prop.forPct}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                      className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                     />
-                    <div
-                      className="bg-zinc-700 h-full rounded-full transition-all duration-700 ml-0.5"
-                      style={{ width: `${prop.againstPct}%` }}
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${prop.againstPct}%` }}
+                      transition={{ duration: 1, ease: 'easeOut', delay: 0.1 }}
+                      className="bg-zinc-700 h-full rounded-full ml-0.5"
                     />
                   </div>
                 </div>
 
-                {/* Interactive Voting Actions */}
+                {/* Interactive Motion Voting Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
                     type="button"
                     onClick={() => handleVote(prop.id, 'for')}
                     className={`py-2 px-3 rounded-xl border text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
                       hasVoted === 'for'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.25)]'
                         : 'bg-black/50 text-zinc-300 border-white/10 hover:bg-white/5 hover:border-white/20'
                     }`}
                   >
-                    {hasVoted === 'for' ? (
-                      <CheckCircle2 className="size-3.5 text-emerald-400" />
-                    ) : null}
+                    {hasVoted === 'for' && <CheckCircle2 className="size-3.5 text-emerald-400" />}
                     <span>Vote for</span>
-                  </button>
+                  </motion.button>
 
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
                     type="button"
                     onClick={() => handleVote(prop.id, 'against')}
                     className={`py-2 px-3 rounded-xl border text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
                       hasVoted === 'against'
-                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.25)]'
                         : 'bg-black/50 text-zinc-300 border-white/10 hover:bg-white/5 hover:border-white/20'
                     }`}
                   >
-                    {hasVoted === 'against' ? (
-                      <AlertCircle className="size-3.5 text-rose-400" />
-                    ) : null}
+                    {hasVoted === 'against' && <AlertCircle className="size-3.5 text-rose-400" />}
                     <span>Against</span>
-                  </button>
+                  </motion.button>
                 </div>
               </motion.div>
             )
@@ -325,5 +358,5 @@ export function StakeView() {
       </motion.div>
     </motion.div>
   )
-            }
-        
+                  }
+    
