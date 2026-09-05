@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Vote, Zap } from 'lucide-react'
+import React, { useState } from 'react'
+import { motion, useMotionValue, useMotionTemplate } from 'framer-motion'
+import { ArrowRight, CheckCircle2, RefreshCw, ShieldCheck, TrendingUp, Vote, XCircle, Zap } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { TOKEN } from '@/lib/pulse-data'
@@ -21,8 +21,8 @@ const containerVariants = {
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 32, scale: 0.95, filter: 'blur(10px)' },
+  visible: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } },
 }
 
 export function StakeView() {
@@ -34,6 +34,14 @@ export function StakeView() {
   const value = Number(amount) || 0
   const max = mode === 'stake' ? state.pulse : state.staked
   const estYearly = (state.staked * TOKEN.salePrice * TOKEN.stakingApy) / 100
+  const mouseX = useMotionValue(200)
+  const mouseY = useMotionValue(100)
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const { left, top } = e.currentTarget.getBoundingClientRect()
+    mouseX.set(e.clientX - left)
+    mouseY.set(e.clientY - top)
+  }
 
   const act = async () => {
     if (value <= 0 || value > max) {
@@ -68,7 +76,8 @@ export function StakeView() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="mx-auto max-w-md space-y-6 px-1 pb-32 pt-2 text-zinc-100 selection:bg-amber-500/30 font-sans">
+      <style>{`@keyframes rotateConic { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes shimmerSweep { 0% { transform: translateX(-150%) skewX(-25deg); } 50%,100% { transform: translateX(250%) skewX(-25deg); } } @keyframes liquidMove { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } } .stake-conic { animation: rotateConic 6s linear infinite; } .stake-shimmer::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,215,0,.24), transparent); animation: shimmerSweep 3.8s infinite ease-in-out; } .stake-liquid { background-size: 200% 200%; animation: liquidMove 4s infinite ease-in-out; } .stake-noise { background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 0); background-size: 12px 12px; } @media (prefers-reduced-motion: reduce) { .stake-conic, .stake-shimmer::after, .stake-liquid { animation: none; } }`}</style>
       <motion.div variants={itemVariants}>
         <SectionTitle
           title="Stake & earn"
@@ -78,7 +87,7 @@ export function StakeView() {
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <Glass gold className="border border-gold/20 bg-black/40 backdrop-blur-xl p-5 shadow-2xl relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-3xl p-[1.5px] shadow-[0_0_40px_rgba(245,158,11,.25)]"><div className="stake-conic pointer-events-none absolute -inset-[180%] bg-[conic-gradient(from_0deg,#f59e0b,transparent_120deg,#10b981_240deg,#f59e0b)] opacity-75" /><Glass gold className="stake-shimmer stake-noise relative border border-amber-500/30 bg-gradient-to-b from-[#18140e] via-[#0f0c08] to-[#050505] p-6 backdrop-blur-2xl">
           <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-gold/10 blur-2xl" />
           <div className="flex items-center justify-between">
             <div>
@@ -91,11 +100,11 @@ export function StakeView() {
               <p className="text-xs text-green font-medium">≈ ${money(estYearly)}/yr rewards</p>
             </div>
           </div>
-        </Glass>
+</Glass></div>
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
+        <Glass onPointerMove={handlePointerMove} className="stake-noise relative overflow-hidden rounded-3xl border border-amber-500/25 bg-gradient-to-b from-[#161616] via-[#0e0e0e] to-[#080808] p-6 shadow-2xl backdrop-blur-2xl">
           <div className="mb-4 grid grid-cols-2 gap-2">
             {(['stake', 'unstake'] as const).map((m) => (
               <motion.button
@@ -136,11 +145,11 @@ export function StakeView() {
           <motion.div whileTap={{ scale: 0.98 }}>
             <Button
               size="lg"
-              className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 capitalize shadow-lg shadow-gold/20"
+              className="stake-liquid mt-4 h-13 w-full rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 text-xs font-black uppercase tracking-wider text-black shadow-[0_0_28px_rgba(245,158,11,.45)] hover:brightness-110"
               onClick={act}
               disabled={busy}
             >
-              {mode} PULSE
+              {busy ? <RefreshCw className="size-4 animate-spin" /> : <><span>{mode} PULSE</span><ArrowRight className="size-4" /></>}
             </Button>
           </motion.div>
 
