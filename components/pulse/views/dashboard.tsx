@@ -64,14 +64,15 @@ export function DashboardView() {
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
       <div className="relative overflow-hidden rounded-2xl p-px shadow-[0_0_35px_rgba(245,158,11,.15)]">
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }} className="pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_120deg,#10b981_240deg,#f59e0b_360deg)] opacity-70" />
-        <motion.div whileHover={{ scale: 1.005 }} onMouseMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); mouseX.set(event.clientX - rect.left); mouseY.set(event.clientY - rect.top) }} className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-2xl shadow-[0_0_25px_rgba(245,158,11,.08)]">
-          <motion.div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
-          <div className="space-y-4 p-4">
-          <div className="flex items-center justify-between">
+        <motion.div whileHover={{ scale: 1.005 }} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); mouseX.set(event.clientX - rect.left); mouseY.set(event.clientY - rect.top) }} className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-2xl shadow-[0_0_25px_rgba(245,158,11,.08)]">
+          <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
+          <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-amber-500/15 blur-3xl" />
+          <div className="relative z-10 space-y-4 p-4 sm:p-5">
+          <div className="flex min-w-0 items-start justify-between gap-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Total Net Portfolio Value
             </span>
-            <motion.span animate={{ scale: [1, 1.03, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 shadow-[0_0_14px_rgba(16,185,129,.1)]">
+            <motion.span animate={{ scale: [1, 1.03, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="inline-flex max-w-[48%] shrink-0 items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-950/60 px-2 py-1 text-[10px] font-extrabold leading-tight text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,.22)] sm:max-w-none sm:gap-1.5 sm:px-2.5 sm:text-xs">
               <TrendingUp className="size-3.5" />
               +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
             </motion.span>
@@ -95,7 +96,7 @@ export function DashboardView() {
               aria-label="Deposit capital"
 
               size="lg"
-              className="pulse-action h-10 min-w-0 rounded-xl bg-amber-400 px-3 text-xs font-extrabold text-neutral-950 hover:bg-amber-300 transition-colors shadow-sm"
+              className="pulse-action h-10 min-w-0 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-2 text-xs font-black text-neutral-950 shadow-[0_0_20px_rgba(245,158,11,.38)] transition-colors hover:from-amber-300 hover:to-amber-200 sm:px-3"
               onClick={() => openModal('deposit')}
             >
               <ArrowDownRight className="size-3.5 shrink-0 stroke-[2.5]" /><span className="truncate">Deposit Capital</span>
@@ -105,7 +106,7 @@ export function DashboardView() {
             <Button
               size="lg"
               variant="outline"
-              className="h-10 min-w-0 rounded-xl border-neutral-700 bg-neutral-800/80 px-3 text-xs font-bold text-white hover:bg-neutral-800 transition-colors"
+              className="h-10 min-w-0 rounded-xl border border-neutral-700/90 bg-gradient-to-r from-neutral-800 to-neutral-900 px-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(0,0,0,.45)] transition-colors hover:border-neutral-500 hover:bg-neutral-800 sm:px-3"
               onClick={() => openModal('withdraw')}
             >
               <ArrowUpRight className="size-3.5 shrink-0 stroke-[2]" /><span className="truncate">Withdraw Earnings</span>
@@ -115,7 +116,7 @@ export function DashboardView() {
         </div>
 
         {/* Integrated Asset Breakdown Row */}
-        <div className="grid grid-cols-3 gap-1.5 border-t border-neutral-800 bg-neutral-950/80 p-3 text-center">
+        <div className="relative z-10 grid grid-cols-3 gap-1 border-t border-neutral-800/80 bg-neutral-950/85 p-3 text-center">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Available Cash</p>
             <p className="mt-1 font-mono text-base font-bold text-white">${money(state.cash, 0)}</p>
@@ -133,9 +134,9 @@ export function DashboardView() {
       </div>
 
       {/* 3. TIER STATUS BAR */}
-      <motion.div animate={{ borderColor: ['rgba(245,158,11,.2)', 'rgba(245,158,11,.5)', 'rgba(245,158,11,.2)'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="glow-card rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/80 via-amber-950/10 to-neutral-900/80 p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <motion.div animate={{ borderColor: ['rgba(245,158,11,.2)', 'rgba(245,158,11,.5)', 'rgba(245,158,11,.2)'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="glow-card relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-neutral-900/90 via-amber-950/20 to-neutral-900/90 p-4 shadow-[0_0_25px_rgba(245,158,11,.12)] sm:p-5">
+        <div className="flex min-w-0 flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-center gap-2">
             <Lock className="size-4 text-amber-400" />
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Standing: <span className="text-white font-bold">{currentTier.name} VIP</span>
@@ -171,10 +172,10 @@ export function DashboardView() {
               return (
                 <div 
                   key={h.id}
-                  className="glow-card pulse-tile flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 transition-colors"
+                  className="glow-card pulse-tile flex min-w-0 flex-col items-stretch justify-between gap-3 rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/95 via-neutral-800/70 to-neutral-900/95 p-4 shadow-[0_0_20px_rgba(0,0,0,.5)] transition-colors sm:flex-row sm:items-center sm:p-5"
                 >
-                  <div className="space-y-0.5">
-                    <p className="font-semibold text-sm text-white">{project?.name ?? 'SADC Venture Position'}</p>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="truncate text-sm font-semibold text-white">{project?.name ?? 'SADC Venture Position'}</p>
                     <p className="text-xs text-neutral-400 font-mono">
                       <span className="text-amber-400 font-bold">${money(h.amount, 0)} USDT</span> &bull; {closed ? 'Matured' : 'Generating Yield'}
                     </p>
