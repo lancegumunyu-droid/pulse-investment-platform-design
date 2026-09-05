@@ -138,19 +138,20 @@ export function SignalsView() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="pulse-signals space-y-5">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="pulse-signals mx-auto max-w-md space-y-6 px-1 pb-32 pt-2 font-sans text-zinc-100 selection:bg-amber-500/30">
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <SectionTitle
-          title="Investment signals"
-          subtitle="Timely, research-backed opportunities across our live projects."
-          icon={<Radio className="size-5 text-gold" />}
+          title="Investment Signals"
+          subtitle="Real-time, research-backed deal flows across active assets."
+          icon={<Radio className="size-5 text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.7)]" />}
         />
         <motion.div whileTap={{ scale: 0.92 }}>
           <Button
-            size="sm"
+            size="icon"
             variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
+            aria-label="Refresh investment signals"
+            className="size-10 shrink-0 rounded-2xl border border-white/10 bg-black/40 text-zinc-400 shadow-md backdrop-blur-md transition-all hover:bg-white/[0.08] hover:text-amber-400"
             disabled={isRefreshing || loading}
             onClick={handleRefresh}
           >
@@ -161,27 +162,27 @@ export function SignalsView() {
 
       <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-black/50 to-black/80 px-4 py-2.5 shadow-lg backdrop-blur-md">
         <div className="flex min-w-0 items-center gap-2.5"><span className="relative flex size-2.5 shrink-0"><span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400" /><span className="relative size-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,1)]" /></span><span className="truncate text-[11px] font-black uppercase tracking-widest text-amber-300">Satellite Feed</span></div>
-        <div className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold text-zinc-400"><Activity className="size-3 animate-pulse text-emerald-400" />{signals.length} ACTIVE</div>
+        <div className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold text-zinc-400"><Activity className="size-3 animate-pulse text-emerald-400" />{signals.length} ACTIVE DISPATCHES</div>
       </motion.div>
 
       {/* Main Container */}
       {loading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <Glass key={i} className="animate-pulse space-y-3 p-4 border border-white/10 bg-black/40">
+            <div key={i} className="animate-pulse space-y-4 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl">
               <div className="h-4 w-1/4 rounded bg-white/10" />
               <div className="h-6 w-3/4 rounded bg-white/10" />
               <div className="h-4 w-1/2 rounded bg-white/10" />
-            </Glass>
+            </div>
           ))}
         </div>
       ) : signals.length === 0 ? (
         <motion.div variants={itemVariants}>
-          <Glass className="flex flex-col items-center justify-center py-12 text-center border border-white/10 bg-black/40">
-            <Inbox className="size-10 text-muted-foreground/50 mb-2" />
-            <p className="text-sm font-medium text-white">No active signals found</p>
-            <p className="text-xs text-muted-foreground">Check back later for newly broadcast opportunities.</p>
-          </Glass>
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-gradient-to-b from-[#141414] to-[#0a0a0a] p-6 py-16 text-center shadow-2xl backdrop-blur-xl bg-noise">
+            <div className="mb-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 shadow-[0_0_20px_rgba(245,158,11,0.15)]"><Inbox className="size-8 text-amber-400" /></div>
+            <p className="text-base font-black tracking-wide text-white">No Active Signals</p>
+            <p className="mt-1 max-w-xs text-xs leading-relaxed text-zinc-400">Automated research models are scanning active opportunities. Check back shortly for tactical entry signals.</p>
+          </div>
         </motion.div>
       ) : (
         <div className="space-y-4">
@@ -215,23 +216,18 @@ export function SignalsView() {
                         </span>
                         <Pill tone={getUrgencyTone(s.urgency)}>{s.urgency}</Pill>
                       </div>
-                      <Pill tone="green">{s.target_yield}</Pill>
+                      <div className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-xs font-black text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]"><TrendingUp className="size-3.5" /><span>{s.target_yield} Yield</span></div>
                     </div>
 
                     <div>
-                      <p className="font-semibold leading-tight text-white">{s.title}</p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.detail}</p>
+                      <h3 className="text-base font-black leading-snug tracking-wide text-white transition-colors group-hover:text-amber-300">{s.title}</h3>
+                      <p className="mt-2 text-xs font-medium leading-relaxed text-zinc-400">{s.detail}</p>
                     </div>
 
                     {project && (
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs text-muted-foreground font-medium">
-                          <span>Underlying project</span>
-                          <span className="text-white font-mono">{pct}% funded</span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                          <div className="h-full bg-gold transition-all duration-500" style={{ width: `${pct}%` }} />
-                        </div>
+                      <div className="space-y-2 rounded-2xl border border-white/10 bg-black/50 p-3.5 shadow-inner backdrop-blur-md">
+                        <div className="flex justify-between text-[11px] font-bold"><span className="uppercase tracking-wider text-zinc-400">Asset Progress</span><span className="font-mono text-amber-400">{pct}% Funded</span></div>
+                        <div className="h-2 w-full overflow-hidden rounded-full border border-white/5 bg-black/80"><div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] transition-all duration-500" style={{ width: `${pct}%` }} /></div>
                       </div>
                     )}
 
@@ -247,10 +243,10 @@ export function SignalsView() {
                       <motion.div whileTap={{ scale: 0.95 }}>
                         <Button
                           size="sm"
-                          className="bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-lg shadow-gold/15"
+                          className="h-10 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-4 text-xs font-black uppercase tracking-wider text-black shadow-[0_0_20px_rgba(245,158,11,.35)] hover:brightness-110 animate-liquid"
                           onClick={() => openModal('invest', { projectId: s.project_id })}
                         >
-                          <Zap className="size-4 mr-1" /> One-click invest
+                          <Zap className="mr-1 size-3.5 fill-black" /> One-Click Invest
                         </Button>
                       </motion.div>
                     </div>
