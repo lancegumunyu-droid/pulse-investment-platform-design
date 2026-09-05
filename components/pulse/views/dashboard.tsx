@@ -50,14 +50,18 @@ export function DashboardView() {
         @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.25); box-shadow: 0 0 10px rgba(245,158,11,.1); } 50% { border-color: rgba(245,158,11,.7); box-shadow: 0 0 25px rgba(245,158,11,.35); } }
         @keyframes pulseEmerald { 0%, 100% { border-color: rgba(16,185,129,.3); box-shadow: 0 0 10px rgba(16,185,129,.15); } 50% { border-color: rgba(16,185,129,.7); box-shadow: 0 0 22px rgba(16,185,129,.35); } }
         @keyframes pulseConicSpin { to { transform: rotate(360deg); } }
+        @keyframes pulseLiquidMove { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes pulseAmbientFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(1deg); } }
         .pulse-pure-glow { animation: pulsePureGlow 2.5s ease-in-out infinite; }
         .pulse-pure-shimmer { animation: pulseShimmer 3.5s ease-in-out infinite; }
         .pulse-pure-emerald { animation: pulseEmerald 3.5s ease-in-out infinite; }
         .pulse-conic-spin { animation: pulseConicSpin 8s linear infinite; }
-        @media (prefers-reduced-motion: reduce) { .pulse-pure-glow, .pulse-pure-shimmer, .pulse-pure-emerald, .pulse-conic-spin { animation: none; } }
+        .pulse-liquid-motion { background-size: 200% 200%; animation: pulseLiquidMove 6s ease-in-out infinite; }
+        .pulse-ambient-float { animation: pulseAmbientFloat 5s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .pulse-pure-glow, .pulse-pure-shimmer, .pulse-pure-emerald, .pulse-conic-spin, .pulse-liquid-motion, .pulse-ambient-float { animation: none; } }
       `}</style>
       {/* 1. STATUS HEADER */}
-      <div className="flex flex-col items-start justify-between gap-2 border-b border-neutral-800 pb-4 sm:flex-row sm:items-center">
+      <div className="pulse-pure-shimmer flex flex-col items-start justify-between gap-2 rounded-xl border border-amber-500/20 bg-neutral-950/60 px-3 py-3 pb-4 sm:flex-row sm:items-center">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -107,7 +111,7 @@ export function DashboardView() {
               aria-label="Deposit capital"
 
               size="lg"
-              className="pulse-action h-11 w-full min-w-0 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-2 text-xs font-black text-neutral-950 shadow-[0_0_20px_rgba(245,158,11,.38)] transition-colors hover:from-amber-300 hover:to-amber-200 sm:px-3"
+              className="pulse-liquid-motion pulse-action h-11 w-full min-w-0 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-2 text-xs font-black text-neutral-950 shadow-[0_0_20px_rgba(245,158,11,.38)] transition-colors hover:from-amber-300 hover:to-amber-200 sm:px-3"
               onClick={() => openModal('deposit')}
             >
               <ArrowDownRight className="size-3.5 shrink-0 stroke-[2.5]" /><span className="truncate">Deposit Capital</span>
@@ -192,7 +196,7 @@ export function DashboardView() {
                   className="pulse-pure-shimmer glow-card pulse-tile flex min-w-0 flex-col items-stretch justify-between gap-3 rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/95 via-neutral-800/70 to-neutral-900/95 p-4 shadow-[0_0_20px_rgba(0,0,0,.5)] transition-colors sm:flex-row sm:items-center sm:p-5"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-400 shadow-[0_0_14px_rgba(245,158,11,.25)]">
+                    <div className="pulse-ambient-float flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-400 shadow-[0_0_14px_rgba(245,158,11,.25)]">
                       <HoldingIcon className="size-5" />
                     </div>
                     <div className="min-w-0 space-y-0.5">
@@ -250,8 +254,10 @@ export function DashboardView() {
                 viewport={{ once: true, amount: 0.15 }}
                 whileHover={{ y: -3, scale: 1.01 }}
                 transition={{ duration: 0.45 }}
+                onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); mouseX.set(event.clientX - rect.left); mouseY.set(event.clientY - rect.top) }}
                 className="pulse-pure-shimmer group glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
               >
+                <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
                 {p.image && (
                   <div className="relative -mx-5 -mt-5 mb-4 h-32 overflow-hidden border-b border-white/10 bg-neutral-950">
                     <img src={p.image} alt={`${p.name} project`} className="h-full w-full object-cover object-center opacity-90 transition-transform duration-500 group-hover:scale-105" />
@@ -259,10 +265,10 @@ export function DashboardView() {
                     <span className="absolute bottom-3 left-4 rounded-full border border-amber-300/30 bg-black/50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-200 backdrop-blur-sm">Verified project</span>
                   </div>
                 )}
-                <div className="relative">
+                <div className="relative z-10">
                 <div className="flex min-w-0 flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700 text-amber-400">
+                    <div className="pulse-ambient-float flex size-10 shrink-0 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800 text-amber-400">
                       <Icon className="size-5" />
                     </div>
                     <div>
@@ -352,18 +358,20 @@ function ActionTile({ icon, label, detail, badge, tone, onClick }: { icon: React
   }
 
   return (
-    <button
+    <motion.button
+      whileHover={{ y: -3, scale: 1.015 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
       className={`pulse-pure-shimmer quick-action-tile pulse-tile group relative flex min-h-32 flex-col items-start justify-between gap-5 overflow-hidden rounded-3xl border bg-gradient-to-br p-4 text-left shadow-xl transition duration-300 hover:-translate-y-0.5 ${tones[tone]}`}
     >
       <div className="absolute -right-5 -top-5 size-20 rounded-full bg-current opacity-10 blur-2xl transition-opacity group-hover:opacity-20" />
       <div className="flex w-full items-start justify-between gap-2">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-current/30 bg-current/10 shadow-[0_0_18px_rgba(245,158,11,.16)] transition-transform duration-300 group-hover:scale-105">
+        <div className="pulse-ambient-float flex size-11 shrink-0 items-center justify-center rounded-2xl border border-current/30 bg-current/10 shadow-[0_0_18px_rgba(245,158,11,.16)] transition-transform duration-300 group-hover:scale-105">
           {icon}
         </div>
         <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${badgeTones[tone]}`}>{badge}</span>
       </div>
       <div className="space-y-1"><span className="block font-display text-sm font-bold text-white transition-colors group-hover:text-current">{label}</span><span className="block text-xs text-neutral-400">{detail}</span></div>
-    </button>
+    </motion.button>
   )
 }
