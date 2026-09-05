@@ -21,15 +21,12 @@ import { AdminView } from './views/admin'
 const viewVariants = {
   initial: {
     opacity: 0,
-    y: 18,
-    scale: 0.985,
-    filter: 'blur(5px)',
+    y: 12,
   },
   animate: {
     opacity: 1,
     y: 0,
     scale: 1,
-    filter: 'blur(0px)',
     transition: {
       duration: 0.28,
       ease: [0.22, 1, 0.36, 1], // Luxury cubic-bezier curve
