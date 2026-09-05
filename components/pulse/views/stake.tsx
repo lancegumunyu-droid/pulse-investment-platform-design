@@ -4,7 +4,6 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Zap, Vote, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { RiskNote } from '../ui-bits'
 
 interface GovernanceProposal {
@@ -161,12 +160,12 @@ export function StakeView() {
                 <span className="text-amber-400/90 font-mono">Max 45,171</span>
               </div>
               <div className="relative">
-                <Input
+                <input
                   type="number"
                   placeholder="0"
                   value={stakeAmount}
                   onChange={(e) => setStakeAmount(e.target.value)}
-                  className="bg-black/60 border-white/10 text-white placeholder:text-zinc-600 focus:border-amber-400/80 h-11 text-sm rounded-xl font-mono pr-14"
+                  className="w-full bg-black/60 border border-white/10 text-white placeholder:text-zinc-600 focus:border-amber-400/80 focus:outline-none h-11 text-sm rounded-xl font-mono px-3 pr-14 transition-colors"
                 />
               </div>
             </div>
@@ -277,5 +276,4 @@ export function StakeView() {
       </motion.div>
     </motion.div>
   )
-          }
-              
+}
