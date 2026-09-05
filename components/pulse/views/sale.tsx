@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, useMotionValue, useMotionTemplate } from 'framer-motion'
+import { AnimatePresence, motion, useMotionValue, useMotionTemplate } from 'framer-motion'
 import { Sparkles, Coins, Zap, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { Glass, Pill, ProgressBar, RiskNote, SectionTitle } from '../ui-bits'
@@ -377,21 +377,28 @@ export function SaleView() {
 // Helper Row Component
 function Row({ label, value, tone, bold }: { label: string; value: string; tone?: 'gold' | 'green'; bold?: boolean }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-zinc-400 text-xs font-semibold">{label}</span>
-      <span
-        className={cn(
-          'font-mono text-xs font-bold tracking-wide',
-          bold && 'text-sm font-black',
-          tone === 'gold' 
-            ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' 
-            : tone === 'green' 
-              ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]' 
-              : 'text-white'
-        )}
-      >
-        {value}
-      </span>
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs font-semibold text-zinc-400">{label}</span>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={value}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 5 }}
+          transition={{ duration: 0.2 }}
+          className={cn(
+            'shrink-0 font-mono text-xs font-bold tracking-wide',
+            bold && 'text-sm font-black',
+            tone === 'gold'
+              ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+              : tone === 'green'
+                ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+                : 'text-white'
+          )}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
     </div>
   )
 }
