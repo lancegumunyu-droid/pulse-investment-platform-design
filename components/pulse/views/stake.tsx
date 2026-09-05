@@ -1,40 +1,66 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, ShieldCheck, Zap, Lock, Info, CheckCircle2 } from 'lucide-react'
+import { Zap, Vote, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { RiskNote } from '../ui-bits'
 
-const STAKING_POOLS = [
-  { id: 'pulse-vault-30', title: '30-Day Growth Vault', apy: '12.5%', lockPeriod: '30 Days', minStake: '100', riskLevel: 'Low', totalStaked: '$1,240,500', featured: false },
-  { id: 'pulse-vault-90', title: '90-Day High Yield Vault', apy: '18.8%', lockPeriod: '90 Days', minStake: '250', riskLevel: 'Moderate', totalStaked: '$3,890,200', featured: true },
-  { id: 'pulse-vault-180', title: '180-Day Premier Lock', apy: '24.2%', lockPeriod: '180 Days', minStake: '500', riskLevel: 'Moderate', totalStaked: '$5,120,000', featured: false },
+interface GovernanceProposal {
+  id: string
+  title: string
+  status: 'Active' | 'Passing' | 'Closed'
+  forPct: number
+  againstPct: number
+}
+
+const GOVERNANCE_PROPOSALS: GovernanceProposal[] = [
+  {
+    id: 'gov-1',
+    title: 'Add Namibian green hydrogen project to the platform',
+    status: 'Active',
+    forPct: 72,
+    againstPct: 28,
+  },
+  {
+    id: 'gov-2',
+    title: 'Lower minimum entry for the Starter tier to $50',
+    status: 'Active',
+    forPct: 58,
+    againstPct: 42,
+  },
+  {
+    id: 'gov-3',
+    title: 'Allocate 5% of fees to a community reserve',
+    status: 'Passing',
+    forPct: 81,
+    againstPct: 19,
+  },
 ]
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.02 },
+  },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+  },
 }
 
 export function StakeView() {
-  const [selectedPool, setSelectedPool] = useState(STAKING_POOLS[1].id)
+  const [activeTab, setActiveTab] = useState<'stake' | 'unstake'>('stake')
   const [stakeAmount, setStakeAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [mousePos, setMousePos] = useState({ x: 200, y: 100 })
-
-  const activePoolData = STAKING_POOLS.find((p) => p.id === selectedPool) || STAKING_POOLS[1]
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-  }
+  const [votedProposals, setVotedProposals] = useState<Record<string, 'for' | 'against'>>({})
 
   const handleStakeSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,54 +69,213 @@ export function StakeView() {
     setIsSubmitting(true)
     setTimeout(() => {
       setIsSubmitting(false)
-      setIsSuccess(true)
-      setTimeout(() => setIsSuccess(false), 4000)
+      setStakeAmount('')
     }, 1200)
   }
 
-  const calculatedReturn = useCallback(() => {
-    const amount = parseFloat(stakeAmount)
-    if (Number.isNaN(amount) || amount <= 0) return '0.00'
-    const apy = parseFloat(activePoolData.apy.replace('%', '')) / 100
-    const days = parseInt(activePoolData.lockPeriod, 10) || 30
-    return (amount + amount * apy * (days / 365)).toFixed(2)
-  }, [stakeAmount, activePoolData])
+  const handleVote = (proposalId: string, choice: 'for' | 'against') => {
+    setVotedProposals((prev) => ({ ...prev, [proposalId]: choice }))
+  }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5 max-w-md mx-auto pb-28 pt-2 px-1 text-zinc-100 font-sans">
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20"><TrendingUp className="size-5 text-amber-400" /></div>
-          <div><h2 className="text-base font-bold text-white leading-tight">Vault Staking</h2><p className="text-xs text-zinc-400">Lock assets to earn automated yield payouts.</p></div>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-4 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
+    >
+      {/* Header Section */}
+      <motion.div variants={itemVariants} className="flex items-center gap-3">
+        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+          <Zap className="size-5 fill-amber-400/20" />
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-white leading-tight tracking-tight">Stake & earn</h2>
+          <p className="text-[11px] text-zinc-400 leading-normal">
+            Stake $PULSE to earn rewards and vote on platform decisions.
+          </p>
         </div>
       </motion.div>
 
-      <motion.div variants={itemVariants} className="space-y-3">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Select Staking Pool</span>
-        <div className="grid grid-cols-1 gap-2.5">
-          {STAKING_POOLS.map((pool) => {
-            const isSelected = selectedPool === pool.id
-            return <div key={pool.id} onClick={() => setSelectedPool(pool.id)} className={`cursor-pointer rounded-2xl p-4 border transition-all duration-200 relative overflow-hidden ${isSelected ? 'border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/5' : 'border-white/10 bg-black/40 hover:border-white/20'}`}>
-              {pool.featured && <span className="absolute top-3 right-3 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-400 text-black">Popular</span>}
-              <div className="flex justify-between items-center pr-12"><div><h3 className="text-sm font-bold text-white">{pool.title}</h3><p className="text-xs text-zinc-400 mt-0.5">Min: ${pool.minStake} • Lock: {pool.lockPeriod}</p></div><div className="text-right"><span className="text-base font-extrabold text-amber-400 font-mono">{pool.apy}</span><p className="text-[10px] text-zinc-500">Fixed APY</p></div></div>
-            </div>
-          })}
-        </div>
-      </motion.div>
-
+      {/* Hero APY & Staked Banner with Shimmer Effect */}
       <motion.div variants={itemVariants}>
-        <div onPointerMove={handlePointerMove} style={{ background: `radial-gradient(220px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 158, 11, 0.12), transparent 80%), linear-gradient(to bottom, #141414, #0a0a0a)` }} className="relative rounded-2xl border border-amber-500/20 p-5 shadow-xl space-y-4 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3"><div className="flex items-center gap-2"><Lock className="size-4 text-amber-400" /><span className="text-xs font-bold text-white">{activePoolData.title}</span></div><span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">{activePoolData.apy} APY</span></div>
-          <form onSubmit={handleStakeSubmit} className="space-y-4">
-            <div><div className="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5"><span>Amount to Stake</span><span>Balance: $10,000.00</span></div><div className="relative"><input type="number" placeholder={`Min ${activePoolData.minStake}`} value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} className="w-full bg-black/60 border border-white/15 text-white placeholder:text-zinc-600 focus:border-amber-400 pr-16 h-11 text-sm rounded-xl font-mono px-3 outline-none" /><button type="button" onClick={() => setStakeAmount('1000')} className="absolute right-2 top-2 text-[10px] font-bold px-2 py-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded-lg transition-colors">MAX</button></div></div>
-            <div className="rounded-xl bg-black/40 p-3 border border-white/5 space-y-1.5 text-xs"><div className="flex justify-between text-zinc-400"><span className="flex items-center gap-1"><Info className="size-3 text-zinc-500" /> Estimated Return</span><span className="font-mono text-white font-bold">${calculatedReturn()} USD</span></div><div className="flex justify-between text-zinc-400"><span>Lock Duration</span><span className="font-mono text-zinc-300">{activePoolData.lockPeriod}</span></div></div>
-            <Button type="submit" disabled={isSubmitting || !stakeAmount || Number(stakeAmount) < Number(activePoolData.minStake)} className="w-full h-11 bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/10 flex items-center justify-center gap-2">{isSubmitting ? <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin" /> : isSuccess ? <><CheckCircle2 className="size-4 text-black" /><span>Staked Successfully</span></> : <><Zap className="size-4 fill-black" /><span>Confirm & Stake</span></>}</Button>
+        <div className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-b from-[#18150e] to-[#0a0a08] p-4 shadow-xl">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/5 to-transparent -translate-x-full animate-[shimmer_3s_infinite]" />
+          
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-amber-400/90 font-sans">
+                CURRENT APY
+              </span>
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-amber-400 tracking-tight mt-0.5">
+                24.8%
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 font-sans">
+                STAKED
+              </span>
+              <div className="text-lg sm:text-xl font-bold font-mono text-white mt-0.5">
+                3,300
+              </div>
+              <span className="text-[10px] font-mono font-medium text-emerald-400">
+                ≈ $65.47/yr rewards
+              </span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Stake / Unstake Form Box */}
+      <motion.div variants={itemVariants}>
+        <div className="rounded-2xl border border-white/10 bg-[#111111] p-4 shadow-xl space-y-3.5">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-black/50 border border-white/5">
+            <button
+              type="button"
+              onClick={() => setActiveTab('stake')}
+              className={`py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
+                activeTab === 'stake'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Stake
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('unstake')}
+              className={`py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
+                activeTab === 'unstake'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Unstake
+            </button>
+          </div>
+
+          <form onSubmit={handleStakeSubmit} className="space-y-3">
+            <div>
+              <div className="flex justify-between text-[11px] font-semibold text-zinc-400 mb-1">
+                <span>Amount (PULSE)</span>
+                <span className="text-amber-400/90 font-mono">Max 45,171</span>
+              </div>
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={stakeAmount}
+                  onChange={(e) => setStakeAmount(e.target.value)}
+                  className="bg-black/60 border-white/10 text-white placeholder:text-zinc-600 focus:border-amber-400/80 h-11 text-sm rounded-xl font-mono pr-14"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting || !stakeAmount || Number(stakeAmount) <= 0}
+              className="w-full h-11 bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/10"
+            >
+              {isSubmitting ? (
+                <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+              ) : (
+                <span>{activeTab === 'stake' ? 'Stake PULSE' : 'Unstake PULSE'}</span>
+              )}
+            </Button>
           </form>
         </div>
       </motion.div>
 
-      <motion.div variants={itemVariants}><div className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-zinc-400"><ShieldCheck className="size-4 text-emerald-400 shrink-0" /><span>Smart contracts are audited and yield payouts execute automatically at period end.</span></div></motion.div>
-      <motion.div variants={itemVariants}><RiskNote /></motion.div>
+      {/* Governance Section */}
+      <motion.div variants={itemVariants} className="space-y-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+            <Vote className="size-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white leading-tight">Governance</h3>
+            <p className="text-[11px] text-zinc-400">Staked holders shape the platform.</p>
+          </div>
+        </div>
+
+        {/* Shimmering Governance Proposal Cards */}
+        <div className="space-y-2.5">
+          {GOVERNANCE_PROPOSALS.map((prop) => {
+            const hasVoted = votedProposals[prop.id]
+            return (
+              <div
+                key={prop.id}
+                className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#141414] to-[#0a0a0a] p-3.5 shadow-lg space-y-2.5 transition-all duration-300 hover:border-amber-500/30"
+              >
+                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/40 to-transparent -translate-x-full animate-[shimmer_4s_infinite]" />
+
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-xs font-semibold text-white leading-snug pr-2">{prop.title}</h4>
+                  <span
+                    className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0 ${
+                      prop.status === 'Active'
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`}
+                  >
+                    {prop.status}
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-mono font-semibold">
+                    <span className="text-emerald-400">For {prop.forPct}%</span>
+                    <span className="text-zinc-400">Against {prop.againstPct}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-black/60 rounded-full overflow-hidden border border-white/5 flex">
+                    <div
+                      className="bg-emerald-500 h-full transition-all duration-500"
+                      style={{ width: `${prop.forPct}%` }}
+                    />
+                    <div
+                      className="bg-zinc-700 h-full transition-all duration-500"
+                      style={{ width: `${prop.againstPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleVote(prop.id, 'for')}
+                    className={`py-1.5 px-2 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
+                      hasVoted === 'for'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-black/40 text-zinc-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    {hasVoted === 'for' && <CheckCircle2 className="size-3 text-emerald-400" />}
+                    <span>Vote for</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleVote(prop.id, 'against')}
+                    className={`py-1.5 px-2 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
+                      hasVoted === 'against'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : 'bg-black/40 text-zinc-300 border-white/10 hover:bg-white/5'
+                    }`}
+                  >
+                    {hasVoted === 'against' && <AlertCircle className="size-3 text-rose-400" />}
+                    <span>Against</span>
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </motion.div>
+
+      {/* Risk Disclaimer */}
+      <motion.div variants={itemVariants}>
+        <RiskNote />
+      </motion.div>
     </motion.div>
   )
-}
+          }
+              
