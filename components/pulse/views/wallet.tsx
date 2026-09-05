@@ -10,7 +10,9 @@ import {
   Coins, 
   Zap,
   CheckCircle2,
-  Wallet
+  Wallet,
+  Clock,
+  AlertCircle
 } from 'lucide-react'
 import { usePulse } from '../store'
 import { RiskNote } from '../ui-bits'
@@ -20,31 +22,32 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.02 },
+    transition: { staggerChildren: 0.06, delayChildren: 0.02 },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 15 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 25 },
+    transition: { type: 'spring', stiffness: 320, damping: 26 },
   },
 }
 
+// ----------------------------------------------------------------------
+// DYNAMIC METALLIC CARD WITH HOVER MOTION
+// ----------------------------------------------------------------------
 function DynamicMetallicCard({
   cardholderName,
   cardNumber,
   cvv,
   memberSince,
-  cardStatus,
 }: {
   cardholderName: string
   cardNumber: string
   cvv: string
   memberSince: string
-  cardStatus: string
 }) {
   const [isFlipped, setIsFlipped] = useState(false)
   const [mousePos, setMousePos] = useState({ x: 180, y: 100 })
@@ -88,6 +91,7 @@ function DynamicMetallicCard({
           }}
           className="relative w-full h-full rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(245,166,35,0.15)] group"
         >
+          {/* FRONT */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 p-4 flex flex-col justify-between backface-hidden shadow-2xl"
             style={{
@@ -118,6 +122,7 @@ function DynamicMetallicCard({
             </div>
           </div>
 
+          {/* BACK */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 flex flex-col justify-between py-3 backface-hidden shadow-2xl"
             style={{
@@ -147,8 +152,21 @@ function DynamicMetallicCard({
     </div>
   )
 }
+
+// ----------------------------------------------------------------------
+// FULLY SYNCHRONIZED WALLET VIEW
+// ----------------------------------------------------------------------
 export function WalletView({ userData }: { userData?: any }) {
   const openModal = usePulse((state) => state.openModal)
+  
+  // Pull live activities or establish fallback state synced with store actions if available
+  const [activities, setActivities] = useState<any[]>(userData?.activities || [
+    { id: 1, title: 'Closed investment early — $15 penalty', date: '05/09/2026', status: 'completed', amount: '-$60.00', type: 'expense' },
+    { id: 2, title: 'Project Payout (kalahari-solar)', date: '04/09/2026', status: 'completed', amount: '+$180.00', type: 'income' },
+    { id: 3, title: 'Manual deposit — USDT (TRC-20)', date: '04/09/2026', status: 'pending', amount: '+$100.00', type: 'pending' },
+    { id: 4, title: 'Project share purchase', date: '04/09/2026', status: 'completed', amount: '-$1,500.00', type: 'expense' }
+  ])
+
   const [receivingAddress, setReceivingAddress] = useState(userData?.withdrawalAddress || '')
   const [showSellDrawer, setShowSellDrawer] = useState(false)
   const [sellAmount, setSellAmount] = useState(userData?.pulseWallet?.liquid?.toString() || '45,171')
@@ -159,6 +177,7 @@ export function WalletView({ userData }: { userData?: any }) {
   const pulseLiquid = userData?.pulseWallet?.liquid ?? '45,171'
   const pulseStaked = userData?.pulseWallet?.staked ?? '3,300'
   const totalPulse = userData?.pulseWallet?.total ?? '48,471'
+  
   const cardData = userData?.cardInfo ?? {
     name: 'LANCE GUMUNYU',
     number: '•••• •••• •••• 9C87',
@@ -166,24 +185,27 @@ export function WalletView({ userData }: { userData?: any }) {
     memberSince: '2023',
     status: 'approved'
   }
-  const activityList = userData?.activities || [
-    { id: 1, title: 'Closed investment early — $15 penalty', date: '05/09/2026', status: 'completed', amount: '-$60.00', type: 'expense' },
-    { id: 2, title: 'Project Payout (kalahari-solar)', date: '04/09/2026', status: 'completed', amount: '+$180.00', type: 'income' },
-    { id: 3, title: 'Project Payout (kalahari-solar)', date: '04/09/2026', status: 'completed', amount: '+$9.00', type: 'income' },
-    { id: 4, title: 'Manual deposit — USDT (TRC-20)', date: '04/09/2026', status: 'pending', amount: '+$100.00', type: 'pending' },
-    { id: 5, title: 'Project share purchase', date: '04/09/2026', status: 'completed', amount: '-$1,500.00', type: 'expense' }
-  ]
 
   const handleConfirmSale = () => {
     setIsSelling(true)
     setTimeout(() => {
       setIsSelling(false)
       setSellSuccess(true)
+      // Automatically inject activity item upon successful conversion
+      const newActivity = {
+        id: Date.now(),
+        title: `PULSE Sold to Cash (${sellAmount} tokens)`,
+        date: new Date().toLocaleDateString('en-GB'),
+        status: 'completed',
+        amount: `+$${(parseFloat(sellAmount.replace(/,/g, '')) * 0.08 || 0).toFixed(2)}`,
+        type: 'income'
+      }
+      setActivities(prev => [newActivity, ...prev])
       setTimeout(() => {
         setSellSuccess(false)
         setShowSellDrawer(false)
-      }, 2500)
-    }, 1800)
+      }, 2000)
+    }, 1600)
   }
 
   return (
@@ -193,16 +215,18 @@ export function WalletView({ userData }: { userData?: any }) {
       animate="visible" 
       className="space-y-4 max-w-md mx-auto pb-32 pt-1 px-2 text-zinc-100 font-sans"
     >
+      {/* HEADER TITLE */}
       <motion.div variants={itemVariants} className="space-y-0.5 px-1">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-xl bg-amber-500/15 text-amber-400">
             <Wallet className="size-4" />
           </div>
-          <h2 className="text-base font-extrabold text-white">Wallet</h2>
+          <h2 className="text-base font-extrabold text-white">Wallet & Activity</h2>
         </div>
-        <p className="text-[11px] text-zinc-400 pl-7">Manage funds, connect a wallet, and review activity.</p>
+        <p className="text-[11px] text-zinc-400 pl-7">Real-time ledger tracking for deposits, withdrawals, and payouts.</p>
       </motion.div>
 
+      {/* 1. CASH WALLET TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -248,6 +272,7 @@ export function WalletView({ userData }: { userData?: any }) {
         </div>
       </motion.div>
 
+      {/* 2. WITHDRAWAL WALLET STATUS TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -272,6 +297,7 @@ export function WalletView({ userData }: { userData?: any }) {
         </Button>
       </motion.div>
 
+      {/* 3. PULSE WALLET TILE & SELL DRAWER */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -295,10 +321,6 @@ export function WalletView({ userData }: { userData?: any }) {
             <span className="text-sm font-black font-mono text-amber-300">{pulseStaked}</span>
           </div>
         </div>
-
-        <p className="text-[10px] text-zinc-400 leading-tight">
-          Unstaking moves PULSE from Staked to Liquid instantly — it stays in this wallet, ready to use or convert.
-        </p>
 
         {!showSellDrawer ? (
           <Button
@@ -351,6 +373,7 @@ export function WalletView({ userData }: { userData?: any }) {
         )}
       </motion.div>
 
+      {/* 4. PULSE CARD TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -373,7 +396,6 @@ export function WalletView({ userData }: { userData?: any }) {
           cardNumber={cardData.number}
           cvv={cardData.cvv}
           memberSince={cardData.memberSince}
-          cardStatus={cardData.status}
         />
 
         <p className="text-[10px] text-zinc-400 text-center leading-normal px-2">
@@ -381,11 +403,17 @@ export function WalletView({ userData }: { userData?: any }) {
         </p>
       </motion.div>
 
+      {/* 5. LIVE SYNCHRONIZED ACTIVITY FEED */}
       <motion.div variants={itemVariants} className="space-y-2.5 pt-2">
-        <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400 px-1">Activity</h4>
+        <div className="flex items-center justify-between px-1">
+          <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Live Activity Feed</h4>
+          <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Sync Active
+          </span>
+        </div>
 
         <div className="space-y-2">
-          {activityList.map((item: any) => {
+          {activities.map((item: any) => {
             const isPositive = item.amount.startsWith('+')
             const isPending = item.status === 'pending'
 
@@ -393,33 +421,15 @@ export function WalletView({ userData }: { userData?: any }) {
               <motion.div 
                 key={item.id}
                 whileHover={{ scale: 1.01 }} 
-                className="rounded-2xl border border-white/10 p-3 bg-[#101217] flex items-center justify-between transition-colors"
+                className="rounded-2xl border border-white/10 hover:border-amber-500/30 p-3 bg-[#101217] flex items-center justify-between transition-colors shadow-sm"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className={`size-7 rounded-xl flex items-center justify-center ${
-                    isPending ? 'bg-amber-500/20 text-amber-400' : isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                <div className="flex items-center gap-3">
+                  <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    isPending 
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                      : isPositive 
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
                   }`}>
-                    {isPending ? <RefreshCw className="size-3.5 animate-spin" /> : isPositive ? <ArrowDownLeft className="size-3.5" /> : <ArrowUpRight className="size-3.5" />}
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-white">{item.title}</h5>
-                    <p className="text-[10px] font-mono text-zinc-400">{item.date} • {item.status}</p>
-                  </div>
-                </div>
-                <span className={`text-xs font-mono font-bold ${
-                  isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-red-400'
-                }`}>
-                  {item.amount}
-                </span>
-              </motion.div>
-            )
-          })}
-        </div>
-      </motion.div>
-
-      <motion.div variants={itemVariants} className="pt-2">
-        <RiskNote />
-      </motion.div>
-    </motion.div>
-  )
-        }
+                    {isPending ? (
+                      <Clock className="size-4 animate-spin" />
