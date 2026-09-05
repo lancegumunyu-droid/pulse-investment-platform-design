@@ -40,7 +40,7 @@ export function DashboardView() {
   }, [api])
 
   return (
-    <div className="pulse-home mx-auto w-full max-w-5xl space-y-7 pb-16 text-neutral-100 antialiased">
+    <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
       
       {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
@@ -60,7 +60,7 @@ export function DashboardView() {
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
       <div className="glow-edge glass-gold pulse-surface overflow-hidden rounded-[2rem] shadow-2xl">
-        <div className="p-6 sm:p-8 space-y-6">
+        <div className="space-y-5 p-5 sm:p-6">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Total Net Portfolio Value
@@ -83,7 +83,7 @@ export function DashboardView() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
             <Button
               size="lg"
               className="pulse-action h-11 rounded-xl bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 transition-colors shadow-sm"
