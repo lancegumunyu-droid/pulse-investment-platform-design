@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState, useEffect } from 'react'
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { 
   Wallet, 
@@ -19,6 +19,7 @@ import {
 import { usePulse } from '../store'
 import { Glass, Pill, RiskNote } from '../ui-bits'
 import { Button } from '@/components/ui/button'
+import { createClient } from '@/utils/supabase/client'
 
 export interface WalletAsset {
   id: string
@@ -31,7 +32,6 @@ export interface WalletAsset {
   color: string
 }
 
-// Stagger Container Physics matching Dashboard / Signals view
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -57,7 +57,6 @@ const itemVariants = {
   },
 }
 
-// 3D Perspective Reactive Main Balance Card
 function MainPortfolioCard({
   totalBalance,
   totalYield24h,
@@ -117,16 +116,13 @@ function MainPortfolioCard({
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         className="relative overflow-hidden rounded-3xl border border-amber-500/30 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.7)] space-y-6 backdrop-blur-2xl group"
       >
-        {/* Shimmer Line */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
 
-        {/* Specular Glow */}
         <div 
           className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
           style={{ background: `radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 255, 255, 0.08), transparent 50%)` }}
         />
 
-        {/* Top Header Row */}
         <div className="flex items-center justify-between relative z-10" style={{ transform: 'translateZ(20px)' }}>
           <div className="flex items-center gap-2.5">
             <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
@@ -148,7 +144,6 @@ function MainPortfolioCard({
           </Pill>
         </div>
 
-        {/* Balance Display */}
         <div className="space-y-1 relative z-10" style={{ transform: 'translateZ(30px)' }}>
           <span className="text-xs text-zinc-400 font-medium tracking-wide">Total Net Liquidity (USD Equivalent)</span>
           <div className="flex items-baseline gap-3">
@@ -162,7 +157,6 @@ function MainPortfolioCard({
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3 pt-2 relative z-10 border-t border-white/10" style={{ transform: 'translateZ(25px)' }}>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <Button
@@ -190,7 +184,6 @@ function MainPortfolioCard({
   )
 }
 
-// Individual Asset Holding Card
 function AssetCard({ asset }: { asset: WalletAsset }) {
   const [mousePos, setMousePos] = useState({ x: 150, y: 80 })
   const [isHovered, setIsHovered] = useState(false)
@@ -265,52 +258,77 @@ function AssetCard({ asset }: { asset: WalletAsset }) {
 
 export function WalletView() {
   const openModal = usePulse((state) => state.openModal)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [assets, setAssets] = useState<WalletAsset[]>([])
 
-  // Mock Active SADC Asset Holdings (ZAR Stablecoin, USDC, Pi RWA Tokens)
-  const [assets] = useState<WalletAsset[]>([
-    {
-      id: '1',
-      symbol: 'ZARs',
-      name: 'South African Rand Stable',
-      balance: 145250.00,
-      fiatValueUSD: 7980.25,
-      change24h: 4.8,
-      chain: 'Polygon RWA',
-      color: '#F5A623',
-    },
-    {
-      id: '2',
-      symbol: 'USDC',
-      name: 'USD Coin',
-      balance: 24500.00,
-      fiatValueUSD: 24500.00,
-      change24h: 0.0,
-      chain: 'Ethereum',
-      color: '#2775CA',
-    },
-    {
-      id: '3',
-      symbol: 'SOLAR-ZAR',
-      name: 'Bushveld Solar Yield Token',
-      balance: 1250.00,
-      fiatValueUSD: 12850.50,
-      change24h: 12.4,
-      chain: 'Pulse SADC L1',
-      color: '#10B981',
-    },
-    {
-      id: '4',
-      symbol: 'AGRI-MZ',
-      name: 'Mozambique Agro-Export Share',
-      balance: 840.00,
-      fiatValueUSD: 9400.00,
-      change24h: 8.2,
-      chain: 'Pulse SADC L1',
-      color: '#06B6D4',
-    },
-  ])
+  const supabase = createClient()
+
+  const fetchWalletAssets = async () => {
+    try {
+      setIsRefreshing(true)
+      const { data, error } = await supabase.from('wallet_assets').select('*')
+
+      if (error) {
+        console.error('Error fetching wallet assets from Supabase:', error.message)
+      } else if (data && data.length > 0) {
+        setAssets(data)
+      } else {
+        // Fallback default assets if table is empty
+        setAssets([
+          {
+            id: '1',
+            symbol: 'ZARs',
+            name: 'South African Rand Stable',
+            balance: 145250.00,
+            fiatValueUSD: 7980.25,
+            change24h: 4.8,
+            chain: 'Polygon RWA',
+            color: '#F5A623',
+          },
+          {
+            id: '2',
+            symbol: 'USDC',
+            name: 'USD Coin',
+            balance: 24500.00,
+            fiatValueUSD: 24500.00,
+            change24h: 0.0,
+            chain: 'Ethereum',
+            color: '#2775CA',
+          },
+          {
+            id: '3',
+            symbol: 'SOLAR-ZAR',
+            name: 'Bushveld Solar Yield Token',
+            balance: 1250.00,
+            fiatValueUSD: 12850.50,
+            change24h: 12.4,
+            chain: 'Pulse SADC L1',
+            color: '#10B981',
+          },
+          {
+            id: '4',
+            symbol: 'AGRI-MZ',
+            name: 'Mozambique Agro-Export Share',
+            balance: 840.00,
+            fiatValueUSD: 9400.00,
+            change24h: 8.2,
+            chain: 'Pulse SADC L1',
+            color: '#06B6D4',
+          },
+        ])
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching wallet:', err)
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchWalletAssets()
+  }, [])
 
   const totalBalance = useMemo(() => {
     return assets.reduce((acc, curr) => acc + curr.fiatValueUSD, 0)
@@ -321,9 +339,7 @@ export function WalletView() {
   }, [assets])
 
   const handleRefresh = async () => {
-    setIsRefreshing(true)
-    await new Promise((r) => setTimeout(r, 900))
-    setIsRefreshing(false)
+    await fetchWalletAssets()
   }
 
   return (
@@ -333,7 +349,6 @@ export function WalletView() {
       animate="visible"
       className="pulse-wallet space-y-5 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
     >
-      {/* Header Row */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <motion.div
@@ -356,7 +371,6 @@ export function WalletView() {
           </div>
         </div>
 
-        {/* Refresh Action */}
         <motion.div whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.9 }}>
           <Button
             size="sm"
@@ -370,7 +384,6 @@ export function WalletView() {
         </motion.div>
       </motion.div>
 
-      {/* Main Treasury Card */}
       <MainPortfolioCard
         totalBalance={totalBalance}
         totalYield24h={totalYield24h}
@@ -378,7 +391,6 @@ export function WalletView() {
         onWithdraw={() => openModal('withdraw')}
       />
 
-      {/* Asset Holdings Section Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between pt-2">
         <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
           <PieChart className="size-3.5 text-amber-400" />
@@ -389,7 +401,6 @@ export function WalletView() {
         </span>
       </motion.div>
 
-      {/* Asset List Grid */}
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
           {assets.map((asset) => (
@@ -398,7 +409,6 @@ export function WalletView() {
         </AnimatePresence>
       </div>
 
-      {/* Footer Risk Note */}
       <motion.div variants={itemVariants}>
         <RiskNote />
       </motion.div>
