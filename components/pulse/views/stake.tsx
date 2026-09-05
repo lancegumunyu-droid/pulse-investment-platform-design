@@ -1,217 +1,96 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Vote, Zap } from 'lucide-react'
-import { money, usePulse } from '../store'
-import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
-import { TOKEN } from '@/lib/pulse-data'
+import { TrendingUp, ShieldCheck, Zap, Lock, Info, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { RiskNote } from '../ui-bits'
 
-const PROPOSALS = [
-  { id: 'p1', title: 'Add Namibian green hydrogen project to the platform', forPct: 72, status: 'Active' },
-  { id: 'p2', title: 'Lower minimum entry for the Starter tier to $50', forPct: 58, status: 'Active' },
-  { id: 'p3', title: 'Allocate 5% of fees to a community reserve', forPct: 81, status: 'Passing' },
+const STAKING_POOLS = [
+  { id: 'pulse-vault-30', title: '30-Day Growth Vault', apy: '12.5%', lockPeriod: '30 Days', minStake: '100', riskLevel: 'Low', totalStaked: '$1,240,500', featured: false },
+  { id: 'pulse-vault-90', title: '90-Day High Yield Vault', apy: '18.8%', lockPeriod: '90 Days', minStake: '250', riskLevel: 'Moderate', totalStaked: '$3,890,200', featured: true },
+  { id: 'pulse-vault-180', title: '180-Day Premier Lock', apy: '24.2%', lockPeriod: '180 Days', minStake: '500', riskLevel: 'Moderate', totalStaked: '$5,120,000', featured: false },
 ]
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
 }
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
 }
 
 export function StakeView() {
-  const { state, api, busy, toast } = usePulse()
-  const [mode, setMode] = useState<'stake' | 'unstake'>('stake')
-  const [amount, setAmount] = useState('')
-  const [voted, setVoted] = useState<Record<string, 'for' | 'against'>>({})
+  const [selectedPool, setSelectedPool] = useState(STAKING_POOLS[1].id)
+  const [stakeAmount, setStakeAmount] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [mousePos, setMousePos] = useState({ x: 200, y: 100 })
 
-  const value = Number(amount) || 0
-  const max = mode === 'stake' ? state.pulse : state.staked
-  const estYearly = (state.staked * TOKEN.salePrice * TOKEN.stakingApy) / 100
+  const activePoolData = STAKING_POOLS.find((p) => p.id === selectedPool) || STAKING_POOLS[1]
 
-  const act = async () => {
-    if (value <= 0 || value > max) {
-      toast({ title: 'Invalid amount', description: `Max ${money(max, 0)} PULSE.`, variant: 'error' })
-      return
-    }
-    const res = mode === 'stake' ? await api.stake(value) : await api.unstake(value)
-    if (!res.ok) {
-      toast({ title: 'Action failed', description: res.error, variant: 'error' })
-      return
-    }
-    toast({
-      title: mode === 'stake' ? 'Staked successfully' : 'Unstaked successfully',
-      description: `${money(value, 0)} PULSE ${mode === 'stake' ? 'is now earning rewards' : 'returned to balance'}.`,
-      variant: 'success',
-    })
-    setAmount('')
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
   }
 
-  const vote = async (id: string, dir: 'for' | 'against') => {
-    if (state.staked <= 0) {
-      toast({ title: 'Stake to vote', description: 'You need staked PULSE to participate in governance.', variant: 'error' })
-      return
-    }
-    const res = await api.vote(id, dir)
-    if (!res.ok) {
-      toast({ title: 'Vote failed', description: res.error, variant: 'error' })
-      return
-    }
-    setVoted((v) => ({ ...v, [id]: dir }))
-    toast({ title: 'Vote recorded', description: `Your ${dir === 'for' ? 'support' : 'objection'} was counted.`, variant: 'success' })
+  const handleStakeSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!stakeAmount || Number(stakeAmount) <= 0) return
+
+    setIsSubmitting(true)
+    setTimeout(() => {
+      setIsSubmitting(false)
+      setIsSuccess(true)
+      setTimeout(() => setIsSuccess(false), 4000)
+    }, 1200)
   }
+
+  const calculatedReturn = useCallback(() => {
+    const amount = parseFloat(stakeAmount)
+    if (Number.isNaN(amount) || amount <= 0) return '0.00'
+    const apy = parseFloat(activePoolData.apy.replace('%', '')) / 100
+    const days = parseInt(activePoolData.lockPeriod, 10) || 30
+    return (amount + amount * apy * (days / 365)).toFixed(2)
+  }, [stakeAmount, activePoolData])
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
-      <motion.div variants={itemVariants}>
-        <SectionTitle
-          title="Stake & earn"
-          subtitle="Stake $PULSE to earn rewards and vote on platform decisions."
-          icon={<Zap className="size-5" />}
-        />
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <Glass gold className="border border-gold/20 bg-black/40 backdrop-blur-xl p-5 shadow-2xl relative overflow-hidden">
-          <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-gold/10 blur-2xl" />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gold font-semibold">Current APY</p>
-              <p className="mt-0.5 font-mono text-3xl font-semibold text-white">{TOKEN.stakingApy}%</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Staked</p>
-              <p className="font-mono text-lg font-semibold text-white">{money(state.staked, 0)}</p>
-              <p className="text-xs text-green font-medium">≈ ${money(estYearly)}/yr rewards</p>
-            </div>
-          </div>
-        </Glass>
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          <div className="mb-4 grid grid-cols-2 gap-2">
-            {(['stake', 'unstake'] as const).map((m) => (
-              <motion.button
-                key={m}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => {
-                  setMode(m)
-                  setAmount('')
-                }}
-                className={cn(
-                  'rounded-2xl border px-4 py-2.5 text-sm font-semibold capitalize transition-all',
-                  mode === m 
-                    ? 'border-gold/50 bg-gold/15 text-gold shadow-lg shadow-gold/5' 
-                    : 'border-white/10 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:text-white',
-                )}
-              >
-                {m}
-              </motion.button>
-            ))}
-          </div>
-
-          <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
-            <span>Amount (PULSE)</span>
-            <button onClick={() => setAmount(String(max))} className="font-medium text-gold hover:underline">
-              Max {money(max, 0)}
-            </button>
-          </div>
-
-          <input
-            type="number"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 font-mono text-sm text-white outline-none focus:border-gold/50 focus:bg-white/[0.08] transition-all"
-          />
-
-          <motion.div whileTap={{ scale: 0.98 }}>
-            <Button
-              size="lg"
-              className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90 capitalize shadow-lg shadow-gold/20"
-              onClick={act}
-              disabled={busy}
-            >
-              {mode} PULSE
-            </Button>
-          </motion.div>
-
-          {state.pulse + state.staked === 0 ? (
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              Get $PULSE from the private sale to start staking.
-            </p>
-          ) : null}
-        </Glass>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5 max-w-md mx-auto pb-28 pt-2 px-1 text-zinc-100 font-sans">
+      <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20"><TrendingUp className="size-5 text-amber-400" /></div>
+          <div><h2 className="text-base font-bold text-white leading-tight">Vault Staking</h2><p className="text-xs text-zinc-400">Lock assets to earn automated yield payouts.</p></div>
+        </div>
       </motion.div>
 
       <motion.div variants={itemVariants} className="space-y-3">
-        <SectionTitle title="Governance" subtitle="Staked holders shape the platform." icon={<Vote className="size-5" />} />
-        <div className="space-y-3">
-          {PROPOSALS.map((p) => (
-            <Glass key={p.id} className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-medium leading-relaxed text-white">{p.title}</p>
-                <Pill tone={p.status === 'Passing' ? 'green' : 'gold'}>{p.status}</Pill>
-              </div>
-
-              <div className="mt-4">
-                <div className="mb-1.5 flex justify-between text-xs text-muted-foreground font-medium">
-                  <span className="text-green">For {p.forPct}%</span>
-                  <span className="text-white">Against {100 - p.forPct}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-green transition-all duration-500" style={{ width: `${p.forPct}%` }} />
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <motion.div whileTap={{ scale: 0.97 }}>
-                  <Button
-                    size="sm"
-                    variant={voted[p.id] === 'for' ? 'default' : 'outline'}
-                    className={cn(
-                      'w-full font-semibold transition-all',
-                      voted[p.id] === 'for' 
-                        ? 'bg-green text-background hover:bg-green/90' 
-                        : 'border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]'
-                    )}
-                    onClick={() => vote(p.id, 'for')}
-                  >
-                    Vote for
-                  </Button>
-                </motion.div>
-                <motion.div whileTap={{ scale: 0.97 }}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className={cn(
-                      'w-full font-semibold transition-all',
-                      voted[p.id] === 'against' 
-                        ? 'border-destructive/50 text-destructive bg-destructive/10' 
-                        : 'border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]'
-                    )}
-                    onClick={() => vote(p.id, 'against')}
-                  >
-                    Against
-                  </Button>
-                </motion.div>
-              </div>
-            </Glass>
-          ))}
+        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Select Staking Pool</span>
+        <div className="grid grid-cols-1 gap-2.5">
+          {STAKING_POOLS.map((pool) => {
+            const isSelected = selectedPool === pool.id
+            return <div key={pool.id} onClick={() => setSelectedPool(pool.id)} className={`cursor-pointer rounded-2xl p-4 border transition-all duration-200 relative overflow-hidden ${isSelected ? 'border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/5' : 'border-white/10 bg-black/40 hover:border-white/20'}`}>
+              {pool.featured && <span className="absolute top-3 right-3 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-400 text-black">Popular</span>}
+              <div className="flex justify-between items-center pr-12"><div><h3 className="text-sm font-bold text-white">{pool.title}</h3><p className="text-xs text-zinc-400 mt-0.5">Min: ${pool.minStake} • Lock: {pool.lockPeriod}</p></div><div className="text-right"><span className="text-base font-extrabold text-amber-400 font-mono">{pool.apy}</span><p className="text-[10px] text-zinc-500">Fixed APY</p></div></div>
+            </div>
+          })}
         </div>
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <RiskNote />
+        <div onPointerMove={handlePointerMove} style={{ background: `radial-gradient(220px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 158, 11, 0.12), transparent 80%), linear-gradient(to bottom, #141414, #0a0a0a)` }} className="relative rounded-2xl border border-amber-500/20 p-5 shadow-xl space-y-4 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3"><div className="flex items-center gap-2"><Lock className="size-4 text-amber-400" /><span className="text-xs font-bold text-white">{activePoolData.title}</span></div><span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">{activePoolData.apy} APY</span></div>
+          <form onSubmit={handleStakeSubmit} className="space-y-4">
+            <div><div className="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5"><span>Amount to Stake</span><span>Balance: $10,000.00</span></div><div className="relative"><input type="number" placeholder={`Min ${activePoolData.minStake}`} value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} className="w-full bg-black/60 border border-white/15 text-white placeholder:text-zinc-600 focus:border-amber-400 pr-16 h-11 text-sm rounded-xl font-mono px-3 outline-none" /><button type="button" onClick={() => setStakeAmount('1000')} className="absolute right-2 top-2 text-[10px] font-bold px-2 py-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded-lg transition-colors">MAX</button></div></div>
+            <div className="rounded-xl bg-black/40 p-3 border border-white/5 space-y-1.5 text-xs"><div className="flex justify-between text-zinc-400"><span className="flex items-center gap-1"><Info className="size-3 text-zinc-500" /> Estimated Return</span><span className="font-mono text-white font-bold">${calculatedReturn()} USD</span></div><div className="flex justify-between text-zinc-400"><span>Lock Duration</span><span className="font-mono text-zinc-300">{activePoolData.lockPeriod}</span></div></div>
+            <Button type="submit" disabled={isSubmitting || !stakeAmount || Number(stakeAmount) < Number(activePoolData.minStake)} className="w-full h-11 bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/10 flex items-center justify-center gap-2">{isSubmitting ? <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin" /> : isSuccess ? <><CheckCircle2 className="size-4 text-black" /><span>Staked Successfully</span></> : <><Zap className="size-4 fill-black" /><span>Confirm & Stake</span></>}</Button>
+          </form>
+        </div>
       </motion.div>
+
+      <motion.div variants={itemVariants}><div className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-zinc-400"><ShieldCheck className="size-4 text-emerald-400 shrink-0" /><span>Smart contracts are audited and yield payouts execute automatically at period end.</span></div></motion.div>
+      <motion.div variants={itemVariants}><RiskNote /></motion.div>
     </motion.div>
   )
 }
