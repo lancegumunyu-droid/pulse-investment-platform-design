@@ -45,7 +45,7 @@ export function DashboardView() {
 
   return (
     <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
-      {/* 1. STATUS HEADER */}
+      <style>{`\n        @keyframes pulsePureGlow { 0%, 100% { opacity: .4; transform: scale(1); } 50% { opacity: .85; transform: scale(1.03); } }\n        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.25); box-shadow: 0 0 10px rgba(245,158,11,.1); } 50% { border-color: rgba(245,158,11,.7); box-shadow: 0 0 25px rgba(245,158,11,.35); } }\n        @keyframes pulseEmerald { 0%, 100% { border-color: rgba(16,185,129,.3); box-shadow: 0 0 10px rgba(16,185,129,.15); } 50% { border-color: rgba(16,185,129,.7); box-shadow: 0 0 22px rgba(16,185,129,.35); } }\n        @keyframes pulseConicSpin { to { transform: rotate(360deg); } }\n        .pulse-pure-glow { animation: pulsePureGlow 2.5s ease-in-out infinite; }\n        .pulse-pure-shimmer { animation: pulseShimmer 3.5s ease-in-out infinite; }\n        .pulse-pure-emerald { animation: pulseEmerald 3.5s ease-in-out infinite; }\n        .pulse-conic-spin { animation: pulseConicSpin 8s linear infinite; }\n        @media (prefers-reduced-motion: reduce) { .pulse-pure-glow, .pulse-pure-shimmer, .pulse-pure-emerald, .pulse-conic-spin { animation: none; } }\n      `}</style>\n      {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex items-center gap-2.5">
           <span className="relative flex size-2">
@@ -63,7 +63,7 @@ export function DashboardView() {
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
       <div className="relative overflow-hidden rounded-2xl p-px shadow-[0_0_35px_rgba(245,158,11,.15)]">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }} className="pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_120deg,#10b981_240deg,#f59e0b_360deg)] opacity-70" />
+        <motion.div className="pulse-conic-spin pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_120deg,#10b981_240deg,#f59e0b_360deg)] opacity-70" />
         <motion.div whileHover={{ scale: 1.005 }} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); mouseX.set(event.clientX - rect.left); mouseY.set(event.clientY - rect.top) }} className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-2xl shadow-[0_0_25px_rgba(245,158,11,.08)]">
           <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
           <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-amber-500/15 blur-3xl" />
@@ -72,7 +72,7 @@ export function DashboardView() {
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Total Net Portfolio Value
             </span>
-            <motion.span animate={{ scale: [1, 1.03, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="inline-flex max-w-[48%] shrink-0 items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-950/60 px-2 py-1 text-[10px] font-extrabold leading-tight text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,.22)] sm:max-w-none sm:gap-1.5 sm:px-2.5 sm:text-xs">
+            <motion.span animate={{ scale: [1, 1.03, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="pulse-pure-emerald inline-flex max-w-[48%] shrink-0 items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-950/60 px-2 py-1 text-[10px] font-extrabold leading-tight text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,.22)] sm:max-w-none sm:gap-1.5 sm:px-2.5 sm:text-xs">
               <TrendingUp className="size-3.5" />
               +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
             </motion.span>
@@ -134,7 +134,7 @@ export function DashboardView() {
       </div>
 
       {/* 3. TIER STATUS BAR */}
-      <motion.div animate={{ borderColor: ['rgba(245,158,11,.2)', 'rgba(245,158,11,.5)', 'rgba(245,158,11,.2)'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="glow-card relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-neutral-900/90 via-amber-950/20 to-neutral-900/90 p-4 shadow-[0_0_25px_rgba(245,158,11,.12)] sm:p-5">
+      <motion.div animate={{ borderColor: ['rgba(245,158,11,.2)', 'rgba(245,158,11,.5)', 'rgba(245,158,11,.2)'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="pulse-pure-shimmer glow-card relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-neutral-900/90 via-amber-950/20 to-neutral-900/90 p-4 shadow-[0_0_25px_rgba(245,158,11,.12)] sm:p-5">
         <div className="flex min-w-0 flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
           <div className="flex min-w-0 items-center gap-2">
             <Lock className="size-4 text-amber-400" />
@@ -172,7 +172,7 @@ export function DashboardView() {
               return (
                 <div 
                   key={h.id}
-                  className="glow-card pulse-tile flex min-w-0 flex-col items-stretch justify-between gap-3 rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/95 via-neutral-800/70 to-neutral-900/95 p-4 shadow-[0_0_20px_rgba(0,0,0,.5)] transition-colors sm:flex-row sm:items-center sm:p-5"
+                  className="pulse-pure-shimmer glow-card pulse-tile flex min-w-0 flex-col items-stretch justify-between gap-3 rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/95 via-neutral-800/70 to-neutral-900/95 p-4 shadow-[0_0_20px_rgba(0,0,0,.5)] transition-colors sm:flex-row sm:items-center sm:p-5"
                 >
                   <div className="min-w-0 space-y-0.5">
                     <p className="truncate text-sm font-semibold text-white">{project?.name ?? 'SADC Venture Position'}</p>
@@ -223,7 +223,7 @@ export function DashboardView() {
             return (
               <div 
                 key={p.id}
-                className="group glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
+                className="pulse-pure-shimmer group glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
               >
                 {p.image && (
                   <div className="relative -mx-5 -mt-5 mb-4 h-32 overflow-hidden border-b border-white/10 bg-neutral-950">
@@ -233,13 +233,13 @@ export function DashboardView() {
                   </div>
                 )}
                 <div className="relative">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700 text-amber-400">
                       <Icon className="size-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-base text-white">{p.name}</h4>
+                      <h4 className="truncate text-base font-bold text-white">{p.name}</h4>
                       <p className="text-xs text-neutral-400">{p.country} &bull; {p.sector}</p>
                     </div>
                   </div>
@@ -262,7 +262,7 @@ export function DashboardView() {
                   <span className="text-xs text-neutral-400 font-medium">Risk Profile: <span className="text-neutral-200">{p.risk}</span></span>
                   <Button
                     size="sm"
-                    className="pulse-action bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 text-xs px-4"
+                    className="pulse-action w-full min-w-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-bold text-neutral-950 shadow-[0_0_18px_rgba(245,158,11,.35)] hover:bg-amber-300 sm:w-auto sm:px-4"
                     onClick={() => openModal('invest', { projectId: p.id })}
                   >
                     Deploy Capital
@@ -289,7 +289,7 @@ export function DashboardView() {
       </div>
 
       {/* 7. REFERRAL SECTION */}
-      <div className="glow-card flex items-center justify-between rounded-2xl border border-amber-500/25 bg-neutral-900 p-4">
+      <div className="pulse-pure-shimmer glow-card flex min-w-0 flex-col items-stretch justify-between gap-3 rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-950/25 via-neutral-900 to-neutral-900 p-4 sm:flex-row sm:items-center">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Referral Access Pass</p>
           <p className="font-mono text-lg font-bold text-white mt-0.5">{state.referralCode}</p>
@@ -297,7 +297,7 @@ export function DashboardView() {
         <Button
           size="sm"
           variant="outline"
-          className="border-neutral-700 bg-neutral-800 text-xs font-semibold text-neutral-200 hover:text-white"
+          className="w-full min-w-0 border-neutral-700 bg-neutral-800 text-xs font-semibold text-neutral-200 hover:text-white sm:w-auto"
           onClick={() => {
             navigator.clipboard?.writeText(state.referralCode)
             toast({ title: 'Code copied to clipboard', variant: 'info' })
@@ -327,7 +327,7 @@ function ActionTile({ icon, label, detail, badge, tone, onClick }: { icon: React
   return (
     <button
       onClick={onClick}
-      className={`quick-action-tile pulse-tile group relative flex min-h-32 flex-col items-start justify-between gap-5 overflow-hidden rounded-3xl border bg-gradient-to-br p-4 text-left shadow-xl transition duration-300 hover:-translate-y-0.5 ${tones[tone]}`}
+      className={`pulse-pure-shimmer quick-action-tile pulse-tile group relative flex min-h-32 flex-col items-start justify-between gap-5 overflow-hidden rounded-3xl border bg-gradient-to-br p-4 text-left shadow-xl transition duration-300 hover:-translate-y-0.5 ${tones[tone]}`}
     >
       <div className="absolute -right-5 -top-5 size-20 rounded-full bg-current opacity-10 blur-2xl transition-opacity group-hover:opacity-20" />
       <div className="flex w-full items-start justify-between gap-2">
