@@ -153,12 +153,10 @@ function DynamicMetallicCard({
       </div>
     </div>
   )
-}
-
+            }
 export function WalletView({ data }: { data?: any }) {
   const openModal = usePulse((state) => state.openModal)
   
-  // Directly bind to the snapshot structure coming from the database
   const cashVal = data?.cash ?? 0
   const pulseLiquidVal = data?.pulse ?? 0
   const pulseStakedVal = data?.staked ?? 0
@@ -422,4 +420,69 @@ export function WalletView({ data }: { data?: any }) {
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="rounded-2xl border border-white/10 p-6 text-center bg-
+              className="rounded-2xl border border-white/10 p-6 text-center bg-[#101217]"
+            >
+              <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
+            </motion.div>
+          ) : (
+            activities.map((item: any, idx: number) => {
+              const isPositive = item.amount?.startsWith('+')
+              const isPending = item.status === 'pending'
+
+              return (
+                <motion.div 
+                  key={item.id || idx}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.04 }}
+                  whileHover={{ scale: 1.01, borderColor: 'rgba(245,166,35,0.4)' }} 
+                  className="rounded-2xl border border-white/10 p-3 bg-[#101217] flex items-center justify-between transition-colors shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                      isPending 
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                        : isPositive 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                      {isPending ? (
+                        <Clock className="size-4 animate-spin" />
+                      ) : isPositive ? (
+                        <ArrowDownLeft className="size-4" />
+                      ) : (
+                        <ArrowUpRight className="size-4" />
+                      )}
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-white tracking-tight">{item.title}</h5>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-mono text-zinc-400">{item.date}</span>
+                        <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-300">
+                          {item.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className={`text-xs font-mono font-black block ${
+                      isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
+                    }`}>
+                      {item.amount}
+                    </span>
+                    <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.type || 'tx'}</span>
+                  </div>
+                </motion.div>
+              )
+            })
+          )}
+        </div>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="pt-2">
+        <RiskNote />
+      </motion.div>
+    </motion.div>
+  )
+}
