@@ -11,8 +11,7 @@ import {
   Zap,
   CheckCircle2,
   Wallet,
-  Clock,
-  AlertCircle
+  Clock
 } from 'lucide-react'
 import { usePulse } from '../store'
 import { RiskNote } from '../ui-bits'
@@ -35,9 +34,6 @@ const itemVariants = {
   },
 }
 
-// ----------------------------------------------------------------------
-// DYNAMIC METALLIC CARD WITH HOVER MOTION
-// ----------------------------------------------------------------------
 function DynamicMetallicCard({
   cardholderName,
   cardNumber,
@@ -91,7 +87,6 @@ function DynamicMetallicCard({
           }}
           className="relative w-full h-full rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(245,166,35,0.15)] group"
         >
-          {/* FRONT */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 p-4 flex flex-col justify-between backface-hidden shadow-2xl"
             style={{
@@ -122,7 +117,6 @@ function DynamicMetallicCard({
             </div>
           </div>
 
-          {/* BACK */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 flex flex-col justify-between py-3 backface-hidden shadow-2xl"
             style={{
@@ -153,13 +147,9 @@ function DynamicMetallicCard({
   )
 }
 
-// ----------------------------------------------------------------------
-// FULLY SYNCHRONIZED WALLET VIEW
-// ----------------------------------------------------------------------
 export function WalletView({ userData }: { userData?: any }) {
   const openModal = usePulse((state) => state.openModal)
   
-  // Pull live activities or establish fallback state synced with store actions if available
   const [activities, setActivities] = useState<any[]>(userData?.activities || [
     { id: 1, title: 'Closed investment early — $15 penalty', date: '05/09/2026', status: 'completed', amount: '-$60.00', type: 'expense' },
     { id: 2, title: 'Project Payout (kalahari-solar)', date: '04/09/2026', status: 'completed', amount: '+$180.00', type: 'income' },
@@ -191,7 +181,6 @@ export function WalletView({ userData }: { userData?: any }) {
     setTimeout(() => {
       setIsSelling(false)
       setSellSuccess(true)
-      // Automatically inject activity item upon successful conversion
       const newActivity = {
         id: Date.now(),
         title: `PULSE Sold to Cash (${sellAmount} tokens)`,
@@ -215,7 +204,6 @@ export function WalletView({ userData }: { userData?: any }) {
       animate="visible" 
       className="space-y-4 max-w-md mx-auto pb-32 pt-1 px-2 text-zinc-100 font-sans"
     >
-      {/* HEADER TITLE */}
       <motion.div variants={itemVariants} className="space-y-0.5 px-1">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-xl bg-amber-500/15 text-amber-400">
@@ -226,7 +214,6 @@ export function WalletView({ userData }: { userData?: any }) {
         <p className="text-[11px] text-zinc-400 pl-7">Real-time ledger tracking for deposits, withdrawals, and payouts.</p>
       </motion.div>
 
-      {/* 1. CASH WALLET TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -272,7 +259,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </div>
       </motion.div>
 
-      {/* 2. WITHDRAWAL WALLET STATUS TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -297,7 +283,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </Button>
       </motion.div>
 
-      {/* 3. PULSE WALLET TILE & SELL DRAWER */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -373,7 +358,6 @@ export function WalletView({ userData }: { userData?: any }) {
         )}
       </motion.div>
 
-      {/* 4. PULSE CARD TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -403,7 +387,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </p>
       </motion.div>
 
-      {/* 5. LIVE SYNCHRONIZED ACTIVITY FEED */}
       <motion.div variants={itemVariants} className="space-y-2.5 pt-2">
         <div className="flex items-center justify-between px-1">
           <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Live Activity Feed</h4>
@@ -433,3 +416,21 @@ export function WalletView({ userData }: { userData?: any }) {
                   }`}>
                     {isPending ? (
                       <Clock className="size-4 animate-spin" />
+                    ) : isPositive ? (
+                      <ArrowDownLeft className="size-4" />
+                    ) : (
+                      <ArrowUpRight className="size-4" />
+                    )}
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-white tracking-tight">{item.title}</h5>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] font-mono text-zinc-400">{item.date}</span>
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-300">
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div
