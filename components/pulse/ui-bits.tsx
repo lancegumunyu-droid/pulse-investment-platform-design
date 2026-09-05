@@ -1,7 +1,6 @@
 'use client'
 
 import { Activity, TriangleAlert } from 'lucide-react'
-import { motion } from 'framer-motion'
 import type { PointerEventHandler, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { RISK_DISCLAIMER } from '@/lib/pulse-data'
@@ -17,18 +16,16 @@ export function Glass({
   onPointerMove?: PointerEventHandler<HTMLDivElement>
 }) {
   return (
-    <motion.div
+    <div
       onPointerMove={onPointerMove}
-      whileHover={{ y: -3, scale: 1.005 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 24 }}
       className={cn(
-        'pulse-surface rounded-3xl p-5 shadow-2xl backdrop-blur-xl transition-shadow duration-300 hover:shadow-[0_18px_45px_rgba(0,0,0,.28)]',
+        'pulse-surface rounded-3xl p-5 shadow-2xl backdrop-blur-xl',
         gold ? 'glass-gold border border-gold/30 bg-background/95' : 'glass border border-white/10 bg-background/95',
         className
       )}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
