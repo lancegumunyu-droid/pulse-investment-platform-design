@@ -18,6 +18,7 @@ import { money, usePulse, type Txn } from '../store'
 import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 import { TOKEN } from '@/lib/pulse-data'
+import { authenticatePi } from '@/components/pulse/google-pi'
 
 const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; sign: string }> = {
   deposit: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
@@ -67,6 +68,8 @@ export function WalletView() {
   const [sellOpen, setSellOpen] = useState(false)
   const [sellAmount, setSellAmount] = useState('')
   const [selling, setSelling] = useState(false)
+  const [piUser, setPiUser] = useState<{ username?: string } | null>(null)
+  const [connectingPi, setConnectingPi] = useState(false)
 
   const sellPulseAmount = Number(sellAmount) || 0
   const sellUsdValue = sellPulseAmount * TOKEN.salePrice
@@ -130,6 +133,19 @@ export function WalletView() {
       return
     }
     toast({ title: "You're on the Pulse Card waitlist", variant: 'success' })
+  }
+
+  const connectPi = async () => {
+    setConnectingPi(true)
+    try {
+      const user = await authenticatePi()
+      setPiUser(user as { username?: string })
+      toast({ title: 'Pi wallet connected', description: 'Your Pi identity is ready for supported wallet actions.', variant: 'success' })
+    } catch (error) {
+      toast({ title: 'Pi connection unavailable', description: (error as Error).message, variant: 'error' })
+    } finally {
+      setConnectingPi(false)
+    }
   }
 
   const cardCopy = CARD_COPY[state.cardStatus]
@@ -241,6 +257,17 @@ export function WalletView() {
           <p className="mt-3 text-[11px] text-muted-foreground">
             Unstaking moves PULSE from Staked to Liquid instantly — it stays in this wallet, ready to use or convert.
           </p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <div>
+              <p className="text-xs font-semibold text-white">Pi Network access</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {piUser ? `Connected as @${piUser.username ?? 'Pi user'}` : 'Connect Pi Browser to enable supported wallet actions.'}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" disabled={connectingPi || !!piUser} onClick={connectPi}>
+              {connectingPi ? 'Connecting…' : piUser ? 'Connected' : 'Connect Pi'}
+            </Button>
+          </div>
 
           {state.pulse > 0 && (
             <div className="mt-4 border-t border-white/10 pt-4">
