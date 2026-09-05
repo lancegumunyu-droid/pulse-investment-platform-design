@@ -164,7 +164,6 @@ export function WalletView({ userData }: { userData?: any }) {
   const [isSelling, setIsSelling] = useState(false)
   const [sellSuccess, setSellSuccess] = useState(false)
 
-  // Fallback data mapping if user context properties aren't completely passed yet
   const cashBalance = userData?.cashBalance ?? '$587.25'
   const pulseLiquid = userData?.pulseWallet?.liquid ?? '45,171'
   const pulseStaked = userData?.pulseWallet?.staked ?? '3,300'
@@ -430,4 +429,7 @@ export function WalletView({ userData }: { userData?: any }) {
               </motion.div>
             )
           })}
-  
+        </div>
+      </motion.div>
+
+      <motion.div variants={itemVariants} classNa
