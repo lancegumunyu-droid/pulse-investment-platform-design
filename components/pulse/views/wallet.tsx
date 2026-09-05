@@ -145,34 +145,33 @@ function DynamicMetallicCard({
       </div>
     </div>
   )
-                               }
-              export function WalletView({ userData }: { userData?: any }) {
+}
+export function WalletView({ userData }: { userData?: any }) {
   const openModal = usePulse((state) => state.openModal)
   
-  const [activities, setActivities] = useState<any[]>(userData?.activities || [
-    { id: 1, title: 'Closed investment early — $15 penalty', date: '05/09/2026', status: 'completed', amount: '-$60.00', type: 'expense' },
-    { id: 2, title: 'Project Payout (kalahari-solar)', date: '04/09/2026', status: 'completed', amount: '+$180.00', type: 'income' },
-    { id: 3, title: 'Manual deposit — USDT (TRC-20)', date: '04/09/2026', status: 'pending', amount: '+$100.00', type: 'pending' },
-    { id: 4, title: 'Project share purchase', date: '04/09/2026', status: 'completed', amount: '-$1,500.00', type: 'expense' }
-  ])
+  // Dynamically pull user activities/transactions or default to an empty list
+  const [activities, setActivities] = useState<any[]>(userData?.activities || [])
 
   const [receivingAddress, setReceivingAddress] = useState(userData?.withdrawalAddress || '')
   const [showSellDrawer, setShowSellDrawer] = useState(false)
-  const [sellAmount, setSellAmount] = useState(userData?.pulseWallet?.liquid?.toString() || '45,171')
+  
+  // Dynamic wallet figures mapped straight from user props
+  const initialLiquid = userData?.pulseWallet?.liquid ?? '0'
+  const [sellAmount, setSellAmount] = useState(initialLiquid.toString())
   const [isSelling, setIsSelling] = useState(false)
   const [sellSuccess, setSellSuccess] = useState(false)
 
-  const cashBalance = userData?.cashBalance ?? '$587.25'
-  const pulseLiquid = userData?.pulseWallet?.liquid ?? '45,171'
-  const pulseStaked = userData?.pulseWallet?.staked ?? '3,300'
-  const totalPulse = userData?.pulseWallet?.total ?? '48,471'
+  const cashBalance = userData?.cashBalance ?? '$0.00'
+  const pulseLiquid = userData?.pulseWallet?.liquid ?? '0'
+  const pulseStaked = userData?.pulseWallet?.staked ?? '0'
+  const totalPulse = userData?.pulseWallet?.total ?? '0'
   
   const cardData = userData?.cardInfo ?? {
-    name: 'LANCE GUMUNYU',
-    number: '•••• •••• •••• 9C87',
-    cvv: '123',
-    memberSince: '2023',
-    status: 'approved'
+    name: userData?.name ? userData.name.toUpperCase() : 'VALUED MEMBER',
+    number: '•••• •••• •••• ••••',
+    cvv: '•••',
+    memberSince: new Date().getFullYear().toString(),
+    status: 'pending'
   }
 
   const handleConfirmSale = () => {
@@ -180,12 +179,13 @@ function DynamicMetallicCard({
     setTimeout(() => {
       setIsSelling(false)
       setSellSuccess(true)
+      const numericSellAmt = parseFloat(sellAmount.replace(/,/g, '')) || 0
       const newActivity = {
         id: Date.now(),
         title: `PULSE Sold to Cash (${sellAmount} tokens)`,
         date: new Date().toLocaleDateString('en-GB'),
         status: 'completed',
-        amount: `+$${(parseFloat(sellAmount.replace(/,/g, '')) * 0.08 || 0).toFixed(2)}`,
+        amount: `+$${(numericSellAmt * 0.08).toFixed(2)}`,
         type: 'income'
       }
       setActivities(prev => [newActivity, ...prev])
@@ -382,7 +382,7 @@ function DynamicMetallicCard({
         />
 
         <p className="text-[10px] text-zinc-400 text-center leading-normal px-2">
-          Your Pulse Card has been approved. Physical card issuance and activation will appear here once it ships.
+          Your Pulse Card details dynamically sync with your account profile status and issuance parameters.
         </p>
       </motion.div>
 
@@ -395,54 +395,60 @@ function DynamicMetallicCard({
         </div>
 
         <div className="space-y-2">
-          {activities.map((item: any) => {
-            const isPositive = item.amount.startsWith('+')
-            const isPending = item.status === 'pending'
+          {activities.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 p-6 text-center bg-[#101217]">
+              <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
+            </div>
+          ) : (
+            activities.map((item: any) => {
+              const isPositive = item.amount?.startsWith('+')
+              const isPending = item.status === 'pending'
 
-            return (
-              <motion.div 
-                key={item.id}
-                whileHover={{ scale: 1.01 }} 
-                className="rounded-2xl border border-white/10 hover:border-amber-500/30 p-3 bg-[#101217] flex items-center justify-between transition-colors shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    isPending 
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                      : isPositive 
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  }`}>
-                    {isPending ? (
-                      <Clock className="size-4 animate-spin" />
-                    ) : isPositive ? (
-                      <ArrowDownLeft className="size-4" />
-                    ) : (
-                      <ArrowUpRight className="size-4" />
-                    )}
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-white tracking-tight">{item.title}</h5>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] font-mono text-zinc-400">{item.date}</span>
-                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-300">
-                        {item.status}
-                      </span>
+              return (
+                <motion.div 
+                  key={item.id}
+                  whileHover={{ scale: 1.01 }} 
+                  className="rounded-2xl border border-white/10 hover:border-amber-500/30 p-3 bg-[#101217] flex items-center justify-between transition-colors shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 ${
+                      isPending 
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                        : isPositive 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                      {isPending ? (
+                        <Clock className="size-4 animate-spin" />
+                      ) : isPositive ? (
+                        <ArrowDownLeft className="size-4" />
+                      ) : (
+                        <ArrowUpRight className="size-4" />
+                      )}
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-white tracking-tight">{item.title}</h5>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-mono text-zinc-400">{item.date}</span>
+                        <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-300">
+                          {item.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-right">
-                  <span className={`text-xs font-mono font-black block ${
-                    isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
-                  }`}>
-                    {item.amount}
-                  </span>
-                  <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.type || 'tx'}</span>
-                </div>
-              </motion.div>
-            )
-          })}
+                  <div className="text-right">
+                    <span className={`text-xs font-mono font-black block ${
+                      isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
+                    }`}>
+                      {item.amount}
+                    </span>
+                    <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.type || 'tx'}</span>
+                  </div>
+                </motion.div>
+              )
+            })
+          )}
         </div>
       </motion.div>
 
@@ -451,5 +457,4 @@ function DynamicMetallicCard({
       </motion.div>
     </motion.div>
   )
-      }
-          
+}
