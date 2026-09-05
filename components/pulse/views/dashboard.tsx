@@ -41,7 +41,11 @@ export function DashboardView() {
 
   return (
     <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
-      
+      <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-950/50 px-3 py-1.5 text-[10px] font-medium text-emerald-300">
+        <span className="flex min-w-0 items-center gap-1.5 truncate"><ShieldCheck className="size-3.5 shrink-0" /> Domain: <strong>invest.vercel.app</strong></span>
+        <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">SSL encrypted</span>
+      </div>
+
       {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex items-center gap-2.5">
@@ -209,9 +213,15 @@ export function DashboardView() {
             return (
               <div 
                 key={p.id}
-                className="glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
+                className="group glow-card pulse-tile relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/90 p-5 space-y-4 transition-colors"
               >
-                {p.image && <div className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `linear-gradient(90deg, #0d0d0f 10%, transparent 85%), url(${p.image})` }} aria-hidden="true" />}
+                {p.image && (
+                  <div className="relative -mx-5 -mt-5 mb-4 h-32 overflow-hidden border-b border-white/10 bg-neutral-950">
+                    <img src={p.image} alt={`${p.name} project`} className="h-full w-full object-cover object-center opacity-90 transition-transform duration-500 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent" />
+                    <span className="absolute bottom-3 left-4 rounded-full border border-amber-300/30 bg-black/50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-200 backdrop-blur-sm">Verified project</span>
+                  </div>
+                )}
                 <div className="relative">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
