@@ -1,419 +1,475 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Coins,
-  Copy,
-  CreditCard,
-  LogOut,
-  Send,
+import React, { useState } from 'react'
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { 
+  Wallet, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  RefreshCw, 
+  ShieldCheck, 
+  Coins, 
+  TrendingUp, 
+  Globe, 
   Sparkles,
-  Wallet,
+  Repeat,
   Zap,
+  Lock,
+  CheckCircle2,
+  DollarSign
 } from 'lucide-react'
-import { money, usePulse, type Txn } from '../store'
-import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
+import { usePulse } from '../store'
+import { Glass, Pill, RiskNote } from '../ui-bits'
 import { Button } from '@/components/ui/button'
-import { TOKEN } from '@/lib/pulse-data'
-import { authenticatePi } from '@/components/pulse/google-pi'
 
-const txMeta: Record<Txn['type'], { icon: typeof ArrowDownRight; tone: string; sign: string }> = {
-  deposit: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
-  withdraw: { icon: ArrowUpRight, tone: 'text-destructive', sign: '-' },
-  invest: { icon: ArrowUpRight, tone: 'text-gold', sign: '-' },
-  sale: { icon: Sparkles, tone: 'text-gold', sign: '' },
-  stake: { icon: Zap, tone: 'text-gold', sign: '' },
-  unstake: { icon: Coins, tone: 'text-green', sign: '' },
-  p2p_send: { icon: Send, tone: 'text-destructive', sign: '-' },
-  p2p_receive: { icon: ArrowDownRight, tone: 'text-green', sign: '+' },
-}
-
-const CARD_COPY: Record<'none' | 'waitlisted' | 'approved' | 'free_card_earned', { title: string; body: string }> = {
-  none: {
-    title: 'Apply for a Pulse Card',
-    body: 'Spend directly from your Pulse Wallet — funded by your cash balance and PULSE token, no separate top-up needed. Physical cards are rolling out to the waitlist in order.',
-  },
-  waitlisted: {
-    title: "You're on the waitlist",
-    body: "We'll notify you here the moment your Pulse Card is ready to activate. No action needed in the meantime.",
-  },
-  approved: {
-    title: 'Your card is approved',
-    body: 'Your Pulse Card has been approved. Physical card issuance and activation will appear here once it ships.',
-  },
-  free_card_earned: {
-    title: 'Free card earned 🎉',
-    body: 'You reached 100 verified referrals and earned a free Pulse Card. Physical card issuance and activation will appear here once it ships.',
-  },
+export interface WalletAsset {
+  id: string
+  symbol: string
+  name: string
+  balance: number
+  fiatValueUSD: number
+  change24h: number
+  chain: string
+  color: string
 }
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.05,
+    },
+  },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 280,
+      damping: 22,
+    },
+  },
 }
 
-export function WalletView() {
-  const { state, api, toast, openModal } = usePulse()
-  const [addressInput, setAddressInput] = useState('')
-  const [connecting, setConnecting] = useState(false)
-  const [applyingCard, setApplyingCard] = useState(false)
-  const [sellOpen, setSellOpen] = useState(false)
-  const [sellAmount, setSellAmount] = useState('')
-  const [selling, setSelling] = useState(false)
-  const [piUser, setPiUser] = useState<{ username?: string } | null>(null)
-  const [connectingPi, setConnectingPi] = useState(false)
+// ----------------------------------------------------------------------
+// SUPERIOR 3D INTERACTIVE METALLIC GOLD VISA CARD (FRONT & BACK FLIP)
+// ----------------------------------------------------------------------
+function HeroMetallicCard({
+  cardholderName,
+  cardNumber,
+  expiry,
+  cvv,
+  memberSince,
+}: {
+  cardholderName: string
+  cardNumber: string
+  expiry: string
+  cvv: string
+  memberSince: string
+}) {
+  const [isFlipped, setIsFlipped] = useState(false)
+  const [mousePos, setMousePos] = useState({ x: 180, y: 100 })
+  const [isHovered, setIsHovered] = useState(false)
 
-  const sellPulseAmount = Number(sellAmount) || 0
-  const sellUsdValue = sellPulseAmount * TOKEN.salePrice
+  const x = useMotionValue(0)
+  const y = useMotionValue(0)
 
-  const submitSell = async () => {
-    if (sellPulseAmount <= 0) {
-      toast({ title: 'Enter a valid amount', variant: 'error' })
-      return
-    }
-    if (sellPulseAmount > state.pulse) {
-      toast({ title: 'Not enough liquid PULSE', description: 'Unstake first if the amount is currently staked.', variant: 'error' })
-      return
-    }
-    setSelling(true)
-    const res = await api.sellToken(sellPulseAmount)
-    setSelling(false)
-    if (!res.ok) {
-      toast({ title: 'Sale failed', description: res.error, variant: 'error' })
-      return
-    }
-    toast({ title: 'PULSE sold', description: `$${money(sellUsdValue)} added to your cash wallet.`, variant: 'success' })
-    setSellOpen(false)
-    setSellAmount('')
+  const mouseXSpring = useSpring(x, { stiffness: 350, damping: 30 })
+  const mouseYSpring = useSpring(y, { stiffness: 350, damping: 30 })
+
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['10deg', '-10deg'])
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-10deg', '10deg'])
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    setMousePos({ x: mouseX, y: mouseY })
+    x.set(mouseX / rect.width - 0.5)
+    y.set(mouseY / rect.height - 0.5)
   }
-
-  const connect = async () => {
-    const addr = addressInput.trim()
-    if (addr.length < 20) {
-      toast({ title: "That doesn't look like a valid address", description: 'Paste your USDT (TRC-20) or BTC receiving address.', variant: 'error' })
-      return
-    }
-    setConnecting(true)
-    const res = await api.connectWallet(addr)
-    setConnecting(false)
-    if (!res.ok) {
-      toast({ title: 'Could not save wallet', description: res.error, variant: 'error' })
-      return
-    }
-    setAddressInput('')
-    toast({ title: 'Wallet connected', description: 'This is where your withdrawals will be sent.', variant: 'success' })
-  }
-
-  const disconnect = async () => {
-    const res = await api.disconnectWallet()
-    if (res.ok) toast({ title: 'Wallet disconnected', variant: 'info' })
-  }
-
-  const copy = () => {
-    if (state.wallet) {
-      navigator.clipboard?.writeText(state.wallet)
-      toast({ title: 'Address copied', variant: 'info' })
-    }
-  }
-
-  const applyCard = async () => {
-    setApplyingCard(true)
-    const res = await api.applyForCard()
-    setApplyingCard(false)
-    if (!res.ok) {
-      toast({ title: 'Could not submit application', description: res.error, variant: 'error' })
-      return
-    }
-    toast({ title: "You're on the Pulse Card waitlist", variant: 'success' })
-  }
-
-  const connectPi = async () => {
-    setConnectingPi(true)
-    try {
-      const user = await authenticatePi()
-      setPiUser(user as { username?: string })
-      toast({ title: 'Pi wallet connected', description: 'Your Pi identity is ready for supported wallet actions.', variant: 'success' })
-    } catch (error) {
-      toast({ title: 'Pi connection unavailable', description: (error as Error).message, variant: 'error' })
-    } finally {
-      setConnectingPi(false)
-    }
-  }
-
-  const cardCopy = CARD_COPY[state.cardStatus]
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
-      <motion.div variants={itemVariants}>
-        <SectionTitle title="Wallet" subtitle="Manage funds, connect a wallet, and review activity." icon={<Wallet className="size-5" />} />
+    <div className="w-full flex flex-col items-center space-y-3 py-2">
+      {/* Tap / Click Instruction Pill */}
+      <motion.div 
+        initial={{ opacity: 0, y: -5 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono tracking-wider uppercase shadow-[0_0_15px_rgba(245,166,35,0.2)]"
+      >
+        <Sparkles className="size-3 animate-spin" />
+        <span>Click card to flip ({isFlipped ? 'Showing Back / CVV' : 'Showing Front'})</span>
       </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Glass gold className="border border-gold/25 bg-black/40 backdrop-blur-xl p-5 shadow-2xl relative overflow-hidden">
-          <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-gold/10 blur-2xl" />
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gold">Cash wallet</p>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-gold/15 text-gold">
-              <Wallet className="size-4" />
-            </span>
-          </div>
-          <p className="mt-2 font-mono text-4xl font-semibold tracking-tight text-white">${money(state.cash)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Available to invest, withdraw, or send</p>
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            <motion.div whileTap={{ scale: 0.97 }}>
-              <Button size="lg" className="h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-lg shadow-gold/20" onClick={() => openModal('deposit')}>
-                <ArrowDownRight className="size-4" /> Deposit
-              </Button>
-            </motion.div>
-            <motion.div whileTap={{ scale: 0.97 }}>
-              <Button size="lg" variant="outline" className="h-11 w-full border-white/12 bg-white/[0.03] text-white font-semibold hover:bg-white/[0.08]" onClick={() => openModal('withdraw')}>
-                <ArrowUpRight className="size-4" /> Withdraw
-              </Button>
-            </motion.div>
-            <motion.div whileTap={{ scale: 0.97 }}>
-              <Button size="lg" variant="outline" className="h-11 w-full border-white/12 bg-white/[0.03] text-white font-semibold hover:bg-white/[0.08]" onClick={() => openModal('transfer')}>
-                <Send className="size-4" /> Send
-              </Button>
-            </motion.div>
-          </div>
-        </Glass>
-      </motion.div>
+      {/* 3D Perspective Wrapper */}
+      <motion.div
+        style={{ perspective: 1400 }}
+        className="w-full max-w-[360px] aspect-[1.586/1] cursor-pointer select-none"
+        onClick={() => setIsFlipped(!isFlipped)}
+        onPointerMove={handlePointerMove}
+        onPointerEnter={() => setIsHovered(true)}
+        onPointerLeave={() => { setIsHovered(false); x.set(0); y.set(0); }}
+      >
+        <motion.div
+          animate={{ rotateY: isFlipped ? 180 : 0 }}
+          transition={{ duration: 0.7, type: 'spring', stiffness: 300, damping: 25 }}
+          style={{
+            rotateX: isHovered && !isFlipped ? rotateX : 0,
+            rotateY: isHovered && !isFlipped ? rotateY : 0,
+            transformStyle: 'preserve-3d',
+          }}
+          className="relative w-full h-full rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.8),0_0_30px_rgba(245,166,35,0.25)] group"
+        >
+          {/* ================= FRONT SIDE ================= */}
+          <div
+            className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 p-5 flex flex-col justify-between backface-hidden shadow-2xl"
+            style={{
+              backfaceVisibility: 'hidden',
+              background: `
+                radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 230, 150, 0.35), transparent 70%),
+                linear-gradient(135deg, #f3d57d 0%, #d4af37 35%, #aa7c11 70%, #855c08 100%)
+              `,
+            }}
+          >
+            {/* Shimmer sweep */}
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          {state.wallet ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-green/15 text-green">
-                  <Wallet className="size-5" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-white">Withdrawal wallet connected</p>
-                  <button onClick={copy} className="flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-white transition-colors">
-                    {state.wallet.slice(0, 8)}…{state.wallet.slice(-6)} <Copy className="size-3" />
-                  </button>
+            {/* Top Row: PULSE Logo & Chip & African Heritage Motif */}
+            <div className="flex items-center justify-between relative z-10">
+              <div className="space-y-0.5">
+                <h3 className="font-black text-black tracking-widest text-lg font-mono drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]">
+                  PULSE
+                </h3>
+                {/* EMV Chip */}
+                <div className="w-10 h-8 rounded bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-600 border border-amber-800/40 shadow-inner flex items-center justify-center p-0.5 opacity-90">
+                  <div className="w-full h-full border border-amber-900/40 grid grid-cols-3 grid-rows-3 gap-px bg-amber-300/30">
+                    <div className="bg-amber-900/20 col-span-3 row-span-1" />
+                  </div>
                 </div>
               </div>
-              <Button size="icon" variant="ghost" onClick={disconnect} aria-label="Disconnect wallet" className="text-muted-foreground hover:text-white">
-                <LogOut className="size-4" />
-              </Button>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm font-semibold text-white">No withdrawal wallet connected</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Add the address you want withdrawals sent to — USDT (TRC-20) or BTC.
-              </p>
-              <input
-                value={addressInput}
-                onChange={(e) => setAddressInput(e.target.value)}
-                placeholder="Paste your receiving address"
-                className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm text-white outline-none transition-all focus:border-gold/50 focus:bg-white/[0.08]"
-              />
-              <motion.div whileTap={{ scale: 0.98 }}>
-                <Button
-                  size="lg"
-                  className="mt-3 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-lg shadow-gold/15"
-                  disabled={connecting || addressInput.trim().length < 20}
-                  onClick={connect}
-                >
-                  <Wallet className="size-4" /> {connecting ? 'Connecting…' : 'Connect wallet'}
-                </Button>
-              </motion.div>
-            </div>
-          )}
-        </Glass>
-      </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-gold/15 text-gold">
-                <Coins className="size-4" />
-              </span>
-              <p className="text-sm font-semibold text-white">PULSE wallet</p>
-            </div>
-            <span className="font-mono text-lg font-semibold text-gold">{money(state.pulse + state.staked, 0)}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3.5 transition-colors">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Liquid — usable now</p>
-              <p className="mt-1.5 font-mono text-lg font-semibold text-white">{money(state.pulse, 0)}</p>
-            </div>
-            <div className="rounded-2xl border border-gold/20 bg-gold/[0.05] p-3.5 transition-colors">
-              <p className="text-[10px] uppercase tracking-wide text-gold">Staked — earning 24.8% APY</p>
-              <p className="mt-1.5 font-mono text-lg font-semibold text-gold">{money(state.staked, 0)}</p>
-            </div>
-          </div>
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            Unstaking moves PULSE from Staked to Liquid instantly — it stays in this wallet, ready to use or convert.
-          </p>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-            <div>
-              <p className="text-xs font-semibold text-white">Pi Network access</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {piUser ? `Connected as @${piUser.username ?? 'Pi user'}` : 'Connect Pi Browser to enable supported wallet actions.'}
-              </p>
-            </div>
-            <Button size="sm" variant="outline" disabled={connectingPi || !!piUser} onClick={connectPi}>
-              {connectingPi ? 'Connecting…' : piUser ? 'Connected' : 'Connect Pi'}
-            </Button>
-          </div>
-
-          {state.pulse > 0 && (
-            <div className="mt-4 border-t border-white/10 pt-4">
-              {!sellOpen ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-white/12 bg-white/[0.03] text-white font-semibold hover:bg-white/[0.08]"
-                  onClick={() => setSellOpen(true)}
-                >
-                  <ArrowDownRight className="size-3.5" /> Sell PULSE for cash
-                </Button>
-              ) : (
-                <div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Sell liquid PULSE at ${TOKEN.salePrice.toFixed(2)} / token</span>
-                    <button onClick={() => setSellOpen(false)} className="text-muted-foreground hover:text-white">
-                      Cancel
-                    </button>
+              {/* Embossed African Geometric Pulse Emblem */}
+              <div className="relative w-16 h-16 rounded-full border border-black/30 bg-gradient-to-br from-black/20 to-black/40 flex items-center justify-center shadow-inner overflow-hidden">
+                <div className="absolute inset-1 rounded-full border border-black/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rotate-45 border border-dashed border-amber-900/50 absolute" />
+                  <div className="text-black font-black text-xs tracking-tighter opacity-80 flex items-center">
+                    <span className="font-mono">⚡</span>
                   </div>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={sellAmount}
-                    onChange={(e) => setSellAmount(e.target.value)}
-                    placeholder={`Up to ${money(state.pulse, 0)} PULSE`}
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-gold/50 focus:bg-white/[0.08]"
-                  />
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>You receive</span>
-                    <span className="font-mono font-semibold text-green">${money(sellUsdValue)} cash</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="mt-3 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-lg shadow-gold/15"
-                    disabled={selling || sellPulseAmount <= 0}
-                    onClick={submitSell}
-                  >
-                    {selling ? 'Selling…' : 'Confirm sale'}
-                  </Button>
                 </div>
-              )}
+              </div>
             </div>
-          )}
-        </Glass>
-      </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          <div className="mb-3 flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
-              <CreditCard className="size-5" />
-            </span>
-            <div className="min-w-0 flex-1">
+            {/* Middle: Card Number */}
+            <div className="font-mono font-bold text-black/90 text-sm sm:text-base tracking-[0.25em] drop-shadow-[0_1px_0px_rgba(255,255,255,0.5)]">
+              {cardNumber}
+            </div>
+
+            {/* Bottom Row: Bank of Africa info, Member Since, & VISA */}
+            <div className="flex items-end justify-between relative z-10 pt-1 border-t border-black/10">
+              <div className="space-y-0.5">
+                <div className="text-[9px] font-bold text-black/70 uppercase tracking-wider flex items-center gap-1">
+                  <span>BANK OF AFRICA</span>
+                  <span className="text-[7px] text-black/50">MEMBER SINCE {memberSince}</span>
+                </div>
+                <div className="font-black text-black text-xs sm:text-sm tracking-wide uppercase drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]">
+                  {cardholderName}
+                </div>
+              </div>
+
+              <div className="font-black italic text-black text-xl tracking-tighter drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                VISA
+              </div>
+            </div>
+          </div>
+
+          {/* ================= BACK SIDE ================= */}
+          <div
+            className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 flex flex-col justify-between py-4 backface-hidden shadow-2xl"
+            style={{
+              backfaceVisibility: 'hidden',
+              transform: 'rotateY(180deg)',
+              background: `
+                radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 230, 150, 0.35), transparent 70%),
+                linear-gradient(135deg, #d4af37 0%, #aa7c11 50%, #724e03 100%)
+              `,
+            }}
+          >
+            {/* Magnetic Stripe */}
+            <div className="w-full h-8 bg-[#1a1408] shadow-inner mt-1" />
+
+            {/* Signature & Unique Engraved CVV Strip */}
+            <div className="px-4 space-y-1">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-white">Pulse Card</p>
-                {state.cardStatus !== 'none' && (
-                  <Pill tone={state.cardStatus === 'waitlisted' ? 'muted' : 'gold'}>
-                    {state.cardStatus === 'free_card_earned' ? 'free card' : state.cardStatus}
-                  </Pill>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="relative mb-3 overflow-hidden rounded-2xl border border-gold/25 bg-gradient-to-br from-[#1a1408] via-[#0d0a04] to-black p-5 shadow-xl">
-            <svg
-              viewBox="0 0 100 60"
-              className="pointer-events-none absolute -right-3 -top-2 h-28 w-28 text-gold/[0.14]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M0 30h18l6-20 12 40 8-28 6 8h50" />
-            </svg>
-
-            <div className="relative flex items-center justify-between">
-              <span className="text-sm font-semibold uppercase tracking-[0.15em] text-gold">Pulse</span>
-              <span className="flex h-6 w-9 items-center justify-center rounded-md bg-gradient-to-br from-yellow-200 via-gold to-yellow-600" />
-            </div>
-
-            <p className="relative mt-7 font-mono text-base tracking-[0.2em] text-champagne">
-              {state.walletId ? `•••• •••• •••• ${state.walletId.slice(-4)}` : '•••• •••• •••• ••••'}
-            </p>
-
-            <div className="relative mt-4 flex items-end justify-between">
-              <div>
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                  {state.fullName || 'Pulse Member'}
-                </p>
-                <p className="mt-1 text-[9px] text-muted-foreground">Linked to your Pulse Wallet — not yet active</p>
-              </div>
-              <span className="text-sm font-semibold italic tracking-wide text-gold/90">VISA</span>
-            </div>
-          </div>
-
-          <p className="text-xs leading-relaxed text-muted-foreground">{cardCopy.body}</p>
-
-          {state.cardStatus === 'none' && (
-            <motion.div whileTap={{ scale: 0.98 }}>
-              <Button
-                size="lg"
-                className="mt-3 h-11 w-full bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-lg shadow-gold/15"
-                disabled={applyingCard}
-                onClick={applyCard}
-              >
-                {applyingCard ? 'Submitting…' : cardCopy.title}
-              </Button>
-            </motion.div>
-          )}
-        </Glass>
-      </motion.div>
-
-      <motion.div variants={itemVariants} className="space-y-3">
-        <SectionTitle title="Activity" />
-        <div className="space-y-2">
-          {state.txns.map((t) => {
-            const meta = txMeta[t.type]
-            const Icon = meta.icon
-            return (
-              <motion.div key={t.id} variants={itemVariants} className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/40 backdrop-blur-xl px-4 py-3 shadow-md">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-white/[0.04]">
-                  <Icon className={`size-4 ${meta.tone}`} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{t.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(t.date).toLocaleDateString()} · {t.status}
-                  </p>
+                <div className="flex-1 h-8 bg-amber-100/90 rounded border border-amber-900/30 px-3 flex items-center shadow-inner">
+                  <span className="font-serif italic font-bold text-black/90 text-sm tracking-wider">
+                    {cardholderName}
+                  </span>
                 </div>
-                <span className={`font-mono text-sm font-semibold ${meta.tone}`}>
-                  {meta.sign}
-                  {t.currency === 'USDT' ? '$' : ''}
-                  {money(t.amount, t.currency === 'PULSE' ? 0 : 2)} {t.currency === 'PULSE' ? 'PULSE' : ''}
-                </span>
-              </motion.div>
-            )
-          })}
-        </div>
-      </motion.div>
+                {/* UNIQUE ENGRAVED CVV */}
+                <div className="h-8 px-3 rounded bg-amber-950 text-amber-300 border border-amber-500/50 font-mono font-black text-xs flex items-center justify-center shadow-[0_0_12px_rgba(245,166,35,0.4)]">
+                  CVV {cvv}
+                </div>
+              </div>
+              <p className="text-[8px] font-mono text-black/80 tracking-tight">
+                AUTHORIZED SIGNATURE • NOT TRANSFERABLE • PROPERTY OF BANK OF AFRICA
+              </p>
+            </div>
 
-      <motion.div variants={itemVariants}>
-        <RiskNote />
+            {/* Footer Logos & Address */}
+            <div className="px-4 flex items-end justify-between text-[8px] text-black/80 font-mono">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 font-black">
+                  <span className="text-black">◆ PLUS</span>
+                  <span>NYCE</span>
+                </div>
+                <p className="max-w-[200px] leading-tight">
+                  Africa Heritage Foundation • Randburg, South Africa
+                </p>
+              </div>
+              <div className="text-[9px] font-black tracking-widest text-black">
+                SECURE RWA
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
+    </div>
+  )
+}
+
+// ----------------------------------------------------------------------
+// SELL PULSE FOR CASH FEATURE MODAL / SECTION
+// ----------------------------------------------------------------------
+function SellPulseForCashCard() {
+  const [isSelling, setIsSelling] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [amount, setAmount] = useState('1000')
+
+  const handleSell = () => {
+    setIsSelling(true)
+    setSuccess(false)
+    setTimeout(() => {
+      setIsSelling(false)
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 4000)
+    }, 2200)
+  }
+
+  return (
+    <motion.div
+      variants={itemVariants}
+      className="relative overflow-hidden rounded-3xl border border-amber-500/40 p-5 bg-gradient-to-b from-[#181510] via-[#101217] to-[#0a0c10] shadow-[0_15px_40px_rgba(0,0,0,0.7)] space-y-4 group"
+    >
+      {/* Glowing Ambient Backdrop */}
+      <div className="absolute -right-12 -top-12 w-40 h-40 bg-amber-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/25 transition-all duration-700" />
+      
+      {/* Top Header */}
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2.5 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/50 text-amber-400 shadow-[0_0_20px_rgba(245,166,35,0.4)]">
+            <DollarSign className="size-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+              Sell Pulse for Instant Cash
+              <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-black px-2 py-0.5 rounded-full border border-emerald-500/40 uppercase tracking-widest">
+                Zero Fee
+              </span>
+            </h4>
+            <p className="text-[11px] text-zinc-400">Convert RWA yield directly to ZAR / USD bank or card.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Input & Action */}
+      <div className="space-y-3 relative z-10 pt-1">
+        <div className="relative rounded-2xl bg-black/60 border border-white/10 p-3 flex items-center justify-between backdrop-blur-md">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Amount to Liquidate</span>
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 font-mono font-bold text-lg">$</span>
+              <input
+                type="text"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="bg-transparent text-white font-mono font-extrabold text-lg outline-none w-32"
+              />
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-mono text-emerald-400 font-bold block">Rate: 1 Pulse = 1.02 USD</span>
+            <span className="text-xs font-mono text-zinc-300">Est. Payout: ${(Number(amount || 0) * 1.02).toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Premium Animated Action Button with Glowing Loader */}
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <Button
+            disabled={isSelling}
+            onClick={handleSell}
+            className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_25px_rgba(245,166,35,0.5)] h-12 flex items-center justify-center gap-2 cursor-pointer border border-amber-300/60"
+          >
+            {isSelling ? (
+              <div className="flex items-center gap-2 font-mono">
+                <RefreshCw className="size-4 animate-spin text-black" />
+                <span>Executing Instant Liquidity...</span>
+              </div>
+            ) : success ? (
+              <div className="flex items-center gap-2 font-mono text-emerald-950">
+                <CheckCircle2 className="size-4 text-emerald-900" />
+                <span>Successfully Transferred to Bank!</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 font-mono">
+                <Zap className="size-4 fill-black" />
+                <span>Sell Pulse for Cash Now</span>
+              </div>
+            )}
+          </Button>
+        </motion.div>
+      </div>
+
+      {success && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-mono flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+        >
+          <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+          <span>Transaction confirmed! Funds dispatched to your linked SADC account.</span>
+        </motion.div>
+      )}
     </motion.div>
   )
 }
+
+// ----------------------------------------------------------------------
+// MAIN WALLET VIEW
+// ----------------------------------------------------------------------
+export function WalletView() {
+  const openModal = usePulse((state) => state.openModal)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const [assets] = useState<WalletAsset[]>([
+    {
+      id: '1',
+      symbol: 'ZARs',
+      name: 'South African Rand Stable',
+      balance: 145250.00,
+      fiatValueUSD: 7980.25,
+      change24h: 4.8,
+      chain: 'Polygon RWA',
+      color: '#F5A623',
+    },
+    {
+      id: '2',
+      symbol: 'USDC',
+      name: 'USD Coin',
+      balance: 24500.00,
+      fiatValueUSD: 24500.00,
+      change24h: 0.0,
+      chain: 'Ethereum',
+      color: '#2775CA',
+    },
+    {
+      id: '3',
+      symbol: 'SOLAR-ZAR',
+      name: 'Bushveld Solar Yield Token',
+      balance: 1250.00,
+      fiatValueUSD: 12850.50,
+      change24h: 12.4,
+      chain: 'Pulse SADC L1',
+      color: '#10B981',
+    },
+  ])
+
+  const totalBalance = assets.reduce((acc, curr) => acc + curr.fiatValueUSD, 0)
+  const totalYield24h = assets.reduce((acc, curr) => acc + (curr.fiatValueUSD * (curr.change24h / 100)) / 365, 0)
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await new Promise((r) => setTimeout(r, 900))
+    setIsRefreshing(false)
+  }
+
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="pulse-wallet space-y-6 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
+    >
+      {/* Header Row */}
+      <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <motion.div
+            whileHover={{ scale: 1.1, rotate: 10 }}
+            whileTap={{ scale: 0.9 }}
+            className="relative p-2.5 rounded-2xl bg-gradient-to-br from-amber-500/20 via-yellow-500/10 to-transparent border border-amber-500/40 text-amber-400 shrink-0 shadow-[0_0_25px_rgba(245,166,35,0.3)]"
+          >
+            <Coins className="size-5 text-amber-400" />
+          </motion.div>
+          <div>
+            <h2 className="text-base font-extrabold text-white leading-tight tracking-wide flex items-center gap-1.5">
+              Wallet & Treasury
+              <span className="bg-amber-500/20 text-amber-300 text-[9px] font-mono font-black px-2 py-0.5 rounded-full border border-amber-500/40 uppercase tracking-widest shadow-[0_0_10px_rgba(245,166,35,0.3)]">
+                SADC Secured
+              </span>
+            </h2>
+            <p className="text-[11px] text-zinc-400 leading-normal">
+              Manage your real-world asset capital and yields.
+            </p>
+          </div>
+        </div>
+
+        <motion.div whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.9 }}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="w-9 h-9 p-0 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-300 hover:text-white shadow-md cursor-pointer"
+            disabled={isRefreshing}
+            onClick={handleRefresh}
+          >
+            <RefreshCw className={`size-4 ${isRefreshing ? 'animate-spin text-amber-400' : ''}`} />
+          </Button>
+        </motion.div>
+      </motion.div>
+
+      {/* Hero 3D Interactive Metallic Gold Visa Card */}
+      <motion.div variants={itemVariants}>
+        <HeroMetallicCard
+          cardholderName="SAMUEL K. MENSAH"
+          cardNumber="4532 •••• •••• 8821"
+          expiry="08/28"
+          cvv="492"
+          memberSince="2023"
+        />
+      </motion.div>
+
+      {/* Portfolio Balance & Action Buttons */}
+      <motion.div variants={itemVariants} className="rounded-3xl border border-white/15 p-5 bg-[#101217]/90 backdrop-blur-2xl shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">Total Net Liquidity</span>
+            <h3 className="text-2xl font-black text-white font-mono tracking-tight">
+              ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 px-2.5 py-1 rounded-full text-xs font-bold font-mono shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+            <TrendingUp className="size-3.5 text-emerald-400" />
+            <span>+${totalYield24h.toFixed(2)} (24h)</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <Button
+              onClick={() => openModal('deposit')}
+              className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extra
