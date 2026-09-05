@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence, useMotionValue, useMotionTemplate } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Activity, Clock, Radio, RotateCcw, TrendingUp, Zap, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePulse } from '../store'
@@ -41,12 +41,10 @@ export function SignalsView() {
   const [loading, setLoading] = useState(true)
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const mouseX = useMotionValue(200)
-  const mouseY = useMotionValue(100)
+  const [mousePos, setMousePos] = useState({ x: 200, y: 100 })
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const { left, top } = e.currentTarget.getBoundingClientRect()
-    mouseX.set(e.clientX - left)
-    mouseY.set(e.clientY - top)
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
   }
 
   // Fetch Signals
@@ -139,6 +137,8 @@ export function SignalsView() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="pulse-signals mx-auto max-w-md space-y-6 px-1 pb-32 pt-2 font-sans text-zinc-100 selection:bg-amber-500/30">
+      <style>{`.signals-spotlight { background-image: radial-gradient(240px circle at var(--spotlight-x) var(--spotlight-y), rgba(245,158,11,.14), transparent 75%), linear-gradient(to bottom, #161616, #080808); } @media (prefers-reduced-motion: reduce) { .signals-spotlight { transition: none; } }`}</style>
+
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <SectionTitle
@@ -207,7 +207,7 @@ export function SignalsView() {
 
               return (
                 <motion.div key={s.id} variants={itemVariants} layout>
-                  <Glass onPointerMove={handlePointerMove} className="group relative overflow-hidden glow-card border border-amber-500/20 bg-gradient-to-b from-[#161616] via-[#0e0e0e] to-[#080808] p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/45"><motion.div className="pointer-events-none absolute -inset-px rounded-3xl" style={{ background: useMotionTemplate`radial-gradient(240px circle at ${mouseX}px ${mouseY}px, rgba(245,158,11,.14), transparent 75%)` }} />
+                  <Glass onPointerMove={handlePointerMove} className="signals-spotlight group relative overflow-hidden glow-card border border-amber-500/20 bg-gradient-to-b from-[#161616] via-[#0e0e0e] to-[#080808] p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/45"><div className="pointer-events-none absolute -inset-px rounded-3xl" style={{ '--spotlight-x': `${mousePos.x}px`, '--spotlight-y': `${mousePos.y}px` } as React.CSSProperties} />
                     <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
                       <div className="flex items-center gap-2">
                         <span className="relative flex size-2.5">
