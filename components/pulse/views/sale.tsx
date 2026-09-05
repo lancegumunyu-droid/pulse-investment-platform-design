@@ -165,6 +165,13 @@ export function SaleView() {
           background-size: 200% 200%;
           animation: liquidMove 5s infinite ease-in-out;
         }
+        .sale-noise {
+          background-image: radial-gradient(rgba(255,255,255,.045) 1px, transparent 0);
+          background-size: 12px 12px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-conic-border, .shimmer-sweep-active::after, .glow-edge-gold, .animate-liquid { animation: none; }
+        }
       `}</style>
 
       {/* ------------------------------------------------------------------ */}
@@ -188,7 +195,7 @@ export function SaleView() {
 
           <div
             onPointerMove={handlePointerMove}
-            className="relative rounded-3xl bg-gradient-to-b from-[#16130d] via-[#0d0b08] to-[#050505] p-6 backdrop-blur-2xl overflow-hidden shimmer-sweep-active border border-amber-500/30"
+            className="relative rounded-3xl bg-gradient-to-b from-[#16130d] via-[#0d0b08] to-[#050505] p-6 backdrop-blur-2xl overflow-hidden shimmer-sweep-active sale-noise border border-amber-500/30"
           >
             {/* Spotlight Glow Tracked to Cursor */}
             <motion.div
@@ -247,7 +254,7 @@ export function SaleView() {
       <motion.div variants={itemVariants}>
         <div
           onPointerMove={handlePointerMove}
-          className="group relative rounded-3xl border border-amber-500/20 bg-gradient-to-b from-[#141414] via-[#0d0d0d] to-[#080808] p-6 backdrop-blur-2xl shadow-xl overflow-hidden hover:border-amber-500/40 transition-all duration-300"
+          className="group relative rounded-3xl border border-amber-500/20 bg-gradient-to-b from-[#141414] via-[#0d0d0d] to-[#080808] p-6 backdrop-blur-2xl shadow-xl overflow-hidden hover:border-amber-500/40 transition-all duration-300 sale-noise"
         >
           {/* Spotlight Effect */}
           <motion.div
@@ -387,5 +394,4 @@ function Row({ label, value, tone, bold }: { label: string; value: string; tone?
       </span>
     </div>
   )
-            }
-              
+}

@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { motion, useMotionTemplate, useMotionValue } from 'framer-motion'
 import { ArrowUpRight, Check, ChevronRight, Layers, Lock, Sparkles } from 'lucide-react'
 import { money, usePulse } from '../store'
