@@ -271,10 +271,10 @@ export function DashboardView() {
           Quick actions
         </h3>
         <div className="grid grid-cols-2 gap-3">
-          <ActionTile icon={<Rocket className="size-4 text-amber-400" />} label="Buy $PULSE" detail="Private sale" onClick={() => setView('sale')} />
-          <ActionTile icon={<Zap className="size-4 text-emerald-400" />} label="Stake Vault" detail="24.8% APY" onClick={() => setView('stake')} />
-          <ActionTile icon={<Radio className="size-4 text-amber-400" />} label="Signals Feed" detail="3 live deals" onClick={() => setView('signals')} />
-          <ActionTile icon={<ShieldCheck className="size-4 text-emerald-400" />} label="Verify KYC" detail="Get access" onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))} />
+          <ActionTile tone="gold" badge="Private" icon={<Rocket className="size-4 text-amber-300" />} label="Buy $PULSE" detail="Private sale round" onClick={() => setView('sale')} />
+          <ActionTile tone="green" badge="24.8% APY" icon={<Zap className="size-4 text-emerald-300" />} label="Stake Vault" detail="High yield pool" onClick={() => setView('stake')} />
+          <ActionTile tone="cyan" badge="3 Live" icon={<Radio className="size-4 text-cyan-300" />} label="Signals Feed" detail="Institutional deals" onClick={() => setView('signals')} />
+          <ActionTile tone="gold" badge="Level 2" icon={<ShieldCheck className="size-4 text-amber-300" />} label="Verify KYC" detail="Unlocked access" onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))} />
         </div>
       </div>
 
@@ -302,16 +302,31 @@ export function DashboardView() {
   )
 }
 
-function ActionTile({ icon, label, detail, onClick }: { icon: React.ReactNode; label: string; detail: string; onClick: () => void }) {
+function ActionTile({ icon, label, detail, badge, tone, onClick }: { icon: React.ReactNode; label: string; detail: string; badge: string; tone: 'gold' | 'green' | 'cyan'; onClick: () => void }) {
+  const tones = {
+    gold: 'border-amber-500/30 from-amber-950/35 via-neutral-900/90 to-neutral-900/90 text-amber-300',
+    green: 'border-emerald-500/30 from-emerald-950/40 via-neutral-900/90 to-neutral-900/90 text-emerald-300',
+    cyan: 'border-cyan-500/30 from-cyan-950/35 via-neutral-900/90 to-neutral-900/90 text-cyan-300',
+  }
+  const badgeTones = {
+    gold: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+    green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+    cyan: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300',
+  }
+
   return (
     <button
       onClick={onClick}
-      className="quick-action-tile pulse-tile flex min-h-32 flex-col items-start justify-between gap-5 rounded-2xl border border-neutral-800/90 bg-neutral-900/80 p-4 text-left transition-colors"
+      className={`quick-action-tile pulse-tile group relative flex min-h-32 flex-col items-start justify-between gap-5 overflow-hidden rounded-3xl border bg-gradient-to-br p-4 text-left shadow-xl transition duration-300 hover:-translate-y-0.5 ${tones[tone]}`}
     >
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 border border-amber-400/30 shadow-[0_0_18px_rgba(245,158,11,.16)]">
-        {icon}
+      <div className="absolute -right-5 -top-5 size-20 rounded-full bg-current opacity-10 blur-2xl transition-opacity group-hover:opacity-20" />
+      <div className="flex w-full items-start justify-between gap-2">
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-current/30 bg-current/10 shadow-[0_0_18px_rgba(245,158,11,.16)] transition-transform duration-300 group-hover:scale-105">
+          {icon}
+        </div>
+        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${badgeTones[tone]}`}>{badge}</span>
       </div>
-      <div className="space-y-1"><span className="block font-display text-sm font-bold text-white">{label}</span><span className="block text-xs text-neutral-400">{detail}</span></div>
+      <div className="space-y-1"><span className="block font-display text-sm font-bold text-white transition-colors group-hover:text-current">{label}</span><span className="block text-xs text-neutral-400">{detail}</span></div>
     </button>
   )
 }
