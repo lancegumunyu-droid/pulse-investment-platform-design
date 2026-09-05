@@ -35,15 +35,15 @@ export function BottomNav() {
               whileTap={{ scale: 0.92 }}
               onClick={() => setView(v)}
               className={cn(
-                'pulse-tab relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1 text-[10px] font-medium transition-all select-none group',
-                active ? 'text-gold pulse-tab-active' : 'text-muted-foreground hover:text-foreground'
+                'pulse-tab relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[10px] font-medium transition-all select-none group',
+                active ? 'text-gold pulse-tab-active' : 'text-zinc-300/80 hover:text-white'
               )}
               aria-current={active ? 'page' : undefined}
             >
               {active && (
                 <motion.div
                   layoutId="activeTabIndicator"
-                  className="absolute inset-x-0.5 top-0 bottom-0 rounded-xl bg-gradient-to-b from-amber-500/15 to-amber-500/5 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)] -z-10"
+                  className="absolute inset-x-0.5 top-0 bottom-0 rounded-2xl bg-gradient-to-b from-amber-400/25 via-amber-500/10 to-emerald-500/10 border border-amber-400/50 shadow-[0_0_28px_rgba(245,158,11,0.28),inset_0_0_18px_rgba(245,158,11,0.08)] -z-10"
                   transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                 />
               )}
