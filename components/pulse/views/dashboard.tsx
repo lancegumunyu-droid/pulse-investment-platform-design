@@ -41,11 +41,6 @@ export function DashboardView() {
 
   return (
     <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
-      <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-950/50 px-3 py-1.5 text-[10px] font-medium text-emerald-300">
-        <span className="flex min-w-0 items-center gap-1.5 truncate"><ShieldCheck className="size-3.5 shrink-0" /> Domain: <strong>invest.vercel.app</strong></span>
-        <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">SSL encrypted</span>
-      </div>
-
       {/* 1. STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex items-center gap-2.5">
@@ -63,8 +58,8 @@ export function DashboardView() {
       </div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <div className="glow-edge glass-gold pulse-surface overflow-hidden rounded-[2rem] shadow-2xl">
-        <div className="space-y-5 p-5 sm:p-6">
+      <div className="glow-edge glass-gold pulse-surface overflow-hidden rounded-2xl shadow-2xl">
+        <div className="space-y-4 p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Total Net Portfolio Value
@@ -89,25 +84,27 @@ export function DashboardView() {
 
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             <Button
+              aria-label="Deposit capital"
+
               size="lg"
-              className="pulse-action h-11 rounded-xl bg-amber-400 font-bold text-neutral-950 hover:bg-amber-300 transition-colors shadow-sm"
+              className="pulse-action h-10 min-w-0 rounded-xl bg-amber-400 px-3 text-xs font-extrabold text-neutral-950 hover:bg-amber-300 transition-colors shadow-sm"
               onClick={() => openModal('deposit')}
             >
-              <ArrowDownRight className="size-4 mr-2 stroke-[2.5]" /> Deposit Capital
+              <ArrowDownRight className="size-3.5 shrink-0 stroke-[2.5]" /><span className="truncate">Deposit Capital</span>
             </Button>
             <Button
               size="lg"
               variant="outline"
-              className="h-11 rounded-xl border-neutral-700 bg-neutral-800/80 font-semibold text-white hover:bg-neutral-800 transition-colors"
+              className="h-10 min-w-0 rounded-xl border-neutral-700 bg-neutral-800/80 px-3 text-xs font-bold text-white hover:bg-neutral-800 transition-colors"
               onClick={() => openModal('withdraw')}
             >
-              <ArrowUpRight className="size-4 mr-2 stroke-[2]" /> Withdraw Earnings
+              <ArrowUpRight className="size-3.5 shrink-0 stroke-[2]" /><span className="truncate">Withdraw Earnings</span>
             </Button>
           </div>
         </div>
 
         {/* Integrated Asset Breakdown Row */}
-        <div className="grid grid-cols-3 divide-x divide-neutral-800 border-t border-neutral-800 bg-neutral-950/80 p-4 text-center">
+        <div className="grid grid-cols-3 gap-1.5 border-t border-neutral-800 bg-neutral-950/80 p-3 text-center">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Available Cash</p>
             <p className="mt-1 font-mono text-base font-bold text-white">${money(state.cash, 0)}</p>
