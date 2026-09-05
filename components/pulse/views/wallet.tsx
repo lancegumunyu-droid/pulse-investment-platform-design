@@ -12,14 +12,12 @@ import {
   TrendingUp, 
   Globe, 
   Sparkles,
-  Repeat,
   Zap,
-  Lock,
   CheckCircle2,
   DollarSign
 } from 'lucide-react'
 import { usePulse } from '../store'
-import { Glass, Pill, RiskNote } from '../ui-bits'
+import { Pill, RiskNote } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 
 export interface WalletAsset {
@@ -64,13 +62,11 @@ const itemVariants = {
 function HeroMetallicCard({
   cardholderName,
   cardNumber,
-  expiry,
   cvv,
   memberSince,
 }: {
   cardholderName: string
   cardNumber: string
-  expiry: string
   cvv: string
   memberSince: string
 }) {
@@ -98,7 +94,6 @@ function HeroMetallicCard({
 
   return (
     <div className="w-full flex flex-col items-center space-y-3 py-2">
-      {/* Tap / Click Instruction Pill */}
       <motion.div 
         initial={{ opacity: 0, y: -5 }}
         animate={{ opacity: 1, y: 0 }}
@@ -108,7 +103,6 @@ function HeroMetallicCard({
         <span>Click card to flip ({isFlipped ? 'Showing Back / CVV' : 'Showing Front'})</span>
       </motion.div>
 
-      {/* 3D Perspective Wrapper */}
       <motion.div
         style={{ perspective: 1400 }}
         className="w-full max-w-[360px] aspect-[1.586/1] cursor-pointer select-none"
@@ -127,7 +121,7 @@ function HeroMetallicCard({
           }}
           className="relative w-full h-full rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.8),0_0_30px_rgba(245,166,35,0.25)] group"
         >
-          {/* ================= FRONT SIDE ================= */}
+          {/* FRONT SIDE */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 p-5 flex flex-col justify-between backface-hidden shadow-2xl"
             style={{
@@ -138,16 +132,13 @@ function HeroMetallicCard({
               `,
             }}
           >
-            {/* Shimmer sweep */}
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
 
-            {/* Top Row: PULSE Logo & Chip & African Heritage Motif */}
             <div className="flex items-center justify-between relative z-10">
               <div className="space-y-0.5">
                 <h3 className="font-black text-black tracking-widest text-lg font-mono drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]">
                   PULSE
                 </h3>
-                {/* EMV Chip */}
                 <div className="w-10 h-8 rounded bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-600 border border-amber-800/40 shadow-inner flex items-center justify-center p-0.5 opacity-90">
                   <div className="w-full h-full border border-amber-900/40 grid grid-cols-3 grid-rows-3 gap-px bg-amber-300/30">
                     <div className="bg-amber-900/20 col-span-3 row-span-1" />
@@ -155,7 +146,6 @@ function HeroMetallicCard({
                 </div>
               </div>
 
-              {/* Embossed African Geometric Pulse Emblem */}
               <div className="relative w-16 h-16 rounded-full border border-black/30 bg-gradient-to-br from-black/20 to-black/40 flex items-center justify-center shadow-inner overflow-hidden">
                 <div className="absolute inset-1 rounded-full border border-black/20 flex items-center justify-center">
                   <div className="w-12 h-12 rotate-45 border border-dashed border-amber-900/50 absolute" />
@@ -166,12 +156,10 @@ function HeroMetallicCard({
               </div>
             </div>
 
-            {/* Middle: Card Number */}
             <div className="font-mono font-bold text-black/90 text-sm sm:text-base tracking-[0.25em] drop-shadow-[0_1px_0px_rgba(255,255,255,0.5)]">
               {cardNumber}
             </div>
 
-            {/* Bottom Row: Bank of Africa info, Member Since, & VISA */}
             <div className="flex items-end justify-between relative z-10 pt-1 border-t border-black/10">
               <div className="space-y-0.5">
                 <div className="text-[9px] font-bold text-black/70 uppercase tracking-wider flex items-center gap-1">
@@ -189,7 +177,7 @@ function HeroMetallicCard({
             </div>
           </div>
 
-          {/* ================= BACK SIDE ================= */}
+          {/* BACK SIDE */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 flex flex-col justify-between py-4 backface-hidden shadow-2xl"
             style={{
@@ -201,10 +189,8 @@ function HeroMetallicCard({
               `,
             }}
           >
-            {/* Magnetic Stripe */}
             <div className="w-full h-8 bg-[#1a1408] shadow-inner mt-1" />
 
-            {/* Signature & Unique Engraved CVV Strip */}
             <div className="px-4 space-y-1">
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-8 bg-amber-100/90 rounded border border-amber-900/30 px-3 flex items-center shadow-inner">
@@ -212,7 +198,6 @@ function HeroMetallicCard({
                     {cardholderName}
                   </span>
                 </div>
-                {/* UNIQUE ENGRAVED CVV */}
                 <div className="h-8 px-3 rounded bg-amber-950 text-amber-300 border border-amber-500/50 font-mono font-black text-xs flex items-center justify-center shadow-[0_0_12px_rgba(245,166,35,0.4)]">
                   CVV {cvv}
                 </div>
@@ -222,7 +207,6 @@ function HeroMetallicCard({
               </p>
             </div>
 
-            {/* Footer Logos & Address */}
             <div className="px-4 flex items-end justify-between text-[8px] text-black/80 font-mono">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2 font-black">
@@ -245,7 +229,7 @@ function HeroMetallicCard({
 }
 
 // ----------------------------------------------------------------------
-// SELL PULSE FOR CASH FEATURE MODAL / SECTION
+// SELL PULSE FOR CASH FEATURE CARD
 // ----------------------------------------------------------------------
 function SellPulseForCashCard() {
   const [isSelling, setIsSelling] = useState(false)
@@ -267,10 +251,8 @@ function SellPulseForCashCard() {
       variants={itemVariants}
       className="relative overflow-hidden rounded-3xl border border-amber-500/40 p-5 bg-gradient-to-b from-[#181510] via-[#101217] to-[#0a0c10] shadow-[0_15px_40px_rgba(0,0,0,0.7)] space-y-4 group"
     >
-      {/* Glowing Ambient Backdrop */}
       <div className="absolute -right-12 -top-12 w-40 h-40 bg-amber-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/25 transition-all duration-700" />
       
-      {/* Top Header */}
       <div className="flex items-center justify-between relative z-10">
         <div className="flex items-center gap-2.5">
           <div className="p-2.5 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/50 text-amber-400 shadow-[0_0_20px_rgba(245,166,35,0.4)]">
@@ -288,7 +270,6 @@ function SellPulseForCashCard() {
         </div>
       </div>
 
-      {/* Input & Action */}
       <div className="space-y-3 relative z-10 pt-1">
         <div className="relative rounded-2xl bg-black/60 border border-white/10 p-3 flex items-center justify-between backdrop-blur-md">
           <div className="space-y-0.5">
@@ -309,7 +290,6 @@ function SellPulseForCashCard() {
           </div>
         </div>
 
-        {/* Premium Animated Action Button with Glowing Loader */}
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Button
             disabled={isSelling}
@@ -406,7 +386,6 @@ export function WalletView() {
       animate="visible"
       className="pulse-wallet space-y-6 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
     >
-      {/* Header Row */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <motion.div
@@ -442,18 +421,15 @@ export function WalletView() {
         </motion.div>
       </motion.div>
 
-      {/* Hero 3D Interactive Metallic Gold Visa Card */}
       <motion.div variants={itemVariants}>
         <HeroMetallicCard
           cardholderName="SAMUEL K. MENSAH"
           cardNumber="4532 •••• •••• 8821"
-          expiry="08/28"
           cvv="492"
           memberSince="2023"
         />
       </motion.div>
 
-      {/* Portfolio Balance & Action Buttons */}
       <motion.div variants={itemVariants} className="rounded-3xl border border-white/15 p-5 bg-[#101217]/90 backdrop-blur-2xl shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -472,4 +448,27 @@ export function WalletView() {
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <Button
               onClick={() => openModal('deposit')}
-              className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extra
+              className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_20px_rgba(245,166,35,0.3)] h-11 flex items-center justify-center gap-2 cursor-pointer border border-amber-300/40"
+            >
+              <ArrowDownLeft className="size-4 stroke-[2.5]" />
+              <span>Deposit Capital</span>
+            </Button>
+          </motion.div>
+
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <Button
+              onClick={() => openModal('withdraw')}
+              variant="outline"
+              className="w-full bg-white/5 border border-white/15 hover:bg-white/10 text-white font-bold text-xs rounded-xl h-11 flex items-center justify-center gap-2 cursor-pointer shadow-md"
+            >
+              <ArrowUpRight className="size-4 stroke-[2.5] text-amber-400" />
+              <span>Withdraw / Yield</span>
+            </Button>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      <SellPulseForCashCard />
+
+      <motion.div variants={itemVariants} className="space-y-3">
+        <div class
