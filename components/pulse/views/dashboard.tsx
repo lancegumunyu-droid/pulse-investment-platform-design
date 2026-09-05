@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useMotionTemplate, useMotionValue } from 'framer-motion'
 import { 
   ArrowDownRight, ArrowUpRight, Building2, ChevronRight, 
   Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, 
@@ -29,7 +29,10 @@ export function DashboardView() {
   const totalReturnDollars = Math.max(0, portfolioValue - initialBenchmark)
 
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
-  
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+  const cursorGlow = useMotionTemplate`radial-gradient(280px circle at ${mouseX}px ${mouseY}px, rgba(245, 158, 11, 0.16), transparent 78%)`
+
   useEffect(() => {
     let cancelled = false
     api.liveProjectFunding().then((res) => {
@@ -59,8 +62,11 @@ export function DashboardView() {
       </div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <motion.div whileHover={{ scale: 1.005 }} className="glow-edge glass-gold pulse-surface relative overflow-hidden rounded-2xl shadow-[0_0_25px_rgba(245,158,11,.08)]">
-        <div className="space-y-4 p-4">
+      <div className="relative overflow-hidden rounded-2xl p-px shadow-[0_0_35px_rgba(245,158,11,.15)]">
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }} className="pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_120deg,#10b981_240deg,#f59e0b_360deg)] opacity-70" />
+        <motion.div whileHover={{ scale: 1.005 }} onMouseMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); mouseX.set(event.clientX - rect.left); mouseY.set(event.clientY - rect.top) }} className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-2xl shadow-[0_0_25px_rgba(245,158,11,.08)]">
+          <motion.div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
+          <div className="space-y-4 p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Total Net Portfolio Value
@@ -123,7 +129,8 @@ export function DashboardView() {
             <p className="mt-1 font-mono text-base font-bold text-amber-400">{money(state.pulse + state.staked, 0)}</p>
           </div>
         </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* 3. TIER STATUS BAR */}
       <motion.div animate={{ borderColor: ['rgba(245,158,11,.2)', 'rgba(245,158,11,.5)', 'rgba(245,158,11,.2)'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="glow-card rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/80 via-amber-950/10 to-neutral-900/80 p-5 space-y-3">
