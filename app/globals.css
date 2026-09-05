@@ -147,7 +147,7 @@
   .pulse-action:hover { transform: translateY(-2px); box-shadow: 0 0 26px rgba(234,179,8,.32); filter: brightness(1.05); }
   .pulse-tile, .pulse-tab { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, background-position .35s ease; }
   .glow-card, .pulse-tile { position: relative; transition: transform .3s cubic-bezier(.4,0,.2,1), border-color .3s ease, box-shadow .3s ease, background-position .35s ease; box-shadow: 0 0 0 1px rgba(255,255,255,.05); }
-  .glow-card:hover, .glow-card:focus-within, .pulse-tile:hover, .pulse-tile:focus-within { transform: translateY(-3px); border-color: rgba(245,158,11,.42); box-shadow: 0 0 25px -5px rgba(245,158,11,.25), 0 0 0 1px rgba(245,158,11,.32); }
+  .glow-card:hover, .glow-card:focus-within, .pulse-tile:hover, .pulse-tile:focus-within { border-color: rgba(245,158,11,.42); box-shadow: 0 0 25px -5px rgba(245,158,11,.25), 0 0 0 1px rgba(245,158,11,.32); }
   .glow-card::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: radial-gradient(circle at 12% 0%, rgba(245,158,11,.12), transparent 34%); opacity: .7; }
   .pulse-tile:hover, .pulse-tile:focus-within { box-shadow: 0 0 18px rgba(234,179,8,.22); }
   .pulse-tab:hover, .pulse-tab:focus-visible { border-color: rgba(234,179,8,.34); box-shadow: 0 0 18px rgba(234,179,8,.16); }
@@ -157,20 +157,14 @@
   .pulse-view h1, .pulse-view h2, .pulse-view h3 { font-family: var(--font-display); letter-spacing: -.025em; }
   .pulse-view .rounded-3xl, .pulse-view .rounded-2xl { box-shadow: 0 18px 46px -28px #000, 0 0 20px rgba(232,163,23,.08); }
   .pulse-view .border-white\/10 { border-color: rgba(255,255,255,.16); }
-  .pulse-app .pulse-screen > div > div { animation: pulse-rise .55s both; }
-  .pulse-app .pulse-screen > div > div > * { animation: pulse-rise .55s both; }
-  .pulse-app .pulse-screen > div > div > *:nth-child(2) { animation-delay: .04s; }
-  .pulse-app .pulse-screen > div > div > *:nth-child(3) { animation-delay: .08s; }
-  .pulse-app .pulse-screen > div > div > *:nth-child(4) { animation-delay: .12s; }
-  .pulse-app button:active { transform: scale(.97); }
-  @keyframes pulse-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .pulse-app button:active { transform: scale(.98); }
   @keyframes pulse-shimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
   .pulse-scroll { scrollbar-width: thin; scrollbar-color: rgba(232,163,23,.55) transparent; }
   .pulse-home ::-webkit-scrollbar, .pulse-signals ::-webkit-scrollbar { width: 4px; height: 4px; }
   .pulse-home ::-webkit-scrollbar-thumb, .pulse-signals ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 999px; }
   @keyframes pulse-beat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.08); } 22% { transform: scale(1); } 32% { transform: scale(1.04); } 45% { transform: scale(1); } }
   .animate-pulse-beat { animation: pulse-beat 1.8s ease-in-out infinite; transform-origin: center; }
-  @media (prefers-reduced-motion: reduce) { .animate-pulse-beat, .pulse-tile, .pulse-action, .pulse-tab-active, .pulse-app .pulse-screen > div > div, .pulse-app .pulse-screen > div > div > * { animation: none; transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse-beat, .pulse-tile, .pulse-action, .pulse-tab-active, .pulse-screen { animation: none; transition: none; } }
 
   /* Mobile Safe Area Insets (iOS Notches & Gesture Home Bars) */
   .pt-safe {

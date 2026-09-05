@@ -22,7 +22,6 @@ const viewVariants = {
   initial: {
     opacity: 0,
     y: 12,
-    scale: 0.985,
   },
   animate: {
     opacity: 1,
@@ -36,7 +35,6 @@ const viewVariants = {
   exit: {
     opacity: 0,
     y: -8,
-    scale: 0.985,
     transition: {
       duration: 0.16,
       ease: 'easeIn',

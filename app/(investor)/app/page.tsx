@@ -2,15 +2,42 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSnapshot } from '@/lib/pulse/data-access'
 import { PulseApp } from '@/components/pulse/app'
-import { Activity, ShieldAlert, Sparkles, RefreshCcw } from 'lucide-react'
+import { ShieldAlert, RefreshCcw } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 
 // Force per-request evaluation (prevents static prerender build failures)
 export const dynamic = 'force-dynamic'
 
+function RecoveryState({ message }: { message: string }) {
+  return (
+    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-background px-5 py-12 text-center text-foreground">
+      <div className="relative z-10 mx-auto w-full max-w-md rounded-3xl border border-gold/30 bg-background/95 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/10 text-destructive shadow-sm">
+          <ShieldAlert className="size-8" />
+        </div>
+        <h1 className="text-xl font-bold tracking-tight">Portfolio Sync Interrupted</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
+        <div className="mt-6 flex flex-col gap-3">
+          <Button asChild variant="gold" size="lg" className="w-full"><a href="/app">Reconnect Portfolio</a></Button>
+          <Button asChild variant="glass" size="sm" className="w-full"><Link href="/contact">Contact Support</Link></Button>
+        </div>
+      </div>
+    </main>
+  )
+}
+
 export default async function AppPage() {
-  const supabase = await createClient()
+  let supabase: Awaited<ReturnType<typeof createClient>> | null = null
+  try {
+    supabase = await createClient()
+  } catch {
+    supabase = null
+  }
+
+  if (!supabase) {
+    return <RecoveryState message="Supabase is connected to the project, but its public runtime variables are not available in this preview yet." />
+  }
 
   const {
     data: { user },
