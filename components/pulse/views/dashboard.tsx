@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { 
   ArrowDownRight, ArrowUpRight, Building2, ChevronRight, 
   Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, 
@@ -52,22 +53,22 @@ export function DashboardView() {
             SADC Capital Network &bull; Live Terminal
           </span>
         </div>
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
+        <motion.span animate={{ opacity: [0.78, 1, 0.78] }} transition={{ duration: 2, repeat: Infinity }} className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400 shadow-[0_0_16px_rgba(245,158,11,.1)]">
           {currentTier.name} Member
-        </span>
+        </motion.span>
       </div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <div className="glow-edge glass-gold pulse-surface overflow-hidden rounded-2xl shadow-2xl">
+      <motion.div whileHover={{ scale: 1.005 }} className="glow-edge glass-gold pulse-surface relative overflow-hidden rounded-2xl shadow-[0_0_25px_rgba(245,158,11,.08)]">
         <div className="space-y-4 p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Total Net Portfolio Value
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+            <motion.span animate={{ scale: [1, 1.03, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 shadow-[0_0_14px_rgba(16,185,129,.1)]">
               <TrendingUp className="size-3.5" />
               +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
-            </span>
+            </motion.span>
           </div>
 
           <div>
@@ -83,6 +84,7 @@ export function DashboardView() {
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 pt-1">
+            <motion.div whileTap={{ scale: 0.97 }}>
             <Button
               aria-label="Deposit capital"
 
@@ -92,6 +94,8 @@ export function DashboardView() {
             >
               <ArrowDownRight className="size-3.5 shrink-0 stroke-[2.5]" /><span className="truncate">Deposit Capital</span>
             </Button>
+            </motion.div>
+            <motion.div whileTap={{ scale: 0.97 }}>
             <Button
               size="lg"
               variant="outline"
@@ -100,6 +104,7 @@ export function DashboardView() {
             >
               <ArrowUpRight className="size-3.5 shrink-0 stroke-[2]" /><span className="truncate">Withdraw Earnings</span>
             </Button>
+            </motion.div>
           </div>
         </div>
 
@@ -118,10 +123,10 @@ export function DashboardView() {
             <p className="mt-1 font-mono text-base font-bold text-amber-400">{money(state.pulse + state.staked, 0)}</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* 3. TIER STATUS BAR */}
-      <div className="glow-card rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-3">
+      <motion.div animate={{ borderColor: ['rgba(245,158,11,.2)', 'rgba(245,158,11,.5)', 'rgba(245,158,11,.2)'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="glow-card rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900/80 via-amber-950/10 to-neutral-900/80 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Lock className="size-4 text-amber-400" />
@@ -143,7 +148,7 @@ export function DashboardView() {
         ) : (
           <p className="text-xs text-neutral-400">Apex Institutional Rank Active.</p>
         )}
-      </div>
+        </motion.div>
 
       {/* 4. ACTIVE DEPLOYED POSITIONS */}
       {state.holdings.length > 0 && (
