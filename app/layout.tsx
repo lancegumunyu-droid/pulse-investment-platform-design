@@ -1,7 +1,8 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Plus_Jakarta_Sans, Space_Grotesk } from 'next/font/google'
 import { PWAInstaller } from '@/components/pulse/pwa-installer'
+import { GooglePiRuntime } from '@/components/pulse/google-pi'
 import './globals.css'
 
 const geistSans = Geist({
@@ -16,6 +17,18 @@ const geistMono = Geist_Mono({
   display: 'swap',
 })
 
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-jakarta',
+  display: 'swap',
+})
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+})
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -27,6 +40,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://pulseinvest.uk'),
   title: {
     default: 'Pulse — Invest in real African projects',
     template: '%s | Pulse',
@@ -57,6 +71,12 @@ export const metadata: Metadata = {
       },
     ],
   },
+  verification: {
+    google: 'googlec3f80f65cdb022b2',
+  },
+  alternates: {
+    canonical: 'https://pulseinvest.uk',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_ZA',
@@ -83,10 +103,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark bg-[#050505]`}
+      className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} ${spaceGrotesk.variable} dark bg-[#050505]`}
     >
       <body className="font-sans text-zinc-100 antialiased selection:bg-[#f59e0b] selection:text-black min-h-screen flex flex-col">
         {children}
+        <GooglePiRuntime />
         <PWAInstaller />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

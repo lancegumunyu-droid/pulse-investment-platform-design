@@ -1,5 +1,3 @@
-@import url('https://db.onlinewebfonts.com/c/53077f9a3eee9c479d37d6af20394ded?family=Cooper+BT+W01+Light');
-@import url('https://db.onlinewebfonts.com/c/5ade3423145f3b9f7031574333ca0b73?family=Cooper+BT+W01+Medium');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
@@ -35,8 +33,9 @@
   --color-green-soft: var(--green-soft);
   --color-danger: var(--danger);
 
-  --font-sans: var(--font-geist-sans), 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), 'Geist Mono', 'Geist Mono Fallback', ui-monospace, monospace;
+  --font-display: var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -124,9 +123,48 @@
 
   /* Technical Financial Data Labels */
   .font-technical {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     letter-spacing: -0.01em;
   }
+  .font-display { font-family: var(--font-display); }
+  .pulse-home { font-family: var(--font-sans); }
+  .pulse-home h1, .pulse-home h2, .pulse-home h3, .pulse-home h4 { font-family: var(--font-display); }
+
+  .pulse-surface {
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.035) 55%, rgba(232,163,23,.035));
+    box-shadow: 0 18px 48px -28px rgba(0,0,0,.9), 0 0 22px rgba(234,179,8,.16), inset 0 1px rgba(255,255,255,.06);
+    backdrop-filter: blur(18px);
+  }
+  .pulse-screen .glass, .pulse-screen .glass-gold { border-color: rgba(255,255,255,.14); box-shadow: 0 18px 44px -26px #000, 0 0 24px rgba(232,163,23,.12); }
+  .pulse-screen input, .pulse-screen textarea, .pulse-screen select { border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #f4f4f5; }
+  .pulse-screen button:not([aria-label]) { transition: transform .25s ease, box-shadow .25s ease, filter .25s ease; }
+  .pulse-screen button:not([aria-label]):hover { filter: brightness(1.08); }
+  .pulse-action {
+    box-shadow: 0 0 18px rgba(234,179,8,.22);
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .pulse-action:hover { transform: translateY(-2px); box-shadow: 0 0 26px rgba(234,179,8,.32); filter: brightness(1.05); }
+  .pulse-tile, .pulse-tab { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, background-position .35s ease; }
+  .glow-card, .pulse-tile { position: relative; transition: transform .3s cubic-bezier(.4,0,.2,1), border-color .3s ease, box-shadow .3s ease, background-position .35s ease; box-shadow: 0 0 0 1px rgba(255,255,255,.05); }
+  .glow-card:hover, .glow-card:focus-within, .pulse-tile:hover, .pulse-tile:focus-within { border-color: rgba(245,158,11,.42); box-shadow: 0 0 25px -5px rgba(245,158,11,.25), 0 0 0 1px rgba(245,158,11,.32); }
+  .glow-card::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: radial-gradient(circle at 12% 0%, rgba(245,158,11,.12), transparent 34%); opacity: .7; }
+  .pulse-tile:hover, .pulse-tile:focus-within { box-shadow: 0 0 18px rgba(234,179,8,.22); }
+  .pulse-tab:hover, .pulse-tab:focus-visible { border-color: rgba(234,179,8,.34); box-shadow: 0 0 18px rgba(234,179,8,.16); }
+  .pulse-tab-active { background: linear-gradient(110deg, rgba(234,179,8,.24), rgba(255,255,255,.08), rgba(16,185,129,.12), rgba(234,179,8,.24)); background-size: 300% 100%; animation: pulse-shimmer 3.2s ease-in-out infinite; box-shadow: 0 0 24px rgba(234,179,8,.3), inset 0 0 16px rgba(234,179,8,.08); }
+  .pulse-view { min-height: 100%; }
+  .pulse-view > div { min-height: 100%; }
+  .pulse-view h1, .pulse-view h2, .pulse-view h3 { font-family: var(--font-display); letter-spacing: -.025em; }
+  .pulse-view .rounded-3xl, .pulse-view .rounded-2xl { box-shadow: 0 18px 46px -28px #000, 0 0 20px rgba(232,163,23,.08); }
+  .pulse-view .border-white\/10 { border-color: rgba(255,255,255,.16); }
+  .pulse-app button:active { transform: scale(.98); }
+  @keyframes pulse-shimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .pulse-scroll { scrollbar-width: thin; scrollbar-color: rgba(232,163,23,.55) transparent; }
+  .pulse-home ::-webkit-scrollbar, .pulse-signals ::-webkit-scrollbar { width: 4px; height: 4px; }
+  .pulse-home ::-webkit-scrollbar-thumb, .pulse-signals ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 999px; }
+  @keyframes pulse-beat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.08); } 22% { transform: scale(1); } 32% { transform: scale(1.04); } 45% { transform: scale(1); } }
+  .animate-pulse-beat { animation: pulse-beat 1.8s ease-in-out infinite; transform-origin: center; }
+  @media (prefers-reduced-motion: reduce) { .animate-pulse-beat, .pulse-tile, .pulse-action, .pulse-tab-active, .pulse-screen { animation: none; transition: none; } }
 
   /* Mobile Safe Area Insets (iOS Notches & Gesture Home Bars) */
   .pt-safe {

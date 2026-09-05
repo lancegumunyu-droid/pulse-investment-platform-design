@@ -130,7 +130,7 @@ export function SignalsView() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="pulse-signals space-y-5">
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <SectionTitle
@@ -193,8 +193,8 @@ export function SignalsView() {
 
               return (
                 <motion.div key={s.id} variants={itemVariants} layout>
-                  <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5 space-y-4 shadow-xl">
-                    <div className="flex items-start justify-between gap-3">
+                  <Glass className="glow-card border border-white/10 bg-black/40 backdrop-blur-xl p-5 space-y-4 shadow-xl">
+                    <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
                       <div className="flex items-center gap-2">
                         <span className="relative flex size-2.5">
                           <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold opacity-60" />

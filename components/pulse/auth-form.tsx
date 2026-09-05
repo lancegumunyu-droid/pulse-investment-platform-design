@@ -56,7 +56,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     const fromUrl = searchParams.get('ref')
     if (fromUrl) {
       setRefCode(fromUrl.toUpperCase())
-    } else if (!isSignUp) {
+    } else if (isSignUp) {
+      setRefCode('PULSE-PUBLIC')
+    } else {
       setRefStatus('valid')
     }
   }, [searchParams, isSignUp])

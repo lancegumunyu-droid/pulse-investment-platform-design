@@ -22,7 +22,6 @@ const viewVariants = {
   initial: {
     opacity: 0,
     y: 12,
-    scale: 0.985,
   },
   animate: {
     opacity: 1,
@@ -36,7 +35,6 @@ const viewVariants = {
   exit: {
     opacity: 0,
     y: -8,
-    scale: 0.985,
     transition: {
       duration: 0.16,
       ease: 'easeIn',
@@ -74,7 +72,7 @@ function Screen() {
         initial="initial"
         animate="animate"
         exit="exit"
-        className="w-full"
+        className="pulse-view w-full"
       >
         <ActiveView />
       </motion.div>
@@ -85,7 +83,7 @@ function Screen() {
 export function PulseApp({ initial }: { initial: Snapshot }) {
   return (
     <PulseProvider initial={initial}>
-      <div className="relative mx-auto flex min-h-screen min-h-[100dvh] max-w-md flex-col bg-[#050505] text-[#f4f4f5] selection:bg-[#e8a317]/30 selection:text-[#f0d9a8] shadow-2xl border-x border-white/[0.04]">
+      <div className="pulse-app relative mx-auto flex min-h-screen min-h-[100dvh] max-w-md flex-col bg-[#050505] text-[#f4f4f5] selection:bg-[#e8a317]/30 selection:text-[#f0d9a8] shadow-2xl border-x border-white/[0.04]">
         {/* Ambient Glow Atmosphere */}
         <div className="pointer-events-none fixed inset-0 z-0 flex justify-center overflow-hidden">
           <div className="h-[350px] w-full max-w-md bg-radial from-[#e8a317]/10 via-transparent to-transparent blur-3xl opacity-60" />
@@ -97,7 +95,7 @@ export function PulseApp({ initial }: { initial: Snapshot }) {
         </header>
 
         {/* Animated Screen Content Area */}
-        <main className="relative z-10 flex-1 px-4 pt-4 pb-32">
+        <main className="pulse-screen relative z-10 flex-1 px-4 pt-4 pb-40">
           <Screen />
         </main>
 

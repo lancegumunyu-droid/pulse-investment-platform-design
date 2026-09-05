@@ -833,20 +833,30 @@ export function AdminView() {
                       ID: {sig.id} | Project: {sig.projectId ?? 'None'} | Window: {sig.window} | Yield: {sig.targetYield}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={isPending}
-                    onClick={() =>
-                      handleAction(async () => {
-                        const res = await deleteSignal(sig.id)
-                        if (res.ok) loadProjectsAndSignalsData()
-                        return res
-                      })
-                    }
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => setNewSignal(sig)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={isPending}
+                      onClick={() =>
+                        handleAction(async () => {
+                          const res = await deleteSignal(sig.id)
+                          if (res.ok) loadProjectsAndSignalsData()
+                          return res
+                        })
+                      }
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
                 </Glass>
               ))
             )}

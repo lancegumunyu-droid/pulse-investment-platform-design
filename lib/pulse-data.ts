@@ -86,6 +86,7 @@ export interface Project {
   goal: number
   risk: 'Lower' | 'Moderate' | 'Higher'
   summary: string
+  image?: string
   status?: 'Open' | 'Closed'
   deadline?: string | null
 }
@@ -102,6 +103,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 1_000_000,
     risk: 'Lower',
     summary: '85 MW solar installation with a 20-year power purchase agreement with the national utility.',
+    image: '/projects/kalahari-solar.png',
     status: 'Open',
     deadline: '2026-09-15',
   },
@@ -115,6 +117,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 750_000,
     risk: 'Higher',
     summary: 'Revenue royalty on an operating copper concession. Returns track commodity prices and output.',
+    image: '/projects/lovable-project-mining.jpg',
     status: 'Open',
     deadline: '2026-08-30',
   },
@@ -128,6 +131,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 500_000,
     risk: 'Moderate',
     summary: 'Irrigated macadamia and citrus estate with offtake contracts to EU distributors.',
+    image: '/projects/lovable-project-agri.jpg',
     status: 'Open',
     deadline: '2026-10-01',
   },
@@ -141,6 +145,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 900_000,
     risk: 'Moderate',
     summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
+    image: '/projects/maputo-logistics.png',
     status: 'Open',
     deadline: '2026-09-20',
   },
