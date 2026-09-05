@@ -33,9 +33,6 @@ const itemVariants = {
   },
 }
 
-// ----------------------------------------------------------------------
-// DYNAMIC METALLIC CARD WITH HOVER MOTION
-// ----------------------------------------------------------------------
 function DynamicMetallicCard({
   cardholderName,
   cardNumber,
@@ -91,7 +88,6 @@ function DynamicMetallicCard({
           }}
           className="relative w-full h-full rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(245,166,35,0.15)] group"
         >
-          {/* FRONT */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 p-4 flex flex-col justify-between backface-hidden shadow-2xl"
             style={{
@@ -122,7 +118,6 @@ function DynamicMetallicCard({
             </div>
           </div>
 
-          {/* BACK */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/40 flex flex-col justify-between py-3 backface-hidden shadow-2xl"
             style={{
@@ -152,10 +147,6 @@ function DynamicMetallicCard({
     </div>
   )
 }
-
-// ----------------------------------------------------------------------
-// FULLY SYNCHRONIZED WALLET VIEW
-// ----------------------------------------------------------------------
 export function WalletView({ userData }: { userData?: any }) {
   const openModal = usePulse((state) => state.openModal)
   const [receivingAddress, setReceivingAddress] = useState(userData?.withdrawalAddress || '')
@@ -202,7 +193,6 @@ export function WalletView({ userData }: { userData?: any }) {
       animate="visible" 
       className="space-y-4 max-w-md mx-auto pb-32 pt-1 px-2 text-zinc-100 font-sans"
     >
-      {/* HEADER TITLE */}
       <motion.div variants={itemVariants} className="space-y-0.5 px-1">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-xl bg-amber-500/15 text-amber-400">
@@ -213,7 +203,6 @@ export function WalletView({ userData }: { userData?: any }) {
         <p className="text-[11px] text-zinc-400 pl-7">Manage funds, connect a wallet, and review activity.</p>
       </motion.div>
 
-      {/* 1. CASH WALLET TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -259,7 +248,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </div>
       </motion.div>
 
-      {/* 2. WITHDRAWAL WALLET STATUS TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -284,7 +272,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </Button>
       </motion.div>
 
-      {/* 3. PULSE WALLET TILE & SELL DRAWER */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -364,7 +351,6 @@ export function WalletView({ userData }: { userData?: any }) {
         )}
       </motion.div>
 
-      {/* 4. PULSE CARD TILE */}
       <motion.div 
         variants={itemVariants} 
         whileHover={{ scale: 1.005 }}
@@ -395,7 +381,6 @@ export function WalletView({ userData }: { userData?: any }) {
         </p>
       </motion.div>
 
-      {/* 5. DYNAMIC ACTIVITY FEED */}
       <motion.div variants={itemVariants} className="space-y-2.5 pt-2">
         <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400 px-1">Activity</h4>
 
@@ -432,4 +417,9 @@ export function WalletView({ userData }: { userData?: any }) {
         </div>
       </motion.div>
 
-      <motion.div variants={itemVariants} classNa
+      <motion.div variants={itemVariants} className="pt-2">
+        <RiskNote />
+      </motion.div>
+    </motion.div>
+  )
+        }
