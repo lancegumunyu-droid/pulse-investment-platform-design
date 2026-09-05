@@ -34,6 +34,7 @@ export function BottomNav() {
               key={v}
               whileTap={{ scale: 0.92 }}
               onClick={() => setView(v)}
+              aria-label={`Open ${label}`}
               className={cn(
                 'pulse-tab relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[10px] font-medium transition-all select-none group',
                 active ? 'text-gold pulse-tab-active' : 'text-zinc-300/80 hover:text-white'

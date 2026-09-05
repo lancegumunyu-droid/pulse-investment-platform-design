@@ -114,14 +114,17 @@ function Button({
   }
 
   return (
-    <button
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -1 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 24 }}
       className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={disabled}
       onClick={onClick}
       {...props}
     >
       {children}
-    </button>
+    </motion.button>
   )
 }
 

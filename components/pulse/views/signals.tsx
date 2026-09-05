@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Radio, RotateCcw, Zap, Inbox } from 'lucide-react'
+import { motion, AnimatePresence, useMotionValue, useMotionTemplate } from 'framer-motion'
+import { Activity, Clock, Radio, RotateCcw, TrendingUp, Zap, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePulse } from '../store'
 import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
@@ -28,8 +28,9 @@ const containerVariants = {
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 24, scale: 0.97, filter: 'blur(8px)' },
+  visible: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
+  exit: { opacity: 0, scale: 0.94, filter: 'blur(10px)', transition: { duration: 0.25 } },
 }
 
 export function SignalsView() {
@@ -40,6 +41,13 @@ export function SignalsView() {
   const [loading, setLoading] = useState(true)
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const mouseX = useMotionValue(200)
+  const mouseY = useMotionValue(100)
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const { left, top } = e.currentTarget.getBoundingClientRect()
+    mouseX.set(e.clientX - left)
+    mouseY.set(e.clientY - top)
+  }
 
   // Fetch Signals
   const loadSignals = useCallback(async (showLoading = true) => {
@@ -151,6 +159,11 @@ export function SignalsView() {
         </motion.div>
       </motion.div>
 
+      <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-black/50 to-black/80 px-4 py-2.5 shadow-lg backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-2.5"><span className="relative flex size-2.5 shrink-0"><span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400" /><span className="relative size-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,1)]" /></span><span className="truncate text-[11px] font-black uppercase tracking-widest text-amber-300">Satellite Feed</span></div>
+        <div className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold text-zinc-400"><Activity className="size-3 animate-pulse text-emerald-400" />{signals.length} ACTIVE</div>
+      </motion.div>
+
       {/* Main Container */}
       {loading ? (
         <div className="space-y-4">
@@ -193,7 +206,7 @@ export function SignalsView() {
 
               return (
                 <motion.div key={s.id} variants={itemVariants} layout>
-                  <Glass className="glow-card border border-white/10 bg-black/40 backdrop-blur-xl p-5 space-y-4 shadow-xl">
+                  <Glass onPointerMove={handlePointerMove} className="group relative overflow-hidden glow-card border border-amber-500/20 bg-gradient-to-b from-[#161616] via-[#0e0e0e] to-[#080808] p-5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/45"><motion.div className="pointer-events-none absolute -inset-px rounded-3xl" style={{ background: useMotionTemplate`radial-gradient(240px circle at ${mouseX}px ${mouseY}px, rgba(245,158,11,.14), transparent 75%)` }} />
                     <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
                       <div className="flex items-center gap-2">
                         <span className="relative flex size-2.5">
