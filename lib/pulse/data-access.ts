@@ -70,17 +70,16 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
 
 /**
  * Calculates cash balance from transaction ledger.
- * Aggregates: deposits + yields + p2p_receive - withdrawals - investments - p2p_send
- * Only counts completed transactions.
+ * Aggregates: deposits + yields + p2p_receive + token sales - withdrawals - investments - p2p_send - token purchases
+ * Includes cross-currency meta parsing for token purchases.
  */
 export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
   const db = serviceClient()
   const { data: txns, error } = await db
     .from('transactions')
-    .select('type, amount, status')
+    .select('type, amount, currency, status, meta')
     .eq('user_id', userId)
     .eq('status', 'completed')
-    .eq('currency', 'USD')
 
   if (error) {
     console.error('[calculateCashBalanceFromLedger] Query error:', error)
@@ -90,36 +89,45 @@ export async function calculateCashBalanceFromLedger(userId: string): Promise<nu
   let balance = 0
   for (const txn of txns ?? []) {
     const amount = Number(txn.amount)
-    switch (txn.type) {
-      case 'deposit':
-      case 'yield':
-      case 'p2p_receive':
-        balance += amount
-        break
-      case 'withdrawal':
-      case 'investment':
-      case 'p2p_send':
-        balance -= amount
-        break
+    if (txn.currency === 'USD') {
+      switch (txn.type) {
+        case 'deposit':
+        case 'yield':
+        case 'p2p_receive':
+        case 'token_purchase': // Selling PULSE gives USD
+          balance += amount
+          break
+        case 'withdrawal':
+        case 'investment':
+        case 'p2p_send':
+          balance -= amount
+          break
+      }
+    } else if (txn.currency === 'PULSE') {
+      if (txn.type === 'token_purchase') {
+        const meta = txn.meta as Record<string, unknown> | null
+        if (meta?.usdCost) { // Buying PULSE deducts USD cost
+          balance -= Number(meta.usdCost)
+        }
+      }
     }
   }
 
-  return Math.max(0, balance) // Ensure non-negative
+  return Math.max(0, balance)
 }
 
 /**
  * Calculates token (PULSE) balance from transaction ledger.
- * Aggregates: token_purchase + unstake - stake
- * Only counts completed transactions.
+ * Aggregates: token_purchases + unstakes - stakes - token_sales
+ * Includes cross-currency meta parsing for token sales.
  */
 export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
   const db = serviceClient()
   const { data: txns, error } = await db
     .from('transactions')
-    .select('type, amount, status')
+    .select('type, amount, currency, status, meta')
     .eq('user_id', userId)
     .eq('status', 'completed')
-    .eq('currency', 'PULSE')
 
   if (error) {
     console.error('[calculateTokenBalanceFromLedger] Query error:', error)
@@ -129,15 +137,51 @@ export async function calculateTokenBalanceFromLedger(userId: string): Promise<n
   let balance = 0
   for (const txn of txns ?? []) {
     const amount = Number(txn.amount)
-    switch (txn.type) {
-      case 'token_purchase':
-      case 'unstake':
-        balance += amount
-        break
-      case 'stake':
-        balance -= amount
-        break
+    if (txn.currency === 'PULSE') {
+      switch (txn.type) {
+        case 'token_purchase':
+        case 'unstake':
+          balance += amount
+          break
+        case 'stake':
+          balance -= amount
+          break
+      }
+    } else if (txn.currency === 'USD') {
+      if (txn.type === 'token_purchase') {
+        const meta = txn.meta as Record<string, unknown> | null
+        if (meta?.pulseAmount) { // Selling PULSE for USD deducts PULSE
+          balance -= Number(meta.pulseAmount)
+        }
+      }
     }
+  }
+
+  return Math.max(0, balance)
+}
+
+/**
+ * Calculates staked balance from transaction ledger.
+ */
+export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
+  const db = serviceClient()
+  const { data: txns, error } = await db
+    .from('transactions')
+    .select('type, amount, currency, status')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .eq('currency', 'PULSE')
+
+  if (error) {
+    console.error('[calculateStakedBalanceFromLedger] Query error:', error)
+    return 0
+  }
+
+  let balance = 0
+  for (const txn of txns ?? []) {
+    const amount = Number(txn.amount)
+    if (txn.type === 'stake') balance += amount
+    else if (txn.type === 'unstake') balance -= amount
   }
 
   return Math.max(0, balance)
@@ -207,20 +251,22 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
   ])
 
-  // CRITICAL FIX: If cash_balance is $0 or missing, recalculate from ledger
+  // ROBUST FIX: Catch missing or 0 cash balances with cross-currency DB ledger math
   let cashBalance = Number(acct.cash_balance)
-  if (cashBalance === 0 || acct.cash_balance === null) {
-    const calculatedCash = await calculateCashBalanceFromLedger(userId)
-    console.log(`[getSnapshot] Cash balance was 0 for user ${userId}, calculated from ledger: ${calculatedCash}`)
-    cashBalance = calculatedCash
+  if (cashBalance <= 0 || acct.cash_balance === null || isNaN(cashBalance)) {
+    cashBalance = await calculateCashBalanceFromLedger(userId)
   }
 
-  // CRITICAL FIX: If token_balance is $0 or missing, recalculate from ledger
+  // ROBUST FIX: Catch missing or 0 token balances with cross-currency DB ledger math
   let tokenBalance = Number(acct.token_balance)
-  if (tokenBalance === 0 || acct.token_balance === null) {
-    const calculatedTokens = await calculateTokenBalanceFromLedger(userId)
-    console.log(`[getSnapshot] Token balance was 0 for user ${userId}, calculated from ledger: ${calculatedTokens}`)
-    tokenBalance = calculatedTokens
+  if (tokenBalance <= 0 || acct.token_balance === null || isNaN(tokenBalance)) {
+    tokenBalance = await calculateTokenBalanceFromLedger(userId)
+  }
+
+  // ROBUST FIX: Catch missing or 0 staked balances via ledger
+  let stakedBalance = Number(acct.staked_balance)
+  if (stakedBalance <= 0 || acct.staked_balance === null || isNaN(stakedBalance)) {
+    stakedBalance = await calculateStakedBalanceFromLedger(userId)
   }
 
   const kycMap: Record<string, Snapshot['kyc']> = {
@@ -233,7 +279,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
   return {
     cash: cashBalance,
     pulse: tokenBalance,
-    staked: Number(acct.staked_balance),
+    staked: stakedBalance,
     pendingYield: Number(acct.pending_yield),
     holdings: (holdings ?? []).map((h) => ({
       id: h.id,
