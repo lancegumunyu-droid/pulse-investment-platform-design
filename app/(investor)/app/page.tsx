@@ -28,15 +28,32 @@ function RecoveryState({ message }: { message: string }) {
 }
 
 export default async function AppPage() {
+  // Check environment variables first
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return (
+      <RecoveryState 
+        message={`Missing Supabase configuration. URL: ${SUPABASE_URL ? '✓' : '✗'}, Key: ${SUPABASE_KEY ? '✓' : '✗'}. Please check Vercel environment variables.`}
+      />
+    )
+  }
+
   let supabase: Awaited<ReturnType<typeof createClient>> | null = null
   try {
     supabase = await createClient()
-  } catch {
-    supabase = null
+  } catch (err) {
+    console.error('[Pulse App Page] Supabase initialization failed:', err)
+    return (
+      <RecoveryState 
+        message={`Failed to initialize Supabase: ${(err as Error).message}. Check environment variables in Vercel settings.`}
+      />
+    )
   }
 
   if (!supabase) {
-    return <RecoveryState message="Supabase is connected to the project, but its public runtime variables are not available in this preview yet." />
+    return <RecoveryState message="Supabase client is unavailable. Please check environment variables in Vercel project settings." />
   }
 
   const {
@@ -46,6 +63,7 @@ export default async function AppPage() {
 
   // IMPORTANT: redirect() must run outside any try/catch block
   if (authError || !user) {
+    console.error('[Pulse App Page] Auth error:', authError?.message)
     redirect('/auth/login')
   }
 
@@ -84,6 +102,7 @@ export default async function AppPage() {
     badges: [],
     adminScope: null,
     cardStatus: 'none',
+    cardRef: null,
     savedWallets: [],
   }
 
@@ -104,6 +123,9 @@ export default async function AppPage() {
           <h1 className="text-xl font-bold tracking-tight text-foreground">Portfolio Sync Interrupted</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
             We encountered a temporary connection issue while securely loading your SADC investment ledger.
+          </p>
+          <p className="mt-2 text-xs font-mono text-muted-foreground break-all">
+            Error: {fetchError}
           </p>
 
           <div className="mt-6 flex flex-col gap-3">
