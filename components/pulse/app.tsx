@@ -83,10 +83,10 @@ function Screen() {
 export function PulseApp({ initial }: { initial: Snapshot }) {
   return (
     <PulseProvider initial={initial}>
-      <div className="pulse-app relative mx-auto flex min-h-screen min-h-[100dvh] max-w-md flex-col bg-[#050505] text-[#f4f4f5] selection:bg-[#e8a317]/30 selection:text-[#f0d9a8] shadow-2xl border-x border-white/[0.04]">
+      <div className="pulse-app relative w-full min-h-screen min-h-[100dvh] flex flex-col bg-[#050505] text-[#f4f4f5] selection:bg-[#e8a317]/30 selection:text-[#f0d9a8] shadow-2xl">
         {/* Ambient Glow Atmosphere */}
         <div className="pointer-events-none fixed inset-0 z-0 flex justify-center overflow-hidden">
-          <div className="h-[350px] w-full max-w-md bg-radial from-[#e8a317]/10 via-transparent to-transparent blur-3xl opacity-60" />
+          <div className="h-[350px] w-full bg-radial from-[#e8a317]/10 via-transparent to-transparent blur-3xl opacity-60" />
         </div>
 
         {/* Floating Top Bar */}
@@ -95,7 +95,7 @@ export function PulseApp({ initial }: { initial: Snapshot }) {
         </header>
 
         {/* Animated Screen Content Area */}
-        <main className="pulse-screen relative z-10 flex-1 px-4 pt-4 pb-40">
+        <main className="pulse-screen relative z-10 flex-1 w-full overflow-y-auto px-4 pt-4 pb-40">
           <Screen />
         </main>
 
