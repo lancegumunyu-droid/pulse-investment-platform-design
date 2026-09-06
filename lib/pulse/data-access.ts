@@ -52,6 +52,7 @@ export interface AccountRow {
   staked_balance: number
   token_balance: number
   pending_yield: number
+  updated_at?: string
 }
 
 export async function ensureAccount(userId: string): Promise<AccountRow> {
@@ -65,6 +66,81 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
     .single()
   if (error) throw error
   return created as AccountRow
+}
+
+/**
+ * Calculates cash balance from transaction ledger.
+ * Aggregates: deposits + yields + p2p_receive - withdrawals - investments - p2p_send
+ * Only counts completed transactions.
+ */
+export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
+  const db = serviceClient()
+  const { data: txns, error } = await db
+    .from('transactions')
+    .select('type, amount, status')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .eq('currency', 'USD')
+
+  if (error) {
+    console.error('[calculateCashBalanceFromLedger] Query error:', error)
+    return 0
+  }
+
+  let balance = 0
+  for (const txn of txns ?? []) {
+    const amount = Number(txn.amount)
+    switch (txn.type) {
+      case 'deposit':
+      case 'yield':
+      case 'p2p_receive':
+        balance += amount
+        break
+      case 'withdrawal':
+      case 'investment':
+      case 'p2p_send':
+        balance -= amount
+        break
+    }
+  }
+
+  return Math.max(0, balance) // Ensure non-negative
+}
+
+/**
+ * Calculates token (PULSE) balance from transaction ledger.
+ * Aggregates: token_purchase + unstake - stake
+ * Only counts completed transactions.
+ */
+export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
+  const db = serviceClient()
+  const { data: txns, error } = await db
+    .from('transactions')
+    .select('type, amount, status')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .eq('currency', 'PULSE')
+
+  if (error) {
+    console.error('[calculateTokenBalanceFromLedger] Query error:', error)
+    return 0
+  }
+
+  let balance = 0
+  for (const txn of txns ?? []) {
+    const amount = Number(txn.amount)
+    switch (txn.type) {
+      case 'token_purchase':
+      case 'unstake':
+        balance += amount
+        break
+      case 'stake':
+        balance -= amount
+        break
+    }
+  }
+
+  return Math.max(0, balance)
 }
 
 // Read-modify-write balance adjustment. Deltas are added to current values.
@@ -131,6 +207,22 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
   ])
 
+  // CRITICAL FIX: If cash_balance is $0 or missing, recalculate from ledger
+  let cashBalance = Number(acct.cash_balance)
+  if (cashBalance === 0 || acct.cash_balance === null) {
+    const calculatedCash = await calculateCashBalanceFromLedger(userId)
+    console.log(`[getSnapshot] Cash balance was 0 for user ${userId}, calculated from ledger: ${calculatedCash}`)
+    cashBalance = calculatedCash
+  }
+
+  // CRITICAL FIX: If token_balance is $0 or missing, recalculate from ledger
+  let tokenBalance = Number(acct.token_balance)
+  if (tokenBalance === 0 || acct.token_balance === null) {
+    const calculatedTokens = await calculateTokenBalanceFromLedger(userId)
+    console.log(`[getSnapshot] Token balance was 0 for user ${userId}, calculated from ledger: ${calculatedTokens}`)
+    tokenBalance = calculatedTokens
+  }
+
   const kycMap: Record<string, Snapshot['kyc']> = {
     none: 'none',
     pending: 'pending',
@@ -139,8 +231,8 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
   }
 
   return {
-    cash: Number(acct.cash_balance),
-    pulse: Number(acct.token_balance),
+    cash: cashBalance,
+    pulse: tokenBalance,
     staked: Number(acct.staked_balance),
     pendingYield: Number(acct.pending_yield),
     holdings: (holdings ?? []).map((h) => ({
@@ -156,13 +248,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
       label: (t.meta?.label as string) ?? TXN_LABEL[t.type] ?? t.type,
       amount: Number(t.amount),
       currency: t.currency === 'PULSE' ? 'PULSE' : 'USDT',
-      // CHANGED: pass through the real status instead of collapsing
-      // 'cancelled'/'failed' into 'pending'. This was the actual bug
-      // behind "status never updates" — the DB was correct the whole
-      // time, this mapping was just lying about it.
       status: t.status as SnapshotTxn['status'],
-      // NEW: 3-state deposit visibility for the user's own activity feed
-      // — "we've started processing" vs. plain "pending, untouched."
       isProcessing: !!t.processing_started_at,
       date: new Date(t.created_at).getTime(),
     })),
