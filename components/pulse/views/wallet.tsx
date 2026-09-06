@@ -13,7 +13,7 @@ import {
   Wallet,
   Clock
 } from 'lucide-react'
-import { usePulse } from '../store'
+import { usePulse, money } from '../store'
 import { RiskNote } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 
@@ -155,65 +155,72 @@ function DynamicMetallicCard({
   )
 }
 
-export function WalletView({ userData }: { userData?: any }) {
-  const openModal = usePulse((state) => state.openModal)
+export function WalletView() {
+  const { state, openModal, api } = usePulse()
   
-  const safeData = userData || {}
-
-  const [activities, setActivities] = useState<any[]>(safeData.activities || [])
-  const [receivingAddress, setReceivingAddress] = useState(safeData.withdrawalAddress || '')
+  // Get data directly from Zustand store
+  const cashBalance = `$${money(state.cash)}`
+  const pulseLiquid = state.pulse
+  const pulseStaked = state.staked
+  const totalPulse = pulseLiquid + pulseStaked
+  
+  const [activities, setActivities] = useState(state.txns)
+  const [receivingAddress, setReceivingAddress] = useState(state.wallet || '')
   const [showSellDrawer, setShowSellDrawer] = useState(false)
-  
-  const initialLiquid = safeData?.pulseWallet?.liquid ?? safeData?.pulse_liquid ?? '0'
-  const [sellAmount, setSellAmount] = useState(initialLiquid.toString())
+  const [sellAmount, setSellAmount] = useState(pulseLiquid.toString())
   const [isSelling, setIsSelling] = useState(false)
   const [sellSuccess, setSellSuccess] = useState(false)
 
+  // Sync activities when txns change from store
   useEffect(() => {
-    if (userData) {
-      if (userData.activities) setActivities(userData.activities)
-      if (userData.withdrawalAddress !== undefined) setReceivingAddress(userData.withdrawalAddress)
-      if (userData.pulseWallet?.liquid !== undefined) {
-        setSellAmount(userData.pulseWallet.liquid.toString())
-      }
+    if (state.txns) {
+      setActivities(state.txns)
     }
-  }, [userData])
+  }, [state.txns])
 
-  const cashBalance = safeData.cashBalance ?? safeData.cash_balance ?? '$0.00'
-  const pulseLiquid = safeData.pulseWallet?.liquid ?? safeData.pulse_liquid ?? '0'
-  const pulseStaked = safeData.pulseWallet?.staked ?? safeData.pulse_staked ?? '0'
-  const totalPulse = safeData.pulseWallet?.total ?? safeData.total_pulse ?? '0'
-  
-  const cardData = safeData.cardInfo || safeData.card_info || {
-    name: safeData.name ? safeData.name.toUpperCase() : 'VALUED MEMBER',
-    number: safeData.card_number || '•••• •••• •••• ••••',
-    cvv: safeData.cvv || '•••',
-    memberSince: safeData.memberSince || new Date().getFullYear().toString(),
-    status: safeData.card_status || 'pending'
+  // Sync wallet address from store
+  useEffect(() => {
+    if (state.wallet !== undefined) {
+      setReceivingAddress(state.wallet || '')
+    }
+  }, [state.wallet])
+
+  // Sync sell amount when pulse liquid changes
+  useEffect(() => {
+    setSellAmount(pulseLiquid.toString())
+  }, [pulseLiquid])
+
+  // Card data from store
+  const cardData = {
+    name: state.fullName ? state.fullName.toUpperCase() : 'VALUED MEMBER',
+    number: '•••• •••• •••• ••••',
+    cvv: '•••',
+    memberSince: new Date().getFullYear().toString(),
+    status: state.cardStatus || 'pending'
   }
 
-  const handleConfirmSale = () => {
+  const handleConfirmSale = async () => {
     setIsSelling(true)
-    setTimeout(() => {
-      setIsSelling(false)
-      setSellSuccess(true)
+    try {
       const numericSellAmt = parseFloat(sellAmount.replace(/,/g, '')) || 0
-      const newActivity = {
-        id: Date.now(),
-        title: `PULSE Sold to Cash (${sellAmount} tokens)`,
-        date: new Date().toLocaleDateString('en-GB'),
-        status: 'completed',
-        amount: `+$${(numericSellAmt * 0.08).toFixed(2)}`,
-        type: 'income'
+      const result = await api.sellToken(numericSellAmt)
+      
+      if (result.ok) {
+        setSellSuccess(true)
+        setTimeout(() => {
+          setSellSuccess(false)
+          setShowSellDrawer(false)
+        }, 2000)
+      } else {
+        // Handle error with toast if available
+        console.error('Sale failed:', result.error)
       }
-      setActivities(prev => [newActivity, ...prev])
-      setTimeout(() => {
-        setSellSuccess(false)
-        setShowSellDrawer(false)
-      }, 2000)
-    }, 1600)
+    } finally {
+      setIsSelling(false)
+    }
   }
-    return (
+
+  return (
     <motion.div 
       variants={containerVariants} 
       initial="hidden" 
@@ -255,7 +262,7 @@ export function WalletView({ userData }: { userData?: any }) {
           <motion.div whileTap={{ scale: 0.95 }}>
             <Button
               onClick={() => openModal('deposit')}
-              className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_20px_rgba(245,166,35,0.4)] h-9 flex items-center justify-center gap-1 cursor-pointer"
+              className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_20px_rgba(245,166,35,0.4)] h-9 flex items-center justify-center gap-1"
             >
               <ArrowDownLeft className="size-3.5 stroke-[2.5]" />
               <span>Deposit</span>
@@ -275,7 +282,7 @@ export function WalletView({ userData }: { userData?: any }) {
 
           <motion.div whileTap={{ scale: 0.95 }}>
             <Button
-              onClick={() => openModal('send')}
+              onClick={() => openModal('transfer')}
               variant="outline"
               className="w-full bg-white/5 border border-white/15 hover:bg-white/10 hover:border-amber-500/40 text-white font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1 cursor-pointer"
             >
@@ -305,7 +312,10 @@ export function WalletView({ userData }: { userData?: any }) {
           className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-amber-500/50 transition-colors"
         />
         <motion.div whileTap={{ scale: 0.98 }}>
-          <Button className="w-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(245,166,35,0.15)]">
+          <Button 
+            onClick={() => api.connectWallet(receivingAddress)}
+            className="w-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
             <RefreshCw className="size-3.5" />
             <span>{receivingAddress ? 'Update wallet' : 'Connect wallet'}</span>
           </Button>
@@ -322,17 +332,17 @@ export function WalletView({ userData }: { userData?: any }) {
             <div className="size-6 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 text-xs font-bold font-mono shadow-[0_0_10px_rgba(245,166,35,0.2)]">⚡</div>
             <span className="text-xs font-bold text-white uppercase tracking-wider">PULSE wallet</span>
           </div>
-          <span className="text-base font-black font-mono text-white">{totalPulse}</span>
+          <span className="text-base font-black font-mono text-white">{money(totalPulse)}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-black/40 border border-white/10 p-2.5 space-y-0.5">
             <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-wider block">LIQUID — USABLE NOW</span>
-            <span className="text-sm font-black font-mono text-white">{pulseLiquid}</span>
+            <span className="text-sm font-black font-mono text-white">{money(pulseLiquid)}</span>
           </div>
           <div className="rounded-2xl bg-black/40 border border-amber-500/20 p-2.5 space-y-0.5 bg-gradient-to-br from-amber-500/5 to-transparent">
             <span className="text-[9px] font-mono text-amber-400 uppercase tracking-wider block">STAKED — 24.8% APY</span>
-            <span className="text-sm font-black font-mono text-amber-300">{pulseStaked}</span>
+            <span className="text-sm font-black font-mono text-amber-300">{money(pulseStaked)}</span>
           </div>
         </div>
 
@@ -341,7 +351,7 @@ export function WalletView({ userData }: { userData?: any }) {
             <Button
               onClick={() => setShowSellDrawer(true)}
               variant="outline"
-              className="w-full bg-white/5 border border-white/10 hover:bg-amber-500/10 hover:border-amber-500/40 text-amber-400 font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              className="w-full bg-white/5 border border-white/10 hover:bg-amber-500/10 hover:border-amber-500/40 text-amber-400 font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1"
             >
               <Zap className="size-3.5 animate-pulse" />
               <span>Sell PULSE for cash</span>
@@ -441,8 +451,8 @@ export function WalletView({ userData }: { userData?: any }) {
               <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
             </motion.div>
           ) : (
-            activities.map((item: any, idx: number) => {
-              const isPositive = item.amount?.startsWith('+')
+            activities.map((item, idx) => {
+              const isPositive = item.amount >= 0
               const isPending = item.status === 'pending'
 
               return (
@@ -471,9 +481,9 @@ export function WalletView({ userData }: { userData?: any }) {
                       )}
                     </div>
                     <div>
-                      <h5 className="text-xs font-bold text-white tracking-tight">{item.title}</h5>
+                      <h5 className="text-xs font-bold text-white tracking-tight">{item.label}</h5>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono text-zinc-400">{item.date}</span>
+                        <span className="text-[10px] font-mono text-zinc-400">{new Date(item.date).toLocaleDateString('en-GB')}</span>
                         <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-300">
                           {item.status}
                         </span>
@@ -485,9 +495,9 @@ export function WalletView({ userData }: { userData?: any }) {
                     <span className={`text-xs font-mono font-black block ${
                       isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
                     }`}>
-                      {item.amount}
+                      {isPositive ? '+' : '-'}${money(Math.abs(item.amount))}
                     </span>
-                    <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.type || 'tx'}</span>
+                    <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.currency}</span>
                   </div>
                 </motion.div>
               )
