@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { 
   ArrowUpRight, 
@@ -153,25 +153,45 @@ function DynamicMetallicCard({
       </div>
     </div>
   )
-            }
-export function WalletView({ data }: { data?: any }) {
+}
+
+export function WalletView({ userData }: { userData?: any }) {
   const openModal = usePulse((state) => state.openModal)
   
-  const cashVal = data?.cash ?? 0
-  const pulseLiquidVal = data?.pulse ?? 0
-  const pulseStakedVal = data?.staked ?? 0
-  const totalPulseVal = Number(pulseLiquidVal) + Number(pulseStakedVal)
+  const safeData = userData || {}
 
-  const [activities, setActivities] = useState<any[]>(data?.txns || [])
-  const [receivingAddress, setReceivingAddress] = useState(data?.wallet || '')
+  const [activities, setActivities] = useState<any[]>(safeData.activities || [])
+  const [receivingAddress, setReceivingAddress] = useState(safeData.withdrawalAddress || '')
   const [showSellDrawer, setShowSellDrawer] = useState(false)
   
-  const [sellAmount, setSellAmount] = useState(pulseLiquidVal.toString())
+  const initialLiquid = safeData?.pulseWallet?.liquid ?? safeData?.pulse_liquid ?? '0'
+  const [sellAmount, setSellAmount] = useState(initialLiquid.toString())
   const [isSelling, setIsSelling] = useState(false)
   const [sellSuccess, setSellSuccess] = useState(false)
 
-  const cardStatus = data?.cardStatus || 'pending'
-  const cardHolderName = (data?.fullName || 'VALUED MEMBER').toUpperCase()
+  // Auto-sync local state when Supabase fetch completes asynchronously
+  useEffect(() => {
+    if (userData) {
+      if (userData.activities) setActivities(userData.activities)
+      if (userData.withdrawalAddress !== undefined) setReceivingAddress(userData.withdrawalAddress)
+      if (userData.pulseWallet?.liquid !== undefined) {
+        setSellAmount(userData.pulseWallet.liquid.toString())
+      }
+    }
+  }, [userData])
+
+  const cashBalance = safeData.cashBalance ?? safeData.cash_balance ?? '$0.00'
+  const pulseLiquid = safeData.pulseWallet?.liquid ?? safeData.pulse_liquid ?? '0'
+  const pulseStaked = safeData.pulseWallet?.staked ?? safeData.pulse_staked ?? '0'
+  const totalPulse = safeData.pulseWallet?.total ?? safeData.total_pulse ?? '0'
+  
+  const cardData = safeData.cardInfo || safeData.card_info || {
+    name: safeData.name ? safeData.name.toUpperCase() : 'VALUED MEMBER',
+    number: safeData.card_number || '•••• •••• •••• ••••',
+    cvv: safeData.cvv || '•••',
+    memberSince: safeData.memberSince || new Date().getFullYear().toString(),
+    status: safeData.card_status || 'pending'
+  }
 
   const handleConfirmSale = () => {
     setIsSelling(true)
@@ -225,9 +245,7 @@ export function WalletView({ data }: { data?: any }) {
         <div className="flex items-center justify-between relative z-10">
           <div>
             <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">CASH WALLET</span>
-            <h3 className="text-2xl font-black text-white font-mono tracking-tight mt-0.5 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
-              ${Number(cashVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </h3>
+            <h3 className="text-2xl font-black text-white font-mono tracking-tight mt-0.5 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{cashBalance}</h3>
             <p className="text-[10px] text-zinc-400">Available to invest, withdraw, or send</p>
           </div>
           <div className="p-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
@@ -306,17 +324,17 @@ export function WalletView({ data }: { data?: any }) {
             <div className="size-6 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 text-xs font-bold font-mono shadow-[0_0_10px_rgba(245,166,35,0.2)]">⚡</div>
             <span className="text-xs font-bold text-white uppercase tracking-wider">PULSE wallet</span>
           </div>
-          <span className="text-base font-black font-mono text-white">{Number(totalPulseVal).toLocaleString()}</span>
+          <span className="text-base font-black font-mono text-white">{totalPulse}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-black/40 border border-white/10 p-2.5 space-y-0.5">
             <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-wider block">LIQUID — USABLE NOW</span>
-            <span className="text-sm font-black font-mono text-white">{Number(pulseLiquidVal).toLocaleString()}</span>
+            <span className="text-sm font-black font-mono text-white">{pulseLiquid}</span>
           </div>
           <div className="rounded-2xl bg-black/40 border border-amber-500/20 p-2.5 space-y-0.5 bg-gradient-to-br from-amber-500/5 to-transparent">
             <span className="text-[9px] font-mono text-amber-400 uppercase tracking-wider block">STAKED — 24.8% APY</span>
-            <span className="text-sm font-black font-mono text-amber-300">{Number(pulseStakedVal).toLocaleString()}</span>
+            <span className="text-sm font-black font-mono text-amber-300">{pulseStaked}</span>
           </div>
         </div>
 
@@ -391,15 +409,15 @@ export function WalletView({ data }: { data?: any }) {
             <span className="text-xs font-bold text-white">Pulse Card</span>
           </div>
           <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-black px-2.5 py-0.5 rounded-full border border-emerald-500/40 uppercase tracking-widest shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-            {cardStatus}
+            {cardData.status}
           </span>
         </div>
 
         <DynamicMetallicCard
-          cardholderName={cardHolderName}
-          cardNumber="•••• •••• •••• ••••"
-          cvv="•••"
-          memberSince={new Date().getFullYear().toString()}
+          cardholderName={cardData.name}
+          cardNumber={cardData.number}
+          cvv={cardData.cvv}
+          memberSince={cardData.memberSince}
         />
 
         <p className="text-[10px] text-zinc-400 text-center leading-normal px-2 relative z-10">
@@ -408,81 +426,4 @@ export function WalletView({ data }: { data?: any }) {
       </motion.div>
 
       <motion.div variants={itemVariants} className="space-y-2.5 pt-2">
-        <div className="flex items-center justify-between px-1">
-          <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Live Activity Feed</h4>
-          <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1.5 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> Live Sync Active
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          {activities.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-2xl border border-white/10 p-6 text-center bg-[#101217]"
-            >
-              <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
-            </motion.div>
-          ) : (
-            activities.map((item: any, idx: number) => {
-              const isPositive = item.amount?.startsWith('+')
-              const isPending = item.status === 'pending'
-
-              return (
-                <motion.div 
-                  key={item.id || idx}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.04 }}
-                  whileHover={{ scale: 1.01, borderColor: 'rgba(245,166,35,0.4)' }} 
-                  className="rounded-2xl border border-white/10 p-3 bg-[#101217] flex items-center justify-between transition-colors shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                      isPending 
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                        : isPositive 
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    }`}>
-                      {isPending ? (
-                        <Clock className="size-4 animate-spin" />
-                      ) : isPositive ? (
-                        <ArrowDownLeft className="size-4" />
-                      ) : (
-                        <ArrowUpRight className="size-4" />
-                      )}
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-white tracking-tight">{item.title}</h5>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono text-zinc-400">{item.date}</span>
-                        <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-300">
-                          {item.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <span className={`text-xs font-mono font-black block ${
-                      isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
-                    }`}>
-                      {item.amount}
-                    </span>
-                    <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.type || 'tx'}</span>
-                  </div>
-                </motion.div>
-              )
-            })
-          )}
-        </div>
-      </motion.div>
-
-      <motion.div variants={itemVariants} className="pt-2">
-        <RiskNote />
-      </motion.div>
-    </motion.div>
-  )
-}
+        <div className="flex items-center justify-bet
