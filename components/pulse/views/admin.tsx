@@ -777,138 +777,152 @@ export function AdminView() {
           {/* Existing Signals List */}
           <div className="space-y-3">
             <h3 className="font-semibold text-sm">Active Network Signals ({signals.length})</h3>
-            {signals.map((sig) => (
-              <Glass key={sig.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium text-sm">{sig.title}</h4>
-                    <Pill tone={sig.urgency === 'Closing soon' ? 'red' : 'blue'}>{sig.urgency}</Pill>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{sig.detail}</p>
-                  <p className="text-[10px] font-mono text-muted-foreground mt-1">ID: {sig.id} | Project: {sig.projectId} | Window: {sig.window}</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={() => handleAction(() => deleteSignal(sig.id))}
-                  className="self-start sm:self-auto"
-                >
-                  <Trash2 className="size-3.5 mr-1" /> Remove
-                </Button>
+            {signals.length === 0 ? (
+              <Glass>
+                <p className="text-center text-xs text-muted-foreground py-2">No active signals.</p>
               </Glass>
-            ))}
+            ) : (
+              signals.map((sig) => (
+                <Glass key={sig.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-sm">{sig.title}</h4>
+                      <Pill tone="gold">{sig.urgency}</Pill>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{sig.detail}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-1">
+                      ID: {sig.id} | Project: {sig.projectId} | Window: {sig.window} | Yield: {sig.targetYield}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={isPending}
+                    onClick={() => handleAction(() => deleteSignal(sig.id))}
+                  >
+                    <Trash2 className="size-3.5 mr-1" /> Remove
+                  </Button>
+                </Glass>
+              ))
+            )}
           </div>
         </div>
       )}
 
       {/* ==========================================
-          TAB 5: USERS & KYC DIRECTORY
+          TAB 5: USERS & ROLE MANAGEMENT
           ========================================== */}
       {activeTab === 'users' && snapshot && (
-        <Glass className="space-y-4">
-          <h3 className="font-semibold text-sm">User Database & Compliance Directory</h3>
-          <p className="text-xs text-muted-foreground">Manage user accounts, check KYC standing, and perform compliance resets where required.</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-white/10 text-muted-foreground">
-                  <th className="p-2">User ID</th>
-                  <th className="p-2">Email</th>
-                  <th className="p-2">KYC Status</th>
-                  <th className="p-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {snapshot.recentTxns.map((u) => (
-                  <tr key={u.id}>
-                    <td className="p-2 font-mono text-[10px]">{u.userId}</td>
-                    <td className="p-2">{u.email ?? 'No email recorded'}</td>
-                    <td className="p-2">
-                      <Pill tone="green">Verified / Active</Pill>
-                    </td>
-                    <td className="p-2 text-right space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAction(() => resetKyc(u.userId))}
-                      >
-                        Reset KYC
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleAction(() => deleteUser(u.userId))}
-                      >
-                        Delete
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Glass>
+        <div className="space-y-6">
+          <Glass className="space-y-4">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <UserPlus className="size-4 text-amber-400" /> Appoint New Admin / Staff Member
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input
+                type="email"
+                placeholder="staff@sadc-pulse.org"
+                value={newAdminEmail}
+                onChange={(e) => setNewAdminEmail(e.target.value)}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 sm:col-span-2"
+              />
+              <select
+                value={newAdminScope}
+                onChange={(e) => setNewAdminScope(e.target.value as AdminScope)}
+                className="rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs outline-none focus:border-amber-400 text-foreground"
+              >
+                <option value="operations">Operations Scope</option>
+                <option value="finance">Finance Scope</option>
+                <option value="manager">Manager Scope</option>
+                <option value="director">Director Scope</option>
+                <option value="full">Full Superadmin</option>
+              </select>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                disabled={isPending || !newAdminEmail}
+                onClick={() => handleAction(() => addAdminByEmail(newAdminEmail, newAdminScope))}
+              >
+                Grant Admin Access
+              </Button>
+            </div>
+          </Glass>
+
+          {/* User Directory Summary */}
+          <Glass className="space-y-3">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Users className="size-4 text-amber-400" /> Registered User Accounts ({snapshot.userCount})
+            </h3>
+            <p className="text-xs text-muted-foreground">Detailed list of platform participants and their assigned managerial hierarchy.</p>
+          </Glass>
+        </div>
       )}
 
       {/* ==========================================
           TAB 6: TEAM VOLUME AUDITS
           ========================================== */}
       {activeTab === 'team' && (
-        <Glass className="space-y-4">
-          <h3 className="font-semibold text-sm">Team Portfolio Volume Audit Reports</h3>
-          <p className="text-xs text-muted-foreground">Detailed tier evaluation for appointed managers and directors.</p>
-          {teamReport ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead>
-                  <tr className="border-b border-white/10 text-muted-foreground">
-                    <th className="p-2">Name</th>
-                    <th className="p-2">Email</th>
-                    <th className="p-2">KYC Status</th>
-                    <th className="p-2">Invested Volume</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {teamReport.rows.map((row) => (
-                    <tr key={row.userId}>
-                      <td className="p-2 font-medium">{row.name ?? 'Unnamed User'}</td>
-                      <td className="p-2 font-mono">{row.email}</td>
-                      <td className="p-2">
-                        <Pill tone={row.kycVerified ? 'green' : 'gold'}>
-                          {row.kycVerified ? 'Verified' : 'Pending'}
-                        </Pill>
-                      </td>
-                      <td className="p-2 font-semibold">{formatMoney(row.investedVolume)}</td>
+        <div className="space-y-4">
+          <Glass className="space-y-3">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Briefcase className="size-4 text-amber-400" /> Downline & Team Volume Reports
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {teamReport?.scope === 'director' ? 'Director Level Audit View (All Subordinate Networks)' : 'Manager Level Audit View (Assigned Downline)'}
+            </p>
+
+            {!teamReport || teamReport.rows.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">No downline team volumes recorded.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead>
+                    <tr className="border-b border-white/10 text-muted-foreground">
+                      <th className="p-2">User</th>
+                      <th className="p-2">Email</th>
+                      <th className="p-2">KYC Status</th>
+                      <th className="p-2">Invested Volume</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground py-4">No team hierarchy records available for your current scope.</p>
-          )}
-        </Glass>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {teamReport.rows.map((r) => (
+                      <tr key={r.userId}>
+                        <td className="p-2 font-medium">{r.name ?? 'Anonymous'}</td>
+                        <td className="p-2 font-mono text-muted-foreground">{r.email ?? r.userId}</td>
+                        <td className="p-2">
+                          <Pill tone={r.kycVerified ? 'green' : 'gold'}>
+                            {r.kycVerified ? 'Verified' : 'Pending'}
+                          </Pill>
+                        </td>
+                        <td className="p-2 font-semibold">{formatMoney(r.investedVolume)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Glass>
+        </div>
       )}
 
       {/* ==========================================
-          TAB 7: GOVERNANCE & AUTOMATION SETTINGS
+          TAB 7: GOVERNANCE & RISK SETTINGS
           ========================================== */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
-          {/* Withdrawal Limits & Automation Frequencies */}
           <Glass className="space-y-4">
             <h3 className="font-semibold text-sm flex items-center gap-2">
-              <Lock className="size-4 text-amber-400" /> Platform Financial Rules & Automation Parameters
+              <Lock className="size-4 text-amber-400" /> Global Risk & Withdrawal Ceilings
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Max Withdrawal Limit ($)</label>
+                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Max Single Withdrawal Limit ($)</label>
                 <input
                   type="number"
                   value={maxWithdrawalLimit}
                   onChange={(e) => setMaxWithdrawalLimit(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 font-mono"
                 />
               </div>
               <div>
@@ -917,63 +931,22 @@ export function AdminView() {
                   type="number"
                   value={payoutCadenceStandard}
                   onChange={(e) => setPayoutCadenceStandard(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 font-mono"
                 />
               </div>
               <div>
-                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Least Component Payout (Days)</label>
+                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Least-Performing Cadence (Days)</label>
                 <input
                   type="number"
                   value={payoutCadenceLeast}
                   onChange={(e) => setPayoutCadenceLeast(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 font-mono"
                 />
               </div>
             </div>
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => showNotice('Global financial rules & automation intervals successfully updated.')}>
-                Save Configuration Rules
-              </Button>
-            </div>
-          </Glass>
-
-          {/* Admin Scope Appointment */}
-          <Glass className="space-y-4">
-            <h3 className="font-semibold text-sm">Appoint Administrator Scopes</h3>
-            <p className="text-xs text-muted-foreground">Assign specific permissions and roles to appointed team members securely.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Team Member Email</label>
-                <input
-                  type="email"
-                  placeholder="admin@platform.com"
-                  value={newAdminEmail}
-                  onChange={(e) => setNewAdminEmail(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Administrative Scope</label>
-                <select
-                  value={newAdminScope}
-                  onChange={(e) => setNewAdminScope(e.target.value as AdminScope)}
-                  className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs outline-none focus:border-amber-400 text-foreground"
-                >
-                  <option value="full">Full Access</option>
-                  <option value="finance">Finance Only</option>
-                  <option value="operations">Operations Only</option>
-                  <option value="manager">Manager</option>
-                  <option value="director">Director</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                disabled={isPending || !newAdminEmail}
-                onClick={() => handleAction(() => addAdminByEmail(newAdminEmail, newAdminScope))}
-              >
-                Appoint Admin Role
+              <Button size="sm" onClick={() => showNotice('Global risk ceilings and payout cadences updated successfully.')}>
+                Save Governance Settings
               </Button>
             </div>
           </Glass>
