@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, MapPin, ArrowUpRight, TrendingUp, Clock } from 'lucide-react'
-import { PULSE_PROJECTS, PulseProject } from '@/lib/pulse-projects'
+import { PULSE_PROJECTS, PulseProject } from '@/lib/pulse-data'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ProgressBar } from '@/components/pulse/ui-bits'
@@ -13,7 +13,7 @@ export function RotatingProjects() {
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  const currentProject: PulseProject = PULSE_PROJECTS[currentIndex]
+  const currentProject: PulseProject = PULSE_PROJECTS[currentIndex] || PULSE_PROJECTS[0]
   const ROTATION_INTERVAL = 7000
 
   useEffect(() => {
@@ -44,11 +44,15 @@ export function RotatingProjects() {
     setProgress(0)
   }
 
-  const fundingPercentage = Math.round((currentProject.raisedAmount / currentProject.targetRaise) * 100)
+  // Precise percentage calculations preventing 0% rounding error on small numbers
+  const rawPercentage = (currentProject.raisedAmount / currentProject.targetRaise) * 100
+  const formattedPercentage = rawPercentage < 1 && rawPercentage > 0 
+    ? rawPercentage.toFixed(2) 
+    : Math.round(rawPercentage).toString()
 
   return (
     <div 
-      className="w-full max-w-5xl mx-auto my-12 px-4 sm:px-6"
+      className="w-full max-w-5xl mx-auto my-12 px-4 sm:px-6 font-sans"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -66,19 +70,19 @@ export function RotatingProjects() {
         
         {/* Navigation Controls */}
         <div className="flex items-center gap-3 self-end sm:self-auto">
-          <span className="text-xs font-mono text-zinc-500 mr-2">
+          <span className="text-xs font-mono text-zinc-400 mr-2">
             0{currentIndex + 1} / 0{PULSE_PROJECTS.length}
           </span>
           <button 
             onClick={handlePrev}
-            className="size-11 rounded-2xl border border-white/12 bg-white/[0.03] flex items-center justify-center text-zinc-300 hover:bg-white/[0.08] hover:border-amber-500/40 hover:text-amber-400 transition-all shadow-lg active:scale-95"
+            className="size-11 rounded-2xl border border-white/12 bg-white/[0.03] flex items-center justify-center text-zinc-300 hover:bg-white/[0.08] hover:border-amber-500/40 hover:text-amber-400 transition-all shadow-lg active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
             aria-label="Previous syndicate"
           >
             <ChevronLeft className="size-5" />
           </button>
           <button 
             onClick={handleNext}
-            className="size-11 rounded-2xl border border-white/12 bg-white/[0.03] flex items-center justify-center text-zinc-300 hover:bg-white/[0.08] hover:border-amber-500/40 hover:text-amber-400 transition-all shadow-lg active:scale-95"
+            className="size-11 rounded-2xl border border-white/12 bg-white/[0.03] flex items-center justify-center text-zinc-300 hover:bg-white/[0.08] hover:border-amber-500/40 hover:text-amber-400 transition-all shadow-lg active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
             aria-label="Next syndicate"
           >
             <ChevronRight className="size-5" />
@@ -87,7 +91,7 @@ export function RotatingProjects() {
       </div>
 
       {/* Main Container Card */}
-      <div className="relative rounded-[28px] sm:rounded-[32px] border border-white/[0.12] bg-zinc-950/90 backdrop-blur-3xl overflow-hidden shadow-[0_30px_90px_rgba(0,0,0,0.9)] group glow-card">
+      <div className="relative rounded-[28px] sm:rounded-[32px] border border-white/[0.14] bg-zinc-950/90 backdrop-blur-3xl overflow-hidden shadow-[0_30px_90px_rgba(0,0,0,0.9)] group glow-card">
         
         {/* Shimmer Border Accent */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_20px_rgba(245,158,11,0.6)] z-20" />
@@ -103,7 +107,7 @@ export function RotatingProjects() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -15, scale: 0.99 }}
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 p-6 sm:p-10 items-center relative z-10"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 p-6 sm:p-10 items-center relative z-10 transform-gpu"
           >
             {/* Responsive Image Frame */}
             <div className="lg:col-span-5 relative w-full h-64 sm:h-72 lg:h-80 rounded-2xl overflow-hidden border border-white/12 shadow-2xl bg-zinc-900">
@@ -157,7 +161,7 @@ export function RotatingProjects() {
                 <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-display">
                   {currentProject.title}
                 </h3>
-                <p className="mt-2 text-xs sm:text-sm text-zinc-300 leading-relaxed text-pretty">
+                <p className="mt-2 text-xs sm:text-sm text-zinc-300 leading-relaxed text-pretty font-sans">
                   {currentProject.description}
                 </p>
               </div>
@@ -184,9 +188,9 @@ export function RotatingProjects() {
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-mono">
                   <span className="text-zinc-300">Syndicate Pool: <strong className="text-white">${currentProject.raisedAmount.toLocaleString()}</strong></span>
-                  <span className="text-amber-400 font-semibold">{fundingPercentage}% Allocated</span>
+                  <span className="text-amber-400 font-semibold">{formattedPercentage}% Allocated</span>
                 </div>
-                <ProgressBar value={fundingPercentage} tone="gold" />
+                <ProgressBar value={rawPercentage} tone="gold" />
               </div>
 
               {/* Call to Action Bar */}
@@ -199,7 +203,7 @@ export function RotatingProjects() {
                 <motion.div whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
                   <Link
                     href={`/app/invest/${currentProject.id}`}
-                    className="flex h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 px-7 text-xs font-semibold text-zinc-950 shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:shadow-[0_0_35px_rgba(245,158,11,0.6)] transition-all group/btn"
+                    className="flex h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-7 text-xs font-semibold text-zinc-950 shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:shadow-[0_0_35px_rgba(245,158,11,0.6)] hover:brightness-110 transition-all group/btn"
                   >
                     Inspect Syndicate Portfolio 
                     <ArrowUpRight className="size-4 transition-transform group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1" />
