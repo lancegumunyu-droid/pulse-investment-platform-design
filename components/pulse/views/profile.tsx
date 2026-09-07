@@ -124,14 +124,18 @@ export function ProfileView() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
       <motion.div variants={itemVariants}>
-        <SectionTitle title="Profile" subtitle="Account details, verification, and network activity." icon={<User className="size-5" />} />
+        <SectionTitle title="Profile" subtitle="Account details, verification, and network activity." icon={<User className="size-5 text-amber-400 drop-shadow-[0_0_10px_rgba(245,166,35,0.6)]" />} />
       </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Glass gold className="border border-gold/25 bg-black/40 backdrop-blur-xl p-5 shadow-2xl relative overflow-hidden">
-          <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-gold/10 blur-2xl" />
-          <div className="flex items-center gap-4">
-            <span className="flex size-14 items-center justify-center rounded-2xl bg-gold/15 text-gold">
+      {/* Main Profile Header Card */}
+      <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all">
+        <Glass gold className="border border-amber-400/40 bg-gradient-to-b from-[#181510] to-[#0d0e12] backdrop-blur-2xl p-5 shadow-[0_0_40px_rgba(245,166,35,0.15)] relative overflow-hidden group">
+          {/* Enhanced Shimmer & Background Glows */}
+          <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-amber-500/20 blur-3xl animate-pulse" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-300/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+
+          <div className="flex items-center gap-4 relative z-10">
+            <span className="flex size-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-[0_0_20px_rgba(245,166,35,0.3)]">
               <User className="size-7" />
             </span>
             <div className="min-w-0 flex-1">
@@ -142,9 +146,9 @@ export function ProfileView() {
                     onChange={(e) => setUsernameInput(e.target.value)}
                     placeholder="username"
                     autoFocus
-                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-gold/50"
+                    className="min-w-0 flex-1 rounded-xl border border-amber-400/50 bg-black/80 px-3 py-2 text-sm text-white outline-none focus:shadow-[0_0_15px_rgba(245,166,35,0.3)]"
                   />
-                  <Button size="sm" className="shrink-0 bg-gold font-semibold text-primary-foreground hover:bg-gold/90" disabled={savingUsername} onClick={saveUsername}>
+                  <Button size="sm" className="shrink-0 bg-gradient-to-r from-amber-400 to-amber-500 font-bold text-black hover:brightness-110 shadow-[0_0_15px_rgba(245,166,35,0.4)]" disabled={savingUsername} onClick={saveUsername}>
                     Save
                   </Button>
                   <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground hover:text-white" onClick={() => { setEditingUsername(false); setUsernameInput(state.username ?? '') }}>
@@ -152,55 +156,58 @@ export function ProfileView() {
                   </Button>
                 </div>
               ) : (
-                <button onClick={() => setEditingUsername(true)} className="text-left group">
-                  <p className="truncate text-lg font-semibold text-white group-hover:text-gold transition-colors">
+                <button onClick={() => setEditingUsername(true)} className="text-left group/btn">
+                  <p className="truncate text-lg font-bold text-white group-hover/btn:text-amber-300 transition-colors drop-shadow-sm">
                     {state.username ? `@${state.username}` : 'Set a username →'}
                   </p>
                 </button>
               )}
-              <p className="truncate text-sm text-muted-foreground">
-                {state.fullName ?? 'Investor'} &middot; {currentTier.name} tier
+              <p className="truncate text-xs text-zinc-400 mt-0.5">
+                {state.fullName ?? 'Investor'} &middot; <span className="text-amber-400 font-semibold">{currentTier.name} tier</span>
               </p>
             </div>
           </div>
+
           {state.walletId && (
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5 text-xs">
-              <span className="text-muted-foreground">Pulse Wallet ID</span>
-              <span className="font-mono font-semibold text-gold">{state.walletId}</span>
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-400/20 bg-black/40 px-3.5 py-2.5 text-xs relative z-10 shadow-inner">
+              <span className="text-zinc-400">Pulse Wallet ID</span>
+              <span className="font-mono font-bold text-amber-400 drop-shadow-[0_0_8px_rgba(245,166,35,0.4)]">{state.walletId}</span>
             </div>
           )}
+
           {state.founderNumber && (
-            <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-gold/30 bg-gold/[0.08] px-3.5 py-2.5 relative overflow-hidden">
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-gold/10 to-transparent animate-pulse" />
-              <Award className="size-4 shrink-0 text-gold" />
-              <p className="text-xs font-semibold text-gold">Pulse Pioneer &mdash; Founder #{state.founderNumber} of 1,000</p>
+            <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent px-3.5 py-2.5 relative overflow-hidden shadow-[0_0_20px_rgba(245,166,35,0.2)]">
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-amber-300/30 to-transparent animate-pulse" />
+              <Award className="size-4 shrink-0 text-amber-400" />
+              <p className="text-xs font-bold text-amber-300 relative z-10">Pulse Pioneer &mdash; Founder #{state.founderNumber} of 1,000</p>
             </div>
           )}
         </Glass>
       </motion.div>
 
+      {/* Badges Section */}
       {state.badges.length > 0 && (
-        <motion.div variants={itemVariants}>
-          <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
+        <motion.div variants={itemVariants} whileHover={{ scale: 1.005 }} className="transition-all">
+          <Glass className="border border-white/10 hover:border-amber-400/30 bg-black/40 backdrop-blur-xl p-5 shadow-lg transition-colors">
             <div className="mb-3 flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
                 <Medal className="size-5" />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">Badges</p>
-                <p className="text-xs text-muted-foreground">Earned through real, verified activity</p>
+                <p className="text-sm font-bold text-white">Badges</p>
+                <p className="text-xs text-zinc-400">Earned through real, verified activity</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {state.badges.map((b) => {
                 const meta = BADGE_LABELS[b.key] ?? { label: b.key, hint: '' }
                 return (
-                  <div key={b.key} className="rounded-xl border border-gold/25 bg-gold/[0.06] p-3 transition-colors">
+                  <div key={b.key} className="rounded-xl border border-amber-400/30 bg-gradient-to-br from-amber-500/10 to-transparent p-3 hover:border-amber-400/60 transition-all shadow-[0_0_10px_rgba(245,166,35,0.1)]">
                     <div className="flex items-center gap-1.5">
-                      <Award className="size-3.5 shrink-0 text-gold" />
-                      <p className="truncate text-xs font-semibold text-gold">{meta.label}</p>
+                      <Award className="size-3.5 shrink-0 text-amber-400" />
+                      <p className="truncate text-xs font-bold text-amber-300">{meta.label}</p>
                     </div>
-                    {meta.hint && <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{meta.hint}</p>}
+                    {meta.hint && <p className="mt-1 text-[10px] leading-snug text-zinc-400">{meta.hint}</p>}
                   </div>
                 )
               })}
@@ -209,41 +216,45 @@ export function ProfileView() {
         </motion.div>
       )}
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
+      {/* Pulse Points */}
+      <motion.div variants={itemVariants} whileHover={{ scale: 1.005 }} className="transition-all">
+        <Glass className="border border-white/10 hover:border-amber-400/30 bg-black/40 backdrop-blur-xl p-5 shadow-lg transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
-                <Sparkles className="size-5" />
+              <span className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
+                <Sparkles className="size-5 animate-pulse" />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">Pulse Points</p>
-                <p className="text-xs text-muted-foreground">Earned through real activity &mdash; never affects yield</p>
+                <p className="text-sm font-bold text-white">Pulse Points</p>
+                <p className="text-xs text-zinc-400">Earned through real activity &mdash; never affects yield</p>
               </div>
             </div>
-            <span className="font-mono text-lg font-semibold text-gold">{state.points.toLocaleString()}</span>
+            <span className="font-mono text-lg font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,166,35,0.5)]">
+              {state.points.toLocaleString()}
+            </span>
           </div>
         </Glass>
       </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
+      {/* Identity Verification */}
+      <motion.div variants={itemVariants} whileHover={{ scale: 1.005 }} className="transition-all">
+        <Glass className="border border-white/10 hover:border-amber-400/30 bg-black/40 backdrop-blur-xl p-5 shadow-lg transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
                 <ShieldCheck className="size-5" />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">Identity verification</p>
-                <p className="text-xs text-muted-foreground">Required for larger investments & withdrawals</p>
+                <p className="text-sm font-bold text-white">Identity verification</p>
+                <p className="text-xs text-zinc-400">Required for larger investments & withdrawals</p>
               </div>
             </div>
             {state.kyc === 'verified' ? (
-              <Pill tone="green">
+              <Pill tone="green" className="shadow-[0_0_12px_rgba(16,185,129,0.3)]">
                 <BadgeCheck className="size-3.5" /> Verified
               </Pill>
             ) : (
-              <Button size="sm" className="bg-gold font-semibold text-primary-foreground hover:bg-gold/90 shadow-lg shadow-gold/15" onClick={() => openModal('kyc')}>
+              <Button size="sm" className="bg-gradient-to-r from-amber-400 to-amber-500 font-bold text-black hover:brightness-110 shadow-[0_0_20px_rgba(245,166,35,0.4)]" onClick={() => openModal('kyc')}>
                 {state.kyc === 'pending' ? 'Pending' : 'Verify'}
               </Button>
             )}
@@ -251,34 +262,37 @@ export function ProfileView() {
         </Glass>
       </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
+      {/* Refer Friends Card */}
+      <motion.div variants={itemVariants} whileHover={{ scale: 1.005 }} className="transition-all">
+        <Glass className="border border-white/10 hover:border-amber-400/30 bg-black/40 backdrop-blur-xl p-5 shadow-lg transition-colors relative overflow-hidden">
+          <div className="absolute right-0 bottom-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+          
           <div className="mb-3 flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
               <Gift className="size-5" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-white">Refer friends</p>
-              <p className="text-xs text-muted-foreground">Earn Pulse Points &mdash; real people, real rewards</p>
+              <p className="text-sm font-bold text-white">Refer friends</p>
+              <p className="text-xs text-zinc-400">Earn Pulse Points &mdash; real people, real rewards</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
-            <span className="flex-1 truncate font-mono text-sm text-white">{referralLink}</span>
-            <button onClick={copyRef} className="text-gold hover:text-white transition-colors" aria-label="Copy referral link">
+          <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-black/60 px-3.5 py-2.5 shadow-inner">
+            <span className="flex-1 truncate font-mono text-sm text-amber-300">{referralLink}</span>
+            <button onClick={copyRef} className="text-amber-400 hover:text-white transition-colors" aria-label="Copy referral link">
               <Copy className="size-4" />
             </button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-center">
-              <p className="font-mono text-lg font-semibold text-white">{state.referralCount}</p>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Joined via your link</p>
+            <div className="rounded-xl border border-white/10 bg-black/40 p-3 text-center shadow-inner">
+              <p className="font-mono text-lg font-black text-white">{state.referralCount}</p>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400">Joined via your link</p>
             </div>
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-center">
-              <p className="font-mono text-lg font-semibold text-green">{state.referralVerifiedCount}</p>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Verified identity</p>
+            <div className="rounded-xl border border-amber-500/20 bg-black/40 p-3 text-center shadow-inner">
+              <p className="font-mono text-lg font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">{state.referralVerifiedCount}</p>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400">Verified identity</p>
             </div>
           </div>
-          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-3 text-xs leading-relaxed text-zinc-400">
             You and your friend each earn 50 points when they sign up, 100 more when they verify their identity, and
             200 for you when they make their first investment. Points are a recognition system only &mdash; they never
             affect your tier, your yields, or how projects perform. Returns come solely from real project performance.
@@ -286,108 +300,57 @@ export function ProfileView() {
         </Glass>
       </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          <button onClick={toggleMyReferrals} className="flex w-full items-center justify-between text-left" disabled={loadingReferrals}>
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
-                <ListChecks className="size-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-white">My Referrals</p>
-                <p className="text-xs text-muted-foreground">
-                  {loadingReferrals ? 'Loading…' : myReferrals ? 'Tap to hide' : `${state.referralCount} joined via your link`}
-                </p>
+      {/* Accordions: My Referrals, Leaderboard, Founders */}
+      {[
+        { title: 'My Referrals', count: state.referralCount, data: myReferrals, loading: loadingReferrals, toggle: toggleMyReferrals, icon: <ListChecks className="size-5" /> },
+        { title: 'Top Referrers', count: null, data: leaderboard, loading: loadingBoard, toggle: toggleLeaderboard, icon: <Trophy className="size-5" /> },
+        { title: 'Wall of Founders', count: null, data: founders, loading: loadingFounders, toggle: toggleFounders, icon: <Users className="size-5" /> }
+      ].map((section, idx) => (
+        <motion.div key={idx} variants={itemVariants} whileHover={{ scale: 1.005 }} className="transition-all">
+          <Glass className="border border-white/10 hover:border-amber-400/30 bg-black/40 backdrop-blur-xl p-5 shadow-lg transition-colors">
+            <button onClick={section.toggle} className="flex w-full items-center justify-between text-left" disabled={section.loading}>
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
+                  {section.icon}
+                </span>
+                <div>
+                  <p className="text-sm font-bold text-white">{section.title}</p>
+                  <p className="text-xs text-zinc-400">
+                    {section.loading ? 'Loading…' : section.data ? 'Tap to hide' : 'Tap to expand & view details'}
+                  </p>
+                </div>
               </div>
-            </div>
-          </button>
-          {myReferrals && (
-            <div className="mt-4 max-h-64 space-y-2.5 overflow-y-auto border-t border-white/10 pt-4 no-scrollbar">
-              {myReferrals.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nobody has joined with your link yet.</p>
-              ) : (
-                myReferrals.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-white">{r.displayName}</p>
-                      <p className="truncate font-mono text-[10px] text-muted-foreground">{r.walletId ?? 'No wallet yet'}</p>
+            </button>
+            {section.data && (
+              <div className="mt-4 max-h-64 space-y-2.5 overflow-y-auto border-t border-white/10 pt-4 no-scrollbar">
+                {section.data.length === 0 ? (
+                  <p className="text-xs text-zinc-400">No records found yet.</p>
+                ) : (
+                  section.data.map((row: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between gap-2 text-xs border-b border-white/5 pb-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-white">{row.displayName || row.fullName}</p>
+                        <p className="truncate font-mono text-[10px] text-amber-400/80">{row.walletId ?? (row.totalPoints ? `${row.totalPoints.toLocaleString()} pts` : '')}</p>
+                      </div>
+                      {row.kycStatus ? (
+                        <Pill tone={row.kycStatus === 'verified' ? 'green' : 'muted'}>{row.kycStatus}</Pill>
+                      ) : row.founderNumber ? (
+                        <span className="font-mono font-black text-amber-400">#{row.founderNumber}</span>
+                      ) : null}
                     </div>
-                    <Pill tone={r.kycStatus === 'verified' ? 'green' : 'muted'}>{r.kycStatus}</Pill>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </Glass>
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          <button onClick={toggleLeaderboard} className="flex w-full items-center justify-between text-left" disabled={loadingBoard}>
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
-                <Trophy className="size-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-white">Top Referrers</p>
-                <p className="text-xs text-muted-foreground">{loadingBoard ? 'Loading…' : leaderboard ? 'Tap to hide' : 'Tap to view'}</p>
+                  ))
+                )}
               </div>
-            </div>
-          </button>
-          {leaderboard && (
-            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
-              {leaderboard.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No points earned yet &mdash; be the first.</p>
-              ) : (
-                leaderboard.map((row, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      <strong className="text-white">#{i + 1}</strong> {row.fullName}
-                      {row.founderNumber ? <span className="ml-1.5 text-gold">Founder #{row.founderNumber}</span> : null}
-                    </span>
-                    <span className="font-mono font-semibold text-white">{row.totalPoints.toLocaleString()} pts</span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </Glass>
-      </motion.div>
+            )}
+          </Glass>
+        </motion.div>
+      ))}
 
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          <button onClick={toggleFounders} className="flex w-full items-center justify-between text-left" disabled={loadingFounders}>
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
-                <Users className="size-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-white">Wall of Founders</p>
-                <p className="text-xs text-muted-foreground">{loadingFounders ? 'Loading…' : founders ? 'Tap to hide' : 'The first 1,000 verified investors'}</p>
-              </div>
-            </div>
-          </button>
-          {founders && (
-            <div className="mt-4 max-h-64 space-y-2 overflow-y-auto border-t border-white/10 pt-4 no-scrollbar">
-              {founders.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No Founders yet &mdash; complete KYC to become #1.</p>
-              ) : (
-                founders.map((row) => (
-                  <div key={row.founderNumber} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{row.fullName}</span>
-                    <span className="font-mono font-semibold text-gold">#{row.founderNumber}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </Glass>
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-          <p className="text-sm font-semibold text-white">How Pulse works</p>
-          <ul className="mt-2.5 space-y-2 text-sm leading-relaxed text-muted-foreground">
+      {/* How Pulse Works */}
+      <motion.div variants={itemVariants} whileHover={{ scale: 1.005 }} className="transition-all">
+        <Glass className="border border-white/10 hover:border-amber-400/30 bg-black/40 backdrop-blur-xl p-5 shadow-lg transition-colors">
+          <p className="text-sm font-bold text-white">How Pulse works</p>
+          <ul className="mt-2.5 space-y-2 text-sm leading-relaxed text-zinc-400">
             <li>&middot; You buy shares in vetted, real SADC projects.</li>
             <li>&middot; Projects generate variable returns based on actual performance.</li>
             <li>&middot; Yields are targets, not guarantees &mdash; capital is at risk.</li>
@@ -401,7 +364,7 @@ export function ProfileView() {
           <Button
             variant="outline"
             size="lg"
-            className="h-11 w-full border-white/12 bg-white/[0.03] text-white font-medium hover:bg-white/[0.08]"
+            className="h-11 w-full border-amber-400/40 bg-amber-500/10 text-amber-300 font-bold hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,166,35,0.2)] transition-all"
             onClick={openAdmin}
           >
             <Lock className="size-4" />
@@ -414,7 +377,7 @@ export function ProfileView() {
         <Button
           variant="ghost"
           size="lg"
-          className="h-11 w-full font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+          className="h-11 w-full font-bold text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
           onClick={signOut}
         >
           <LogOut className="size-4" /> Sign out
