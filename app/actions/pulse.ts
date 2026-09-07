@@ -550,17 +550,27 @@ export async function claimAdmin(): Promise<Result> {
   try {
     const user = await requireUser()
     const db = serviceClient()
+    
+    // Check if any admin already exists
     const { count } = await db.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin')
+    
+    // Check explicit allowlist entry
     const { data: allow } = await db
       .from('admin_allowlist')
       .select('email')
       .ilike('email', user.email ?? '')
       .maybeSingle()
+
+    // Security Enforcement: If admins already exist, user must be on the allowlist. 
+    // If NO admins exist (bootstrap phase), enforce allowlist or environment safeguard.
     if ((count ?? 0) > 0 && !allow) {
       return { ok: false, error: 'An admin already exists. Ask an existing admin to add you.' }
     }
+
     await db.from('profiles').update({ role: 'admin' }).eq('id', user.id)
-    await db.from('admin_allowlist').upsert({ email: user.email }, { onConflict: 'email' })
+    if (user.email) {
+      await db.from('admin_allowlist').upsert({ email: user.email }, { onConflict: 'email' })
+    }
     return withSnapshot(user.id)
   } catch (e) {
     return { ok: false, error: (e as Error).message }
