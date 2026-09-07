@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useState,
   useTransition,
   type ReactNode,
 } from 'react'
@@ -207,7 +206,10 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const closeModal = useCallback(() => setModal({ type: null }), [])
 
   const applyResult = useCallback((res: ActionResult): ActionResult => {
-    if (res.ok) setState(fromSnapshot(res.snapshot))
+    if (res.ok) {
+      // Force a fresh object clone so React and useMemo re-sync all balances instantly
+      setState({ ...fromSnapshot(res.snapshot) })
+    }
     return res
   }, [])
 
@@ -228,7 +230,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
   const refresh = useCallback(async () => {
     const snap = await fetchSnapshot()
-    if (snap) setState(fromSnapshot(snap))
+    if (snap) setState({ ...fromSnapshot(snap) })
   }, [])
 
   const signOut = useCallback(async () => {
