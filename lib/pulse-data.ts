@@ -69,7 +69,7 @@ export function tierForAmount(totalInvested: number): Tier {
   return current
 }
 
-export function nextTier(current: TierId): Tier | null {
+export function nextTier(current: TierId | string): Tier | null {
   const idx = TIERS.findIndex((t) => t.id === current)
   return idx >= 0 && idx < TIERS.length - 1 ? TIERS[idx + 1] : null
 }
@@ -103,7 +103,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 1_000_000,
     risk: 'Lower',
     summary: '85 MW solar installation with a 20-year power purchase agreement with the national utility.',
-    image: '/projects/kalahari-solar.png',
+    image: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?q=80&w=1000&auto=format&fit=crop',
     status: 'Open',
     deadline: '2026-09-15',
   },
@@ -117,7 +117,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 750_000,
     risk: 'Higher',
     summary: 'Revenue royalty on an operating copper concession. Returns track commodity prices and output.',
-    image: '/projects/lovable-project-mining.jpg',
+    image: 'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?q=80&w=1000&auto=format&fit=crop',
     status: 'Open',
     deadline: '2026-08-30',
   },
@@ -131,7 +131,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 500_000,
     risk: 'Moderate',
     summary: 'Irrigated macadamia and citrus estate with offtake contracts to EU distributors.',
-    image: '/projects/lovable-project-agri.jpg',
+    image: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1000&auto=format&fit=crop',
     status: 'Open',
     deadline: '2026-10-01',
   },
@@ -145,7 +145,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 900_000,
     risk: 'Moderate',
     summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
-    image: '/projects/maputo-logistics.png',
+    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1000&auto=format&fit=crop',
     status: 'Open',
     deadline: '2026-09-20',
   },
@@ -154,7 +154,7 @@ export const FALLBACK_PROJECTS: Project[] = [
 // Backward compatibility export
 export const PROJECTS = FALLBACK_PROJECTS
 
-// Added missing export required by dashboard.tsx
+// Export required record mapping for deadlines
 export const PROJECT_DEADLINES: Record<string, string> = PROJECTS.reduce(
   (acc, p) => {
     if (p.deadline) acc[p.id] = p.deadline
