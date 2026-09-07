@@ -1,5 +1,6 @@
 'use client'
 
+import { motion, AnimatePresence } from 'framer-motion'
 import { BadgeCheck, Info, TriangleAlert, X } from 'lucide-react'
 import { usePulse } from './store'
 import { cn } from '@/lib/utils'
@@ -7,59 +8,64 @@ import { cn } from '@/lib/utils'
 export function Toaster() {
   const { toasts, dismissToast } = usePulse()
 
-  if (!toasts.length) return null
-
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] mx-auto flex max-w-md flex-col items-center gap-2 px-4 sm:bottom-6 sm:right-6 sm:left-auto sm:mx-0 sm:items-end">
-      {toasts.map((t) => {
-        const Icon =
-          t.variant === 'success'
-            ? BadgeCheck
-            : t.variant === 'error'
+      <AnimatePresence mode="popLayout">
+        {toasts.map((t) => {
+          const Icon =
+            t.variant === 'success'
+              ? BadgeCheck
+              : t.variant === 'error'
               ? TriangleAlert
               : Info
 
-        return (
-          <div
-            key={t.id}
-            className={cn(
-              'animate-toast-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl transition-all',
-              'glass border border-white/10 bg-background/95',
-              t.variant === 'success' && 'border-green/30',
-              t.variant === 'error' && 'border-destructive/30',
-              t.variant === 'info' && 'border-gold/30',
-            )}
-          >
-            <div
+          return (
+            <motion.div
+              key={t.id}
+              layout
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
               className={cn(
-                'flex size-8 shrink-0 items-center justify-center rounded-xl',
-                t.variant === 'success' && 'bg-green-soft text-green',
-                t.variant === 'error' && 'bg-destructive/15 text-destructive',
-                t.variant === 'info' && 'bg-gold-soft text-gold',
+                'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl transition-all',
+                'border bg-zinc-950/95',
+                t.variant === 'success' && 'border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]',
+                t.variant === 'error' && 'border-rose-500/30 shadow-[0_0_20px_rgba(244,63,94,0.1)]',
+                t.variant === 'info' && 'border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.1)]',
               )}
             >
-              <Icon className="size-4" />
-            </div>
+              <div
+                className={cn(
+                  'flex size-8 shrink-0 items-center justify-center rounded-xl border',
+                  t.variant === 'success' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]',
+                  t.variant === 'error' && 'border-rose-500/30 bg-rose-500/10 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.2)]',
+                  t.variant === 'info' && 'border-amber-500/30 bg-amber-400/10 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]',
+                )}
+              >
+                <Icon className="size-4" />
+              </div>
 
-            <div className="min-w-0 flex-1 pt-0.5">
-              <p className="text-sm font-semibold text-foreground">{t.title}</p>
-              {t.description ? (
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {t.description}
-                </p>
-              ) : null}
-            </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="text-sm font-semibold text-white">{t.title}</p>
+                {t.description ? (
+                  <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
+                    {t.description}
+                  </p>
+                ) : null}
+              </div>
 
-            <button
-              onClick={() => dismissToast(t.id)}
-              className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
-              aria-label="Dismiss notification"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-        )
-      })}
+              <button
+                onClick={() => dismissToast(t.id)}
+                className="rounded-full p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Dismiss notification"
+              >
+                <X className="size-4" />
+              </button>
+            </motion.div>
+          )
+        })}
+      </AnimatePresence>
     </div>
   )
 }
