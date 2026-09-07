@@ -103,19 +103,19 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} ${spaceGrotesk.variable} dark bg-[#060608] text-foreground`}
+      className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} ${spaceGrotesk.variable} dark bg-[#060608] text-foreground h-full`}
     >
-      <body className="font-sans text-zinc-100 antialiased selection:bg-amber-500 selection:text-black min-h-screen flex flex-col relative overflow-x-hidden bg-background">
+      <body className="font-sans text-zinc-100 antialiased selection:bg-amber-500 selection:text-black min-h-screen min-h-[100dvh] flex flex-col relative overflow-x-hidden bg-background">
         {/* Elite Ambient Backlighting with Gold & Emerald Harmonies */}
         <div 
-          className="pointer-events-none fixed inset-0 z-0 opacity-45 mix-blend-screen"
+          className="pointer-events-none fixed inset-0 z-0 opacity-45 mix-blend-screen transform-gpu"
           style={{
             background: 'radial-gradient(circle 900px at 50% -200px, rgba(245,158,11,0.12), rgba(16,185,129,0.05) 50%, transparent 75%)'
           }}
         />
 
-        {/* Main Application Container */}
-        <div className="relative z-10 flex flex-col min-h-screen flex-1">
+        {/* Main Application Container with Dynamic Screen Height Alignment */}
+        <div className="relative z-10 flex flex-col min-h-screen min-h-[100dvh] flex-1 w-full max-w-full overflow-x-hidden">
           {children}
         </div>
 
