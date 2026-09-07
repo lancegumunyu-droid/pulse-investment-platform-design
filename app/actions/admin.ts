@@ -27,10 +27,15 @@ async function requireAdminScope(allowed: AdminScope[]) {
   const db = serviceClient()
   const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
   
-  // Security Fix: Do NOT default unassigned scope to 'full'. Standardize or restrict.
   const scope = (data?.admin_scope as AdminScope | null)
   
-  // If no scope defined, allow if 'full' is permitted or check strict inclusions
+  // Strict Security: Do not silently fallback high privileges if undefined. Require explicit scope.
+  if (!scope) {
+    if (!allowed.includes('operations')) {
+      throw new Error(`This action requires an explicit admin scope configuration.`)
+    }
+  }
+
   const effectiveScope: AdminScope = scope ?? 'operations'
   if (!allowed.includes('full') && !allowed.includes(effectiveScope)) {
     throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
@@ -49,7 +54,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     await requireAdmin()
     const db = serviceClient()
 
-    // Query cap applied to safeguard memory on initial loads
     const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] = await Promise.all([
       db.from('profiles').select('*').order('created_at', { ascending: false }).limit(500),
       db.from('accounts').select('*').limit(500),
@@ -231,6 +235,7 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .from('kyc_submissions')
       .update({ status: decision, reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
       .eq('id', id)
+      .eq('status', 'pending')
     if (kycErr) return { ok: false, error: `kyc_submissions update failed: ${kycErr.message}` }
 
     const { error: profErr } = await db
@@ -260,16 +265,12 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
         })
       }
 
-      const { error: founderErr } = await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
-      if (founderErr) console.error('assign_founder_number failed:', founderErr.message)
-
-      const { error: kycPointsErr } = await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
-      if (kycPointsErr) console.error('award_points (kyc self) failed:', kycPointsErr.message)
+      await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
+      await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
 
       const { data: verifiedProfile } = await db.from('profiles').select('referred_by').eq('id', sub.user_id).maybeSingle()
       if (verifiedProfile?.referred_by) {
-        const { error: refPointsErr } = await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
-        if (refPointsErr) console.error('award_points (kyc referrer) failed:', refPointsErr.message)
+        await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
       }
     }
 
@@ -295,33 +296,32 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
 }
 
 // ==========================================
-// TRANSACTION REVIEW ACTIONS
+// TRANSACTION REVIEW ACTIONS (ATOMIC GUARDS)
 // ==========================================
 
 export async function reviewDeposit(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full', 'finance'])
     const db = serviceClient()
-    const { data: txn } = await db.from('transactions').select('*').eq('id', id).single()
-    if (!txn || txn.type !== 'deposit' || txn.status !== 'pending') {
-      return { ok: false, error: 'Deposit not found or already processed' }
+    
+    const newStatus = decision === 'approved' ? 'completed' : 'cancelled'
+    const { data: txn, error: updateErr } = await db
+      .from('transactions')
+      .update({ status: newStatus, processed_by: admin.id })
+      .eq('id', id)
+      .eq('type', 'deposit')
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle()
+
+    if (updateErr || !txn) {
+      return { ok: false, error: 'Deposit not found or already processed concurrently' }
     }
 
     if (decision === 'approved') {
-      const { error } = await db
-        .from('transactions')
-        .update({ status: 'completed', processed_by: admin.id })
-        .eq('id', id)
-      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-      
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
-    } else {
-      const { error } = await db
-        .from('transactions')
-        .update({ status: 'cancelled', processed_by: admin.id })
-        .eq('id', id)
-      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     }
+    
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -332,25 +332,25 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
   try {
     const admin = await requireAdminScope(['full', 'finance'])
     const db = serviceClient()
-    const { data: txn } = await db.from('transactions').select('*').eq('id', id).single()
-    if (!txn || txn.type !== 'withdrawal' || txn.status !== 'pending') {
-      return { ok: false, error: 'Withdrawal not found or already processed' }
+
+    const newStatus = decision === 'approved' ? 'completed' : 'cancelled'
+    const { data: txn, error: updateErr } = await db
+      .from('transactions')
+      .update({ status: newStatus, processed_by: admin.id })
+      .eq('id', id)
+      .eq('type', 'withdrawal')
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle()
+
+    if (updateErr || !txn) {
+      return { ok: false, error: 'Withdrawal not found or already processed concurrently' }
     }
 
-    if (decision === 'approved') {
-      const { error } = await db
-        .from('transactions')
-        .update({ status: 'completed', processed_by: admin.id })
-        .eq('id', id)
-      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
-    } else {
+    if (decision === 'rejected') {
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
-      const { error } = await db
-        .from('transactions')
-        .update({ status: 'cancelled', processed_by: admin.id })
-        .eq('id', id)
-      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     }
+    
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -361,9 +361,19 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
   try {
     const admin = await requireAdminScope(['full', 'finance'])
     const db = serviceClient()
-    const { data: txn } = await db.from('transactions').select('*').eq('id', id).single()
-    if (!txn || txn.type !== 'p2p_send' || txn.status !== 'pending') {
-      return { ok: false, error: 'Transfer not found or already processed' }
+
+    const newStatus = decision === 'approved' ? 'completed' : 'cancelled'
+    const { data: txn, error: updateErr } = await db
+      .from('transactions')
+      .update({ status: newStatus, processed_by: admin.id })
+      .eq('id', id)
+      .eq('type', 'p2p_send')
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle()
+
+    if (updateErr || !txn) {
+      return { ok: false, error: 'Transfer not found or already processed concurrently' }
     }
 
     const meta = (txn.meta as Record<string, unknown> | null) ?? {}
@@ -371,12 +381,6 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
 
     if (decision === 'approved') {
       if (!recipientId) return { ok: false, error: 'Transfer is missing a recipient — cannot approve' }
-
-      const { error } = await db
-        .from('transactions')
-        .update({ status: 'completed', processed_by: admin.id })
-        .eq('id', id)
-      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
 
       await adjustAccount(recipientId, { cash_balance: Number(txn.amount) })
       await recordTxn(recipientId, {
@@ -389,12 +393,8 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
       })
     } else {
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
-      const { error } = await db
-        .from('transactions')
-        .update({ status: 'cancelled', processed_by: admin.id })
-        .eq('id', id)
-      if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     }
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -405,6 +405,7 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
   try {
     const admin = await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
+
     const { data: app } = await db.from('card_applications').select('*').eq('id', id).single()
     if (!app || app.status !== 'waitlisted') {
       return { ok: false, error: 'Application not found or already processed' }
@@ -413,14 +414,11 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
     if (decision === 'approved') {
       const { data: profile } = await db.from('profiles').select('kyc_status').eq('id', app.user_id).maybeSingle()
       if (profile?.kyc_status !== 'verified') {
-        return { ok: false, error: 'This applicant has not completed KYC yet — verify identity before approving a card' }
+        return { ok: false, error: 'Applicant has not completed KYC verification' }
       }
     }
 
-    const cardRef =
-      decision === 'approved'
-        ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
-        : null
+    const cardRef = decision === 'approved' ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}` : null
 
     const { error } = await db
       .from('card_applications')
@@ -431,6 +429,7 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
         ...(cardRef ? { card_ref: cardRef } : {}),
       })
       .eq('id', id)
+      .eq('status', 'waitlisted')
 
     if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
     return getAdminSnapshot()
@@ -464,8 +463,7 @@ export async function addAdminByEmail(email: string): Promise<AdminResult> {
     const clean = email.trim().toLowerCase()
     if (!clean.includes('@')) return { ok: false, error: 'Enter a valid email' }
     const db = serviceClient()
-    const { error: allowErr } = await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
-    if (allowErr) return { ok: false, error: `admin_allowlist upsert failed: ${allowErr.message}` }
+    await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
     await db.from('profiles').update({ role: 'admin' }).ilike('email', clean)
     return getAdminSnapshot()
   } catch (e) {
@@ -558,20 +556,12 @@ export async function getProjectAdminStatuses(): Promise<{ ok: boolean; statuses
   }
 }
 
-export async function setProjectStatus(
-  projectId: string,
-  closed: boolean,
-  deadlineOverride?: string | null
-): Promise<{ ok: boolean; error?: string }> {
+export async function setProjectStatus(projectId: string, closed: boolean, deadlineOverride?: string | null): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const updatePayload: Record<string, unknown> = {
-      status: closed ? 'Closed' : 'Open',
-    }
-    if (deadlineOverride !== undefined) {
-      updatePayload.deadline = deadlineOverride
-    }
+    const updatePayload: Record<string, unknown> = { status: closed ? 'Closed' : 'Open' }
+    if (deadlineOverride !== undefined) updatePayload.deadline = deadlineOverride
 
     const { error } = await db.from('projects').update(updatePayload).eq('id', projectId)
     if (error) return { ok: false, error: error.message }
@@ -681,7 +671,7 @@ export async function deleteSignal(id: string): Promise<{ ok: boolean; error?: s
 }
 
 // ==========================================
-// UPGRADED BATCHED PROJECT PAYOUT
+// BATCHED PROJECT PAYOUT
 // ==========================================
 
 export async function processProjectPayout(projectId: string, customYieldRate?: number): Promise<{ ok: boolean; error?: string }> {
@@ -689,27 +679,21 @@ export async function processProjectPayout(projectId: string, customYieldRate?: 
     const admin = await requireAdminScope(['full', 'operations', 'finance'])
     const db = serviceClient()
 
-    // 1. Fetch project to retrieve target yield safely
     const { data: project, error: projErr } = await db.from('projects').select('target_yield').eq('id', projectId).single()
     if (projErr) return { ok: false, error: `Failed to fetch project: ${projErr.message}` }
 
     const yieldRate = customYieldRate ?? (project?.target_yield ? parseFloat(project.target_yield) / 100 : 0.10)
 
-    // 2. Fetch all holdings for this project
     const { data: holdings, error: holdErr } = await db.from('holdings').select('*').eq('project_id', projectId)
-    if (holdErr) return { ok: false, error: `Failed to fetch project holdings: ${holdErr.message}` }
+    if (holdErr) return { ok: false, error: `Failed to fetch holdings: ${holdErr.message}` }
 
-    if (!holdings || holdings.length === 0) {
-      return { ok: true }
-    }
+    if (!holdings || holdings.length === 0) return { ok: true }
 
     const errors: string[] = []
     const BATCH_SIZE = 20
 
-    // 3. Process payouts in safe chunks to protect DB connection pool and isolate errors
     for (let i = 0; i < holdings.length; i += BATCH_SIZE) {
       const batch = holdings.slice(i, i + BATCH_SIZE)
-
       await Promise.all(
         batch.map(async (h) => {
           try {
@@ -726,7 +710,6 @@ export async function processProjectPayout(projectId: string, customYieldRate?: 
               })
             }
           } catch (err) {
-            console.error(`Failed payout for user ${h.user_id}:`, (err as Error).message)
             errors.push(`User ${h.user_id}: ${(err as Error).message}`)
           }
         })
@@ -734,7 +717,7 @@ export async function processProjectPayout(projectId: string, customYieldRate?: 
     }
 
     if (errors.length > 0) {
-      console.warn(`Project payout completed with ${errors.length} individual errors.`)
+      return { ok: false, error: `Payout completed with errors: ${errors.slice(0, 3).join('; ')}` }
     }
 
     return { ok: true }
