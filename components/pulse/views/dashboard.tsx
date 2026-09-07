@@ -31,7 +31,7 @@ export function DashboardView() {
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
-  const cursorGlow = useMotionTemplate`radial-gradient(340px circle at ${mouseX}px ${mouseY}px, rgba(245, 158, 11, 0.28), rgba(16, 185, 129, 0.1) 50%, transparent 85%)`
+  const cursorGlow = useMotionTemplate`radial-gradient(340px circle at ${mouseX}px ${mouseY}px, rgba(245, 158, 11, 0.32), rgba(5, 150, 105, 0.18) 50%, transparent 85%)`
 
   useEffect(() => {
     let cancelled = false
@@ -47,8 +47,8 @@ export function DashboardView() {
     <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-20 text-neutral-100 antialiased">
       <style>{`
         @keyframes pulsePureGlow { 0%, 100% { opacity: .45; transform: scale(1); filter: brightness(1); } 50% { opacity: .95; transform: scale(1.035); filter: brightness(1.2); } }
-        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.35); box-shadow: 0 0 16px rgba(245,158,11,.18), inset 0 0 12px rgba(245,158,11,.05); } 35% { border-color: rgba(16,185,129,.65); box-shadow: 0 0 30px rgba(16,185,129,.32), inset 0 0 18px rgba(16,185,129,.1); } 65% { border-color: rgba(245,158,11,.9); box-shadow: 0 0 42px rgba(245,158,11,.5), inset 0 0 28px rgba(245,158,11,.18); } }
-        @keyframes pulseEmerald { 0%, 100% { border-color: rgba(16,185,129,.45); box-shadow: 0 0 16px rgba(16,185,129,.22); } 50% { border-color: rgba(16,185,129,.9); box-shadow: 0 0 34px rgba(16,185,129,.55); } }
+        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.45); box-shadow: 0 0 20px rgba(245,158,11,.22), inset 0 0 14px rgba(245,158,11,.08); } 35% { border-color: rgba(5,150,105,.75); box-shadow: 0 0 35px rgba(5,150,105,.4), inset 0 0 20px rgba(5,150,105,.15); } 65% { border-color: rgba(245,158,11,.95); box-shadow: 0 0 45px rgba(245,158,11,.55), inset 0 0 30px rgba(245,158,11,.2); } }
+        @keyframes pulseEmerald { 0%, 100% { border-color: rgba(5,150,105,.55); box-shadow: 0 0 20px rgba(5,150,105,.3); } 50% { border-color: rgba(16,185,129,.95); box-shadow: 0 0 38px rgba(16,185,129,.65); } }
         @keyframes pulseConicSpin { to { transform: rotate(360deg); } }
         @keyframes pulseLiquidMove { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         @keyframes pulseAmbientFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-5px) rotate(1.5deg); } }
@@ -65,29 +65,29 @@ export function DashboardView() {
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="pulse-pure-shimmer flex flex-col items-start justify-between gap-2 rounded-2xl border border-amber-500/35 bg-neutral-950/85 px-4 py-3.5 pb-4.5 shadow-[0_0_30px_rgba(245,158,11,.15)] backdrop-blur-xl sm:flex-row sm:items-center"
+        className="pulse-pure-shimmer flex flex-col items-start justify-between gap-2 rounded-2xl border border-amber-500/40 bg-neutral-950/90 px-4 py-3.5 pb-4.5 shadow-[0_0_35px_rgba(245,158,11,.18)] backdrop-blur-xl sm:flex-row sm:items-center"
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="relative flex size-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-80" />
-            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.9)]" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-90" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(5,150,105,1)]" />
           </span>
-          <span className="truncate text-[11px] font-bold uppercase tracking-wider text-neutral-200 sm:text-xs">
+          <span className="truncate text-[11px] font-bold uppercase tracking-wider text-neutral-100 sm:text-xs">
             SADC Capital Network &bull; Live Terminal
           </span>
         </div>
         <motion.span 
-          animate={{ opacity: [0.8, 1, 0.8], scale: [1, 1.02, 1] }} 
+          animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.02, 1] }} 
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} 
-          className="rounded-full border border-amber-500/45 bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-200 shadow-[0_0_22px_rgba(245,158,11,.25)]"
+          className="rounded-full border border-amber-500/50 bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-200 shadow-[0_0_24px_rgba(245,158,11,.3)]"
         >
           {currentTier.name} Member
         </motion.span>
       </motion.div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <div className="relative overflow-hidden rounded-3xl p-px shadow-[0_0_50px_rgba(245,158,11,.28)]">
-        <motion.div className="pulse-conic-spin pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_100deg,#10b981_200deg,#f59e0b_360deg)] opacity-90" />
+      <div className="relative overflow-hidden rounded-3xl p-px shadow-[0_0_55px_rgba(245,158,11,.32)]">
+        <motion.div className="pulse-conic-spin pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_100deg,#059669_200deg,#f59e0b_360deg)] opacity-95" />
         <motion.div 
           whileHover={{ scale: 1.008 }} 
           onPointerMove={(event) => { 
@@ -95,35 +95,35 @@ export function DashboardView() {
             mouseX.set(event.clientX - rect.left); 
             mouseY.set(event.clientY - rect.top); 
           }} 
-          className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-3xl shadow-[0_0_40px_rgba(245,158,11,.18)]"
+          className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-3xl shadow-[0_0_45px_rgba(245,158,11,.22)]"
         >
           <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
-          <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-amber-500/25 blur-3xl animate-pulse" />
+          <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-amber-500/30 blur-3xl animate-pulse" />
           
           <div className="relative z-10 space-y-4 p-5 sm:p-6">
             <div className="flex min-w-0 items-start justify-between gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-200">
                 Total Net Portfolio Value
               </span>
               <motion.span 
-                animate={{ scale: [1, 1.05, 1], filter: ['brightness(1)', 'brightness(1.15)', 'brightness(1)'] }} 
+                animate={{ scale: [1, 1.05, 1], filter: ['brightness(1)', 'brightness(1.2)', 'brightness(1)'] }} 
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} 
-                className="pulse-pure-emerald inline-flex max-w-[48%] shrink-0 items-center gap-1.5 rounded-lg border border-emerald-500/45 bg-emerald-950/80 px-2.5 py-1 text-[11px] font-extrabold leading-tight text-emerald-200 shadow-[0_0_22px_rgba(16,185,129,.35)] sm:max-w-none sm:px-3 sm:text-xs"
+                className="pulse-pure-emerald inline-flex max-w-[48%] shrink-0 items-center gap-1.5 rounded-lg border border-emerald-500/60 bg-emerald-950/90 px-2.5 py-1 text-[11px] font-extrabold leading-tight text-emerald-300 shadow-[0_0_25px_rgba(5,150,105,.45)] sm:max-w-none sm:px-3 sm:text-xs"
               >
-                <TrendingUp className="size-4 text-emerald-300 animate-pulse" />
+                <TrendingUp className="size-4 text-emerald-400 animate-pulse" />
                 +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
               </motion.span>
             </div>
 
             <div>
               <div className="flex items-baseline gap-2">
-                <h1 className="font-display text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)] sm:text-5xl">
+                <h1 className="font-display text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)] sm:text-5xl">
                   ${money(portfolioValue)}
                 </h1>
                 <span className="font-mono text-xs font-bold text-amber-300">USDT</span>
               </div>
               <p className="mt-2 text-xs font-medium text-neutral-200">
-                Cumulative Yield: <span className="text-emerald-300 font-bold">+${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)</span>
+                Cumulative Yield: <span className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(5,150,105,0.4)]">+${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)</span>
               </p>
             </div>
 
@@ -132,7 +132,7 @@ export function DashboardView() {
                 <Button
                   aria-label="Deposit capital"
                   size="lg"
-                  className="pulse-liquid-motion pulse-action h-12 w-full min-w-0 rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_32px_rgba(245,158,11,.6)] transition-all hover:from-amber-300 hover:to-amber-200"
+                  className="pulse-liquid-motion pulse-action h-12 w-full min-w-0 rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_35px_rgba(245,158,11,.65)] transition-all hover:from-amber-300 hover:to-amber-200"
                   onClick={() => openModal('deposit')}
                 >
                   <ArrowDownRight className="size-4 shrink-0 stroke-[3]" /><span className="truncate">Deposit Capital</span>
@@ -171,9 +171,9 @@ export function DashboardView() {
 
       {/* 3. TIER STATUS BAR */}
       <motion.div 
-        animate={{ borderColor: ['rgba(245,158,11,.35)', 'rgba(245,158,11,.75)', 'rgba(245,158,11,.35)'] }} 
+        animate={{ borderColor: ['rgba(245,158,11,.4)', 'rgba(245,158,11,.8)', 'rgba(245,158,11,.4)'] }} 
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }} 
-        className="pulse-pure-shimmer glow-card relative overflow-hidden rounded-2xl border border-amber-500/45 bg-gradient-to-r from-neutral-900/95 via-amber-950/35 to-neutral-900/95 p-4.5 shadow-[0_0_35px_rgba(245,158,11,.2)] sm:p-5"
+        className="pulse-pure-shimmer glow-card relative overflow-hidden rounded-2xl border border-amber-500/50 bg-gradient-to-r from-neutral-900/95 via-amber-950/40 to-neutral-900/95 p-4.5 shadow-[0_0_40px_rgba(245,158,11,.22)] sm:p-5"
       >
         <div className="flex min-w-0 flex-col items-start justify-between gap-2.5 sm:flex-row sm:items-center">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -184,7 +184,7 @@ export function DashboardView() {
               Standing: <span className="text-white font-extrabold">{currentTier.name} VIP</span>
             </span>
           </div>
-          <span className="rounded-md border border-emerald-500/35 bg-emerald-500/15 px-2 py-0.5 text-xs font-mono font-bold text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.25)]">{currentTier.yieldLabel}</span>
+          <span className="rounded-md border border-emerald-500/50 bg-emerald-500/20 px-2 py-0.5 text-xs font-mono font-bold text-emerald-300 shadow-[0_0_15px_rgba(5,150,105,0.35)]">{currentTier.yieldLabel}</span>
         </div>
 
         {upcoming ? (
@@ -196,7 +196,7 @@ export function DashboardView() {
             <ProgressBar value={progress} tone="gold" />
           </div>
         ) : (
-          <p className="mt-2 text-xs text-emerald-300 font-semibold">Apex Institutional Rank Active &bull; Max Tier Unlocked.</p>
+          <p className="mt-2 text-xs text-emerald-300 font-semibold drop-shadow-[0_0_8px_rgba(5,150,105,0.4)]">Apex Institutional Rank Active &bull; Max Tier Unlocked.</p>
         )}
       </motion.div>
 
@@ -264,8 +264,8 @@ export function DashboardView() {
           <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200">
             Regional Opportunities
           </h3>
-          <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-emerald-300 animate-ping" />
+          <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5 drop-shadow-[0_0_8px_rgba(5,150,105,0.4)]">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
             Verified SADC Pipeline
           </span>
         </div>
@@ -312,7 +312,7 @@ export function DashboardView() {
                         <p className="text-xs text-neutral-300">{p.country} &bull; {p.sector}</p>
                       </div>
                     </div>
-                    <span className="rounded-lg border border-emerald-500/45 bg-emerald-500/20 px-3 py-1 font-mono text-xs font-extrabold text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.3)]">
+                    <span className="rounded-lg border border-emerald-500/50 bg-emerald-500/20 px-3 py-1 font-mono text-xs font-extrabold text-emerald-300 shadow-[0_0_16px_rgba(5,150,105,0.4)]">
                       {p.targetYield}
                     </span>
                   </div>
@@ -351,7 +351,7 @@ export function DashboardView() {
         </h3>
         <div className="grid grid-cols-2 gap-3.5">
           <ActionTile tone="gold" badge="Private" icon={<Rocket className="size-4 text-amber-200 animate-pulse" />} label="Buy $PULSE" detail="Private sale round" onClick={() => setView('sale')} />
-          <ActionTile tone="green" badge="24.8% APY" icon={<Zap className="size-4 text-emerald-200 animate-pulse" />} label="Stake Vault" detail="High yield pool" onClick={() => setView('stake')} />
+          <ActionTile tone="green" badge="24.8% APY" icon={<Zap className="size-4 text-emerald-300 animate-pulse" />} label="Stake Vault" detail="High yield pool" onClick={() => setView('stake')} />
           <ActionTile tone="cyan" badge="3 Live" icon={<Radio className="size-4 text-cyan-200 animate-pulse" />} label="Signals Feed" detail="Institutional deals" onClick={() => setView('signals')} />
           <ActionTile tone="gold" badge="Level 2" icon={<ShieldCheck className="size-4 text-amber-200" />} label="Verify KYC" detail="Unlocked access" onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))} />
         </div>
@@ -387,12 +387,12 @@ export function DashboardView() {
 function ActionTile({ icon, label, detail, badge, tone, onClick }: { icon: React.ReactNode; label: string; detail: string; badge: string; tone: 'gold' | 'green' | 'cyan'; onClick: () => void }) {
   const tones = {
     gold: 'border-amber-500/45 from-amber-950/50 via-neutral-900/95 to-neutral-900/95 text-amber-200',
-    green: 'border-emerald-500/45 from-emerald-950/50 via-neutral-900/95 to-neutral-900/95 text-emerald-200',
+    green: 'border-emerald-500/50 from-emerald-950/60 via-neutral-900/95 to-neutral-900/95 text-emerald-300',
     cyan: 'border-cyan-500/45 from-cyan-950/50 via-neutral-900/95 to-neutral-900/95 text-cyan-200',
   }
   const badgeTones = {
     gold: 'border-amber-500/45 bg-amber-500/20 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.25)]',
-    green: 'border-emerald-500/45 bg-emerald-500/20 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)]',
+    green: 'border-emerald-500/50 bg-emerald-500/25 text-emerald-300 shadow-[0_0_16px_rgba(5,150,105,0.4)]',
     cyan: 'border-cyan-500/45 bg-cyan-500/20 text-cyan-200 shadow-[0_0_12px_rgba(6,182,212,0.25)]',
   }
 
