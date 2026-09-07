@@ -1,508 +1,418 @@
-'use client'
-
-import React, { useState, useEffect } from 'react'
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import React, { useState, useRef, useCallback, useMemo } from 'react'
+import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
 import { 
   ArrowUpRight, 
   ArrowDownLeft, 
-  Send, 
-  RefreshCw, 
-  Coins, 
-  Zap,
-  CheckCircle2,
-  Wallet,
-  Clock
+  Wallet as WalletIcon, 
+  ShieldCheck, 
+  Zap, 
+  Sparkles, 
+  TrendingUp, 
+  History, 
+  Lock, 
+  CheckCircle2, 
+  X,
+  CreditCard,
+  ChevronRight,
+  AlertCircle
 } from 'lucide-react'
-import { usePulse, money } from '../store'
-import { RiskNote } from '../ui-bits'
-import { Button } from '@/components/ui/button'
+import { usePulse } from '../context/PulseContext'
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.04 },
-  },
-}
+export const Wallet: React.FC = () => {
+  const { 
+    pulseLiquid, 
+    pulseStaked, 
+    vaultCash, 
+    activities, 
+    sellPulse, 
+    transferTokens 
+  } = usePulse()
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 24 },
-  },
-}
+  // --- Card Motion Values ---
+  const cardRef = useRef<HTMLDivElement>(null)
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
 
-function DynamicMetallicCard({
-  cardholderName,
-  cardNumber,
-  cvv,
-  memberSince,
-}: {
-  cardholderName: string
-  cardNumber: string
-  cvv: string
-  memberSince: string
-}) {
-  const [isFlipped, setIsFlipped] = useState(false)
-  const [mousePos, setMousePos] = useState({ x: 180, y: 100 })
-  const [isHovered, setIsHovered] = useState(false)
+  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [12, -12]), { damping: 20, stiffness: 200 })
+  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-12, 12]), { damping: 20, stiffness: 200 })
+  const glareX = useTransform(mouseX, [-0.5, 0.5], ['0%', '100%'])
+  const glareY = useTransform(mouseY, [-0.5, 0.5], ['0%', '100%'])
 
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    const width = rect.width
+    const height = rect.height
+    const x = (e.clientX - rect.left) / width - 0.5
+    const y = (e.clientY - rect.top) / height - 0.5
+    mouseX.set(x)
+    mouseY.set(y)
+  }, [mouseX, mouseY])
 
-  const mouseXSpring = useSpring(x, { stiffness: 350, damping: 30 })
-  const mouseYSpring = useSpring(y, { stiffness: 350, damping: 30 })
+  const handleMouseLeave = useCallback(() => {
+    mouseX.set(0)
+    mouseY.set(0)
+  }, [mouseX, mouseY])
 
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['10deg', '-10deg'])
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-10deg', '10deg'])
+  // --- Drawers / Modal States ---
+  const [isSellOpen, setIsSellOpen] = useState(false)
+  const [sellAmount, setSellAmount] = useState('')
+  const [sellError, setSellError] = useState<string | null>(null)
+  const [isSuccess, setIsSuccess] = useState(false)
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
-    setMousePos({ x: mouseX, y: mouseY })
-    x.set(mouseX / rect.width - 0.5)
-    y.set(mouseY / rect.height - 0.5)
+  // --- Calculated Values ---
+  const pulseRate = 0.08 // $0.08 per PULSE
+  const totalPulse = pulseLiquid + pulseStaked
+  const totalPortfolioValue = (totalPulse * pulseRate) + vaultCash
+
+  const calculatedCashOutput = useMemo(() => {
+    const numericAmt = parseFloat(sellAmount.replace(/,/g, '')) || 0
+    return (numericAmt * pulseRate).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
+  }, [sellAmount])
+
+  const handleSellSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSellError(null)
+
+    const numericAmt = parseFloat(sellAmount.replace(/,/g, ''))
+    if (isNaN(numericAmt) || numericAmt <= 0) {
+      setSellError('Please enter a valid amount greater than 0.')
+      return
+    }
+
+    if (numericAmt > pulseLiquid) {
+      setSellError(`Amount exceeds liquid balance (${pulseLiquid.toLocaleString()} PULSE).`)
+      return
+    }
+
+    // Execute transaction via context
+    sellPulse(numericAmt)
+    setIsSuccess(true)
+
+    setTimeout(() => {
+      setIsSuccess(false)
+      setIsSellOpen(false)
+      setSellAmount('')
+    }, 1800)
   }
 
   return (
-    <div className="w-full flex flex-col items-center space-y-2 py-2">
-      <div
-        style={{ perspective: 1400 }}
-        className="w-full max-w-[340px] aspect-[1.586/1] cursor-pointer select-none"
-        onClick={() => setIsFlipped(!isFlipped)}
-        onPointerMove={handlePointerMove}
-        onPointerEnter={() => setIsHovered(true)}
-        onPointerLeave={() => { setIsHovered(false); x.set(0); y.set(0); }}
-      >
-        <motion.div
-          animate={{ rotateY: isFlipped ? 180 : 0 }}
-          transition={{ duration: 0.6, type: 'spring', stiffness: 260, damping: 20 }}
-          style={{
-            rotateX: isHovered && !isFlipped ? rotateX : 0,
-            rotateY: isHovered && !isFlipped ? rotateY : 0,
-            transformStyle: 'preserve-3d',
-          }}
-          className="relative w-full h-full rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_30px_rgba(245,166,35,0.2)] group"
-        >
-          {/* Front Face */}
-          <div
-            className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/50 p-4 flex flex-col justify-between backface-hidden shadow-2xl"
-            style={{
-              backfaceVisibility: 'hidden',
-              background: `
-                radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 230, 150, 0.4), transparent 70%),
-                linear-gradient(135deg, #f5d77f 0%, #d4af37 35%, #aa7c11 70%, #7c5405 100%)
-              `,
-            }}
+    <div className="w-full max-w-7xl mx-auto p-4 md:p-8 space-y-8 text-white min-h-screen">
+      
+      {/* HEADER STATS SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-white/10">
+        <div>
+          <span className="text-xs font-mono uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            Decentralized Reserve Account
+          </span>
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mt-1 bg-gradient-to-r from-white via-neutral-200 to-neutral-400 bg-clip-text text-transparent">
+            Wallet & Assets
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <button
+            onClick={() => setIsSellOpen(true)}
+            className="flex-1 md:flex-initial px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-semibold text-sm transition-all duration-200 shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
           >
-            <motion.div 
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none"
-            />
-            <div className="absolute inset-0 border border-white/30 rounded-2xl pointer-events-none" />
-            
-            <div className="flex items-center justify-between relative z-10">
-              <div className="space-y-0.5">
-                <h3 className="font-black text-black tracking-widest text-sm font-mono drop-shadow-sm">PULSE</h3>
-                <div className="w-7 h-5 rounded bg-gradient-to-br from-amber-200 to-amber-600 border border-amber-800/40 flex items-center justify-center shadow-inner">
-                  <div className="w-full h-full border border-amber-900/30 bg-amber-300/30" />
+            <ArrowUpRight className="w-4 h-4" />
+            Liquidate PULSE
+          </button>
+        </div>
+      </div>
+
+      {/* MAIN CARDS GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* LEFT COLUMN: 3D METALLIC VIP CARD */}
+        <div className="lg:col-span-5 flex flex-col items-center">
+          <div 
+            className="w-full perspective-1000 py-4"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
+            <motion.div
+              ref={cardRef}
+              style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+              className="relative w-full aspect-[1.586/1] rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-2xl overflow-hidden border border-white/20 bg-neutral-900 cursor-pointer"
+            >
+              {/* Card Metallic Gradient Layer */}
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 via-neutral-900 to-black z-0" />
+              
+              {/* Dynamic Glare Effect */}
+              <motion.div 
+                style={{
+                  background: `radial-gradient(circle at ${glareX} ${glareY}, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 80%)`
+                }}
+                className="absolute inset-0 pointer-events-none z-10"
+              />
+
+              {/* Decorative Vector Patterns */}
+              <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full border border-emerald-500/10 pointer-events-none z-0" />
+              <div className="absolute -right-20 -bottom-20 w-80 h-80 rounded-full border border-emerald-500/5 pointer-events-none z-0" />
+
+              {/* Top Row: Chip & Brand */}
+              <div className="relative z-20 flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-8 rounded-md bg-gradient-to-r from-amber-300 via-amber-400 to-amber-200 border border-amber-200/50 flex items-center justify-center shadow-inner">
+                    <div className="w-full h-px bg-amber-600/40 my-1" />
+                  </div>
+                  <Zap className="w-5 h-5 text-emerald-400" />
+                </div>
+                <span className="font-mono text-xs text-neutral-400 uppercase tracking-widest border border-white/10 px-3 py-1 rounded-full bg-black/40 backdrop-blur-sm">
+                  Pulse Black Tier
+                </span>
+              </div>
+
+              {/* Middle Row: Card Number Representation */}
+              <div className="relative z-20 my-auto pt-4">
+                <span className="font-mono text-lg md:text-xl text-neutral-300 tracking-[0.25em] drop-shadow">
+                  •••• •••• •••• 8842
+                </span>
+              </div>
+
+              {/* Bottom Row: Details & Balance */}
+              <div className="relative z-20 flex justify-between items-end border-t border-white/10 pt-4">
+                <div>
+                  <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">Total Value</div>
+                  <div className="text-xl md:text-2xl font-bold font-mono text-white">
+                    ${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">Network</div>
+                  <div className="text-xs font-semibold text-emerald-400 flex items-center justify-end gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> PulseNet
+                  </div>
                 </div>
               </div>
-              <div className="text-black font-black text-xs font-mono opacity-90 animate-pulse">⚡</div>
-            </div>
-
-            <div className="font-mono font-bold text-black/90 text-xs tracking-[0.2em] drop-shadow-sm">{cardNumber}</div>
-
-            <div className="flex items-end justify-between relative z-10 pt-1 border-t border-black/10">
-              <div className="space-y-0.5">
-                <div className="text-[7px] font-bold text-black/75 uppercase tracking-wider">{cardholderName} • {memberSince}</div>
-                <div className="font-black text-black text-[10px] uppercase tracking-wide">LINKED TO PULSE WALLET</div>
-              </div>
-              <div className="font-black italic text-black text-base tracking-tighter">VISA</div>
-            </div>
+            </motion.div>
           </div>
 
-          {/* Back Face */}
-          <div
-            className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/50 flex flex-col justify-between py-3 backface-hidden shadow-2xl"
-            style={{
-              backfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)',
-              background: `
-                radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 230, 150, 0.4), transparent 70%),
-                linear-gradient(135deg, #d4af37 0%, #aa7c11 50%, #634302 100%)
-              `,
-            }}
-          >
-            <div className="absolute inset-0 border border-white/30 rounded-2xl pointer-events-none" />
-            <div className="w-full h-6 bg-[#1a1408] mt-1 shadow-inner" />
-            <div className="px-4 space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-6 bg-amber-100/90 rounded px-2 flex items-center text-black font-serif italic text-[11px] shadow-inner">{cardholderName}</div>
-                <div className="h-6 px-2 rounded bg-amber-950 text-amber-300 font-mono text-[9px] flex items-center border border-amber-500/40">CVV {cvv}</div>
-              </div>
-            </div>
-            <div className="px-4 flex items-end justify-between text-[7px] text-black/80 font-mono">
-              <span>Africa Heritage Foundation</span>
-              <span className="font-black">SECURE RWA</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </div>
-  )
-}
-
-export function WalletView() {
-  const { state, openModal, api } = usePulse()
-  
-  const cashBalance = `$${money(state.cash)}`
-  const pulseLiquid = state.pulse
-  const pulseStaked = state.staked
-  const totalPulse = pulseLiquid + pulseStaked
-  
-  const [activities, setActivities] = useState(state.txns || [])
-  const [receivingAddress, setReceivingAddress] = useState(state.wallet || '')
-  const [showSellDrawer, setShowSellDrawer] = useState(false)
-  const [sellAmount, setSellAmount] = useState(pulseLiquid.toString())
-  const [isSelling, setIsSelling] = useState(false)
-  const [sellSuccess, setSellSuccess] = useState(false)
-
-  useEffect(() => {
-    if (state.txns) {
-      setActivities(state.txns)
-    }
-  }, [state.txns])
-
-  useEffect(() => {
-    if (state.wallet !== undefined) {
-      setReceivingAddress(state.wallet || '')
-    }
-  }, [state.wallet])
-
-  useEffect(() => {
-    setSellAmount(pulseLiquid.toString())
-  }, [pulseLiquid])
-
-  const cardData = {
-    name: state.fullName ? state.fullName.toUpperCase() : 'VALUED MEMBER',
-    number: '•••• •••• •••• ••••',
-    cvv: '•••',
-    memberSince: new Date().getFullYear().toString(),
-    status: state.cardStatus || 'pending'
-  }
-
-  const handleConfirmSale = async () => {
-    setIsSelling(true)
-    try {
-      const numericSellAmt = parseFloat(sellAmount.replace(/,/g, '')) || 0
-      const result = await api.sellToken(numericSellAmt)
-      
-      if (result.ok) {
-        setSellSuccess(true)
-        setTimeout(() => {
-          setSellSuccess(false)
-          setShowSellDrawer(false)
-        }, 2000)
-      } else {
-        console.error('Sale failed:', result.error)
-      }
-    } finally {
-      setIsSelling(false)
-    }
-  }
-
-  return (
-    <motion.div 
-      variants={containerVariants} 
-      initial="hidden" 
-      animate="visible" 
-      className="space-y-4 max-w-md mx-auto pb-32 pt-1 px-2 text-zinc-100 font-sans"
-    >
-      <motion.div variants={itemVariants} className="space-y-0.5 px-1">
-        <div className="flex items-center gap-2">
-          <motion.div 
-            whileHover={{ rotate: 15, scale: 1.1 }}
-            className="p-1.5 rounded-xl bg-amber-500/15 text-amber-400 shadow-[0_0_15px_rgba(245,166,35,0.3)]"
-          >
-            <Wallet className="size-4" />
-          </motion.div>
-          <h2 className="text-base font-extrabold text-white">Wallet & Activity</h2>
-        </div>
-        <p className="text-[11px] text-zinc-400 pl-7">Real-time ledger tracking for deposits, withdrawals, and payouts.</p>
-      </motion.div>
-
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.01, boxShadow: '0 15px 35px rgba(245,166,35,0.15)' }}
-        className="relative rounded-3xl border border-amber-500/40 p-4 bg-[#12100d] bg-gradient-to-b from-[#181510] to-[#0e1014] shadow-[0_10px_30px_rgba(0,0,0,0.6)] space-y-3 transition-all overflow-hidden"
-      >
-        <div className="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-        
-        <div className="flex items-center justify-between relative z-10">
-          <div>
-            <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">CASH WALLET</span>
-            <h3 className="text-2xl font-black text-white font-mono tracking-tight mt-0.5 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{cashBalance}</h3>
-            <p className="text-[10px] text-zinc-400">Available to invest, withdraw, or send</p>
-          </div>
-          <div className="p-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
-            <Coins className="size-4" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 pt-1 relative z-10">
-          <motion.div whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={() => openModal('deposit')}
-              className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_20px_rgba(245,166,35,0.4)] h-9 flex items-center justify-center gap-1"
-            >
-              <ArrowDownLeft className="size-3.5 stroke-[2.5]" />
-              <span>Deposit</span>
-            </Button>
-          </motion.div>
-
-          <motion.div whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={() => openModal('withdraw')}
-              variant="outline"
-              className="w-full bg-white/5 border border-white/15 hover:bg-white/10 hover:border-amber-500/40 text-white font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <ArrowUpRight className="size-3.5 stroke-[2.5] text-amber-400" />
-              <span>Withdraw</span>
-            </Button>
-          </motion.div>
-
-          <motion.div whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={() => openModal('transfer')}
-              variant="outline"
-              className="w-full bg-white/5 border border-white/15 hover:bg-white/10 hover:border-amber-500/40 text-white font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <Send className="size-3.5 text-amber-400" />
-              <span>Send</span>
-            </Button>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.005 }}
-        className="rounded-3xl border border-white/10 hover:border-amber-500/30 p-4 bg-[#101217] space-y-2.5 transition-all shadow-md"
-      >
-        <div>
-          <h4 className="text-xs font-bold text-white">
-            {receivingAddress ? 'Connected withdrawal address' : 'No withdrawal wallet connected'}
-          </h4>
-          <p className="text-[10px] text-zinc-400">Add or manage the address you want withdrawals sent to — USDT (TRC-20) or BTC.</p>
-        </div>
-        <input
-          type="text"
-          placeholder="Paste your receiving address"
-          value={receivingAddress}
-          onChange={(e) => setReceivingAddress(e.target.value)}
-          className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-amber-500/50 transition-colors"
-        />
-        <motion.div whileTap={{ scale: 0.98 }}>
-          <Button 
-            onClick={() => api.connectWallet(receivingAddress)}
-            className="w-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <RefreshCw className="size-3.5" />
-            <span>{receivingAddress ? 'Update wallet' : 'Connect wallet'}</span>
-          </Button>
-        </motion.div>
-      </motion.div>
-
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.005 }}
-        className="rounded-3xl border border-white/10 hover:border-amber-500/30 p-4 bg-[#101217] space-y-3 transition-all shadow-md"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 text-xs font-bold font-mono shadow-[0_0_10px_rgba(245,166,35,0.2)]">⚡</div>
-            <span className="text-xs font-bold text-white uppercase tracking-wider">PULSE wallet</span>
-          </div>
-          <span className="text-base font-black font-mono text-white">{money(totalPulse)}</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-2xl bg-black/40 border border-white/10 p-2.5 space-y-0.5">
-            <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-wider block">LIQUID — USABLE NOW</span>
-            <span className="text-sm font-black font-mono text-white">{money(pulseLiquid)}</span>
-          </div>
-          <div className="rounded-2xl bg-black/40 border border-amber-500/20 p-2.5 space-y-0.5 bg-gradient-to-br from-amber-500/5 to-transparent">
-            <span className="text-[9px] font-mono text-amber-400 uppercase tracking-wider block">STAKED — 24.8% APY</span>
-            <span className="text-sm font-black font-mono text-amber-300">{money(pulseStaked)}</span>
-          </div>
-        </div>
-
-        {!showSellDrawer ? (
-          <motion.div whileTap={{ scale: 0.98 }}>
-            <Button
-              onClick={() => setShowSellDrawer(true)}
-              variant="outline"
-              className="w-full bg-white/5 border border-white/10 hover:bg-amber-500/10 hover:border-amber-500/40 text-amber-400 font-bold text-xs rounded-xl h-9 flex items-center justify-center gap-1"
-            >
-              <Zap className="size-3.5 animate-pulse" />
-              <span>Sell PULSE for cash</span>
-            </Button>
-          </motion.div>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-2.5 pt-2 border-t border-white/10"
-          >
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-zinc-400 font-mono">Sell liquid PULSE at $0.08 / token</span>
-              <button 
-                onClick={() => setShowSellDrawer(false)}
-                className="text-amber-400 hover:underline font-bold text-[10px]"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <input
-              type="text"
-              value={sellAmount}
-              onChange={(e) => setSellAmount(e.target.value)}
-              className="w-full bg-black/80 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-mono text-amber-300 outline-none focus:border-amber-500"
-            />
-
-            <div className="flex items-center justify-between text-[11px] font-mono">
-              <span className="text-zinc-400">You receive</span>
-              <span className="text-emerald-400 font-bold">
-                ${(parseFloat(sellAmount.replace(/,/g, '')) * 0.08 || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} cash
+          {/* Quick Balance Breakdown Below Card */}
+          <div className="w-full grid grid-cols-2 gap-3 mt-4">
+            <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+              <span className="text-xs text-neutral-400 block mb-1">Liquid Tokens</span>
+              <span className="text-lg font-bold font-mono text-emerald-400">
+                {pulseLiquid.toLocaleString()} <span className="text-xs text-neutral-500">PULSE</span>
               </span>
             </div>
-
-            <motion.div whileTap={{ scale: 0.98 }}>
-              <Button
-                onClick={handleConfirmSale}
-                disabled={isSelling}
-                className="w-full bg-amber-400 hover:bg-amber-500 text-black font-extrabold text-xs rounded-xl h-9 flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)]"
-              >
-                {isSelling ? <RefreshCw className="size-3.5 animate-spin" /> : sellSuccess ? <CheckCircle2 className="size-3.5 text-black" /> : <Zap className="size-3.5" />}
-                <span>{isSelling ? 'Processing Sale...' : sellSuccess ? 'Sale Confirmed!' : 'Confirm sale'}</span>
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </motion.div>
-
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.005 }}
-        className="rounded-3xl border border-amber-500/40 p-4 bg-[#101217] space-y-3 transition-all shadow-[0_0_25px_rgba(245,166,35,0.1)] relative overflow-hidden"
-      >
-        <div className="absolute right-0 top-0 w-40 h-40 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(245,166,35,0.2)]">
-              <Coins className="size-3.5" />
+            <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+              <span className="text-xs text-neutral-400 block mb-1">Staked Tokens</span>
+              <span className="text-lg font-bold font-mono text-teal-400">
+                {pulseStaked.toLocaleString()} <span className="text-xs text-neutral-500">PULSE</span>
+              </span>
             </div>
-            <span className="text-xs font-bold text-white">Pulse Card</span>
           </div>
-          <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-black px-2.5 py-0.5 rounded-full border border-emerald-500/40 uppercase tracking-widest shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-            {cardData.status}
-          </span>
         </div>
 
-        <DynamicMetallicCard
-          cardholderName={cardData.name}
-          cardNumber={cardData.number}
-          cvv={cardData.cvv}
-          memberSince={cardData.memberSince}
-        />
+        {/* RIGHT COLUMN: PORTFOLIO SUMMARY & ACTIVITIES */}
+        <div className="lg:col-span-7 space-y-6">
+          
+          {/* STAT CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-5 rounded-2xl bg-neutral-900/80 border border-white/10 flex flex-col justify-between relative overflow-hidden">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-mono text-neutral-400 uppercase">Vault Reserve</span>
+                <WalletIcon className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="mt-4">
+                <div className="text-2xl font-bold font-mono">
+                  ${vaultCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-xs text-neutral-400 mt-1 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-emerald-400" /> Ready for withdrawal
+                </div>
+              </div>
+            </div>
 
-        <p className="text-[10px] text-zinc-400 text-center leading-normal px-2 relative z-10">
-          Your Pulse Card details dynamically sync with your account profile status and issuance parameters.
-        </p>
-      </motion.div>
+            <div className="p-5 rounded-2xl bg-neutral-900/80 border border-white/10 flex flex-col justify-between relative overflow-hidden">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-mono text-neutral-400 uppercase">Token Rate</span>
+                <Sparkles className="w-4 h-4 text-teal-400" />
+              </div>
+              <div className="mt-4">
+                <div className="text-2xl font-bold font-mono">
+                  ${pulseRate.toFixed(2)} <span className="text-xs text-neutral-500">USD/PULSE</span>
+                </div>
+                <div className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                  Stable Valuation Guarantee
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <motion.div variants={itemVariants} className="space-y-2.5 pt-2">
-        <div className="flex items-center justify-between px-1">
-          <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Live Activity Feed</h4>
-          <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1.5 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> Live Sync Active
-          </span>
-        </div>
+          {/* RECENT ACTIVITY TABLE */}
+          <div className="p-6 rounded-2xl bg-neutral-900/80 border border-white/10 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <History className="w-5 h-5 text-emerald-400" />
+                Ledger Activity
+              </h2>
+              <span className="text-xs font-mono text-neutral-400">Real-time Log</span>
+            </div>
 
-        <div className="space-y-2">
-          {activities.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-2xl border border-white/10 p-6 text-center bg-[#101217]"
-            >
-              <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
-            </motion.div>
-          ) : (
-            activities.map((item, idx) => {
-              const isPositive = item.amount >= 0
-              const isPending = item.status === 'pending'
+            <div className="space-y-3">
+              {activities.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500 text-sm">
+                  No recent activities found on network.
+                </div>
+              ) : (
+                activities.slice(0, 5).map((item) => {
+                  const isPositive = item.type === 'EARN' || item.type === 'BUY'
+                  const parsedDate = isNaN(new Date(item.date).getTime()) 
+                    ? 'Recent' 
+                    : new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-              return (
-                <motion.div 
-                  key={item.id || idx}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.04 }}
-                  whileHover={{ scale: 1.01, borderColor: 'rgba(245,166,35,0.4)' }} 
-                  className="rounded-2xl border border-white/10 p-3 bg-[#101217] flex items-center justify-between transition-colors shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                      isPending 
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                        : isPositive 
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    }`}>
-                      {isPending ? (
-                        <Clock className="size-4 animate-spin" />
-                      ) : isPositive ? (
-                        <ArrowDownLeft className="size-4" />
-                      ) : (
-                        <ArrowUpRight className="size-4" />
-                      )}
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-white tracking-tight">{item.label}</h5>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono text-zinc-400">{new Date(item.date).toLocaleDateString('en-GB')}</span>
-                        <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-300">
-                          {item.status}
-                        </span>
+                  return (
+                    <div 
+                      key={item.id}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 transition-colors duration-150"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                          {isPositive ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-neutral-200">{item.description}</div>
+                          <div className="text-xs text-neutral-500 font-mono">{parsedDate}</div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className={`text-sm font-mono font-bold ${isPositive ? 'text-emerald-400' : 'text-neutral-300'}`}>
+                          {isPositive ? '+' : '-'}{item.amount.toLocaleString()} PULSE
+                        </div>
+                        <div className="text-[10px] text-neutral-500 font-mono uppercase">
+                          Completed
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
 
-                  <div className="text-right">
-                    <span className={`text-xs font-mono font-black block ${
-                      isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
-                    }`}>
-                      {isPositive ? '+' : '-'}${money(Math.abs(item.amount))}
-                    </span>
-                    <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.currency}</span>
-                  </div>
-                </motion.div>
-              )
-            })
-          )}
         </div>
-      </motion.div>
 
-      <motion.div variants={itemVariants} className="pt-2">
-        <RiskNote />
-      </motion.div>
-    </motion.div>
+      </div>
+
+      {/* LIQUIDATE PULSE DRAWER / MODAL */}
+      <AnimatePresence>
+        {isSellOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSellOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+
+            {/* Modal Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg rounded-2xl bg-neutral-900 border border-white/20 p-6 md:p-8 shadow-2xl z-10 space-y-6"
+            >
+              <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-xl font-bold">Liquidate PULSE</h3>
+                </div>
+                <button
+                  onClick={() => setIsSellOpen(false)}
+                  className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {isSuccess ? (
+                <div className="py-8 flex flex-col items-center justify-center space-y-3">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', damping: 15 }}
+                    className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40"
+                  >
+                    <CheckCircle2 className="w-8 h-8" />
+                  </motion.div>
+                  <h4 className="text-xl font-bold text-white">Transaction Confirmed</h4>
+                  <p className="text-sm text-neutral-400 text-center">
+                    Converted PULSE to Cash Vault instantly.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleSellSubmit} className="space-y-5">
+                  <div>
+                    <div className="flex justify-between text-xs text-neutral-400 mb-2 font-mono">
+                      <span>Amount to Sell</span>
+                      <span>Available: {pulseLiquid.toLocaleString()} PULSE</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={sellAmount}
+                        onChange={(e) => setSellAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full bg-black/50 border border-white/15 rounded-xl px-4 py-3 text-lg font-mono text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSellAmount(pulseLiquid.toString())}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-mono bg-white/10 hover:bg-white/20 rounded-md text-emerald-400 transition"
+                      >
+                        MAX
+                      </button>
+                    </div>
+                  </div>
+
+                  {sellError && (
+                    <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{sellError}</span>
+                    </div>
+                  )}
+
+                  {/* Summary Box */}
+                  <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-2 text-xs font-mono">
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Rate</span>
+                      <span>$0.08 / PULSE</span>
+                    </div>
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Network Fee</span>
+                      <span className="text-emerald-400">Free ($0.00)</span>
+                    </div>
+                    <div className="border-t border-white/10 pt-2 flex justify-between font-bold text-sm text-white">
+                      <span>Est. Cash Proceeds</span>
+                      <span className="text-emerald-400">${calculatedCashOutput}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-semibold text-sm transition shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    Confirm Liquidation
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+    </div>
   )
 }
