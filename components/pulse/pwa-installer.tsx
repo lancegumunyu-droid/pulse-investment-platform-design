@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Download, Share, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -102,63 +103,87 @@ export function PWAInstaller() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()))
   }
 
-  if (isStandalone || !isVisible || (!installPrompt && !isIos)) {
+  if (isStandalone || (!installPrompt && !isIos)) {
     return null
   }
 
   return (
-    <div className="fixed bottom-20 right-4 z-50 max-w-sm animate-toast-in sm:bottom-6 sm:right-6">
-      <div className="glass relative flex flex-col gap-3 rounded-2xl border border-gold/30 bg-background/95 p-4 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gold-soft text-gold">
-              <Download className="size-5" />
-            </span>
-            <div>
-              <h4 className="text-sm font-semibold text-foreground">Install Pulse App</h4>
-              <p className="text-xs text-muted-foreground">
-                Get real-time investment updates and fast access to SADC projects.
-              </p>
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 15, scale: 0.95 }}
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className="fixed bottom-20 right-4 z-50 max-w-sm sm:bottom-6 sm:right-6"
+        >
+          <div className="relative flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-zinc-950/95 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-400/10 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+                  <Download className="size-5" />
+                </span>
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Install Pulse App</h4>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    Get real-time investment updates and fast access to SADC projects.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleDismiss}
+                className="rounded-full p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* iOS Step-by-step instructions tooltip */}
+            <AnimatePresence>
+              {isIos && showIosGuide && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-1 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-zinc-400">
+                    <div className="flex items-center gap-2 font-medium text-white">
+                      <Share className="size-4 text-amber-400" />
+                      <span>Tap Share in Safari menu</span>
+                    </div>
+                    <p>
+                      Then scroll down and select <span className="font-semibold text-white">&quot;Add to Home Screen&quot;</span>.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDismiss}
+                className="h-8 text-xs text-zinc-400 hover:bg-white/[0.04] hover:text-white"
+              >
+                Not now
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleInstallClick}
+                className={cn(
+                  'h-8 bg-amber-400 px-3.5 text-xs font-semibold text-zinc-950 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:bg-amber-300'
+                )}
+              >
+                {isIos ? (showIosGuide ? 'Hide instructions' : 'How to install') : 'Install'}
+              </Button>
             </div>
           </div>
-          <button
-            onClick={handleDismiss}
-            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        {/* iOS Step-by-step instructions tooltip */}
-        {isIos && showIosGuide && (
-          <div className="mt-1 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <Share className="size-4 text-gold" />
-              <span>Tap Share in Safari menu</span>
-            </div>
-            <p>Then scroll down and select <span className="font-semibold text-foreground">"Add to Home Screen"</span>.</p>
-          </div>
-        )}
-
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDismiss}
-            className="h-8 text-xs text-muted-foreground hover:text-foreground"
-          >
-            Not now
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleInstallClick}
-            className={cn('h-8 bg-gold px-3.5 text-xs font-semibold text-primary-foreground hover:bg-gold/90')}
-          >
-            {isIos ? (showIosGuide ? 'Hide instructions' : 'How to install') : 'Install'}
-          </Button>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
