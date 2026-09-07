@@ -2,8 +2,8 @@
 
 import React from 'react'
 import type { Snapshot } from '@/app/actions/types'
-import { PulseProvider, usePulse } from '@/app/store' // Adjust path if your store is located elsewhere relative to components/pulse/app.tsx
-import { InvestView } from '@/components/views/invest-view'
+import { PulseProvider, usePulse } from './store'
+import { InvestView } from './views/invest-view'
 
 interface PulseAppProps {
   initialSnapshot: Snapshot | null
@@ -77,15 +77,15 @@ function DashboardContent() {
           {/* Holdings & Transactions */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 space-y-4">
-              <h3 className="font-display font-bold text-lg text-white">Active Holdings</h3>
+              <h3 className="font-bold text-lg text-white">Active Holdings</h3>
               {state.holdings.length === 0 ? (
                 <p className="text-sm text-zinc-500">No active investment holdings found.</p>
               ) : (
                 state.holdings.map((h) => (
                   <div key={h.id} className="flex justify-between items-center border-b border-zinc-800 pb-3 text-sm">
                     <div>
-                      <p className="font-medium text-white">{h.projectName || 'Project Holding'}</p>
-                      <p className="text-xs text-zinc-500">Yield: {h.yieldLabel || 'Active'}</p>
+                      <p className="font-medium text-white">Project Holding</p>
+                      <p className="text-xs text-zinc-500">Active Investment</p>
                     </div>
                     <p className="font-mono font-bold text-amber-400">${h.amount.toLocaleString()}</p>
                   </div>
@@ -94,7 +94,7 @@ function DashboardContent() {
             </div>
 
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 space-y-4">
-              <h3 className="font-display font-bold text-lg text-white">Transaction History</h3>
+              <h3 className="font-bold text-lg text-white">Transaction History</h3>
               {state.txns.length === 0 ? (
                 <p className="text-sm text-zinc-500">No transactions recorded yet.</p>
               ) : (
