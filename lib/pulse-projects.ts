@@ -84,70 +84,77 @@ export interface PulseProject {
   }
 }
 
+/**
+ * MD Section 2 Compliant Project Data Specifications
+ * Kalahari: $9,650 / $1,000,000 (0.965%)
+ * Copperbelt: $2,100 / $750,000 (0.28%)
+ * Maputo: $375 / $900,000 (0.0417%)
+ * Zambezi: $288,000 / $500,000 (57.6%)
+ */
 export const PULSE_PROJECTS: PulseProject[] = [
   {
-    id: 'green-hydrogen-namibia',
-    title: 'Kalahari Green Hydrogen & Clean Energy Syndicate',
+    id: 'kalahari-solar',
+    title: 'Kalahari Green Hydrogen & Solar Infrastructure',
     location: 'Namibia',
     category: 'Renewable Infrastructure',
-    targetRaise: 5_000_000,
-    raisedAmount: 3_850_000,
+    targetRaise: 1_000_000,
+    raisedAmount: 9_650,
     apy: '18.5%',
     minInvestment: 500,
     tierId: 'tier_1',
     badge: 'Sovereign Backed • Tier 1',
     image: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1920&q=85&auto=format&fit=crop',
-    description: 'Scaling multi-gigawatt green ammonia production facilities across the Erongo corridor for sovereign European supply chains.',
-    metrics: { irr: '21.2%', duration: '36 Months', riskProfile: 'Moderate-High' }
+    description: 'Multi-gigawatt solar-to-ammonia production infrastructure supplying European and green shipping trade corridors.',
+    metrics: { irr: '21.2%', duration: '36 Months', riskProfile: 'Moderate' }
   },
   {
-    id: 'copperbelt-zambia',
-    title: 'Zambian Critical Minerals & Copper Recovery',
+    id: 'copperbelt-royalty',
+    title: 'Copperbelt Critical Minerals Royalty Note',
     location: 'Zambia',
     category: 'Mining & Logistics',
-    targetRaise: 12_500_000,
-    raisedAmount: 9_120_000,
-    apy: '24.0%',
+    targetRaise: 750_000,
+    raisedAmount: 2_100,
+    apy: '24.8%',
     minInvestment: 1_000,
     tierId: 'tier_2',
     badge: 'Strategic Asset • Secured',
     image: 'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?w=1920&q=85&auto=format&fit=crop',
-    description: 'Advanced tailings reprocessing facility utilizing proprietary hydrometallurgy to extract high-purity copper cathodes for global EV markets.',
+    description: 'High-purity tailings recovery facility extracting battery-grade copper cathodes for electric transport networks.',
     metrics: { irr: '28.5%', duration: '24 Months', riskProfile: 'Growth' }
   },
   {
-    id: 'silicon-cape-sa',
-    title: 'Silicon Cape Fintech & Data Hub',
-    location: 'South Africa',
-    category: 'Digital Infrastructure',
-    targetRaise: 8_000_000,
-    raisedAmount: 6_450_000,
-    apy: '16.8%',
+    id: 'maputo-logistics',
+    title: 'Maputo Logistics Hub',
+    location: 'Mozambique',
+    category: 'Trade Infrastructure',
+    targetRaise: 900_000,
+    raisedAmount: 375,
+    apy: '21.5%',
     minInvestment: 500,
     tierId: 'tier_1',
-    badge: 'Venture Growth • Tier 1',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1920&q=85&auto=format&fit=crop',
-    description: 'Pan-African institutional settlement rails and hyper-secure Tier-4 data center infrastructure scaling across key SADC capitals.',
-    metrics: { irr: '19.4%', duration: '18 Months', riskProfile: 'Venture' }
+    badge: 'SADC Logistics Hub • Tier 1',
+    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=85&auto=format&fit=crop',
+    description: 'Deepwater port terminal expansion and automated container storage facility serving cross-border trade corridors.',
+    metrics: { irr: '22.0%', duration: '30 Months', riskProfile: 'Moderate' }
   },
   {
-    id: 'zambezi-hospitality-botswana',
-    title: 'Okavango Luxury Eco-Resort Syndicate',
-    location: 'Botswana',
-    category: 'Eco-Tourism & Real Estate',
-    targetRaise: 4_500_000,
-    raisedAmount: 3_900_000,
-    apy: '14.2%',
+    id: 'zambezi-agri',
+    title: 'Zambezi Commercial Agribusiness Syndicate',
+    location: 'Zambia',
+    category: 'Agribusiness',
+    targetRaise: 500_000,
+    raisedAmount: 288_000,
+    apy: '19.2%',
     minInvestment: 500,
     tierId: 'tier_1',
-    badge: 'Tangible Real Estate • Yield',
-    image: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=1920&q=85&auto=format&fit=crop',
-    description: 'Exclusive off-grid solar safari lodges operating under elite, high-margin government ecotourism concessions.',
-    metrics: { irr: '16.0%', duration: '48 Months', riskProfile: 'Conservative' }
+    badge: 'High Yield • Asset-Backed',
+    image: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1920&q=85&auto=format&fit=crop',
+    description: 'Precision-irrigated commercial grain production and automated regional storage grain silos.',
+    metrics: { irr: '20.4%', duration: '18 Months', riskProfile: 'Conservative' }
   }
 ]
 
-// Backward compatibility alias for any existing code imports referencing PROJECTS
+// Backward compatibility alias
 export const PROJECTS = PULSE_PROJECTS
 
 export const PLATFORM_WALLETS: Record<'usdttrc20' | 'btc', string> = {
