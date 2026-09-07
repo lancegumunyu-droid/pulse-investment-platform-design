@@ -29,7 +29,7 @@ export function DashboardView() {
 
   // SYNCHED DATA: Live background polling/sync from api.liveProjectFunding()
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
-  
+   
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const cursorGlow = useMotionTemplate`radial-gradient(340px circle at ${mouseX}px ${mouseY}px, rgba(245, 158, 11, 0.28), rgba(5, 150, 105, 0.15) 50%, transparent 85%)`
@@ -62,21 +62,21 @@ export function DashboardView() {
       <motion.div 
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="pulse-pure-shimmer flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-neutral-950/90 px-4 py-3.5 shadow-[0_0_30px_rgba(245,158,11,.15)] backdrop-blur-xl"
+        className="pulse-pure-shimmer flex items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-neutral-950/90 px-4 py-3.5 shadow-[0_0_30px_rgba(245,158,11,.15)] backdrop-blur-xl"
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <span className="relative flex size-2.5 shrink-0">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-80" />
             <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(5,150,105,0.9)]" />
           </span>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-100 sm:text-xs">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-100 sm:text-xs truncate">
             SADC Capital &bull; Synced Live Terminal
           </span>
         </div>
         <motion.span 
           animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.02, 1] }} 
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} 
-          className="rounded-full border border-amber-500/45 bg-amber-500/15 px-3 py-0.5 text-xs font-semibold text-amber-200 shadow-[0_0_20px_rgba(245,158,11,.25)]"
+          className="rounded-full border border-amber-500/45 bg-amber-500/15 px-3 py-0.5 text-xs font-semibold text-amber-200 shadow-[0_0_20px_rgba(245,158,11,.25)] shrink-0"
         >
           {currentTier.name} Member
         </motion.span>
@@ -95,16 +95,16 @@ export function DashboardView() {
           className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-3xl bg-neutral-950/95 shadow-[0_0_40px_rgba(245,158,11,.2)]"
         >
           <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
-          
+           
           <div className="relative z-10 space-y-4 p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 truncate">
                 Total Net Portfolio Value
               </span>
               <motion.span 
                 animate={{ scale: [1, 1.04, 1], filter: ['brightness(1)', 'brightness(1.15)', 'brightness(1)'] }} 
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} 
-                className="pulse-pure-emerald inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/90 px-2.5 py-1 text-xs font-extrabold text-emerald-300 shadow-[0_0_22px_rgba(5,150,105,.35)]"
+                className="pulse-pure-emerald inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/90 px-2.5 py-1 text-xs font-extrabold text-emerald-300 shadow-[0_0_22px_rgba(5,150,105,.35)] shrink-0"
               >
                 <TrendingUp className="size-3.5 text-emerald-400 animate-pulse shrink-0" />
                 +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
@@ -150,17 +150,17 @@ export function DashboardView() {
           </div>
 
           <div className="relative z-10 grid grid-cols-3 divide-x divide-neutral-800/90 border-t border-neutral-800/90 bg-neutral-950/90 p-3.5 text-center">
-            <div className="px-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Cash</p>
-              <p className="mt-0.5 font-mono text-sm font-black text-white">${money(state.cash, 0)}</p>
+            <div className="px-1 overflow-hidden">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 truncate">Cash</p>
+              <p className="mt-0.5 font-mono text-sm font-black text-white truncate">${money(state.cash, 0)}</p>
             </div>
-            <div className="px-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Principal</p>
-              <p className="mt-0.5 font-mono text-sm font-black text-white">${money(totalInvested, 0)}</p>
+            <div className="px-1 overflow-hidden">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 truncate">Principal</p>
+              <p className="mt-0.5 font-mono text-sm font-black text-white truncate">${money(totalInvested, 0)}</p>
             </div>
-            <div className="px-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">$PULSE</p>
-              <p className="mt-0.5 font-mono text-sm font-black text-amber-300">{money(state.pulse + state.staked, 0)}</p>
+            <div className="px-1 overflow-hidden">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 truncate">$PULSE</p>
+              <p className="mt-0.5 font-mono text-sm font-black text-amber-300 truncate">{money(state.pulse + state.staked, 0)}</p>
             </div>
           </div>
         </motion.div>
@@ -172,14 +172,14 @@ export function DashboardView() {
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }} 
         className="pulse-pure-shimmer relative rounded-2xl border border-amber-500/40 bg-neutral-950 p-4 shadow-[0_0_35px_rgba(245,158,11,.18)]"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <Award className="size-4 shrink-0 text-amber-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-200">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-200 truncate">
               Standing: <span className="text-white font-extrabold">{currentTier.name} VIP</span>
             </span>
           </div>
-          <span className="rounded-md border border-emerald-500/45 bg-emerald-500/15 px-2 py-0.5 text-xs font-mono font-bold text-emerald-300 shadow-[0_0_12px_rgba(5,150,105,0.3)]">
+          <span className="rounded-md border border-emerald-500/45 bg-emerald-500/15 px-2 py-0.5 text-xs font-mono font-bold text-emerald-300 shadow-[0_0_12px_rgba(5,150,105,0.3)] shrink-0">
             {currentTier.yieldLabel}
           </span>
         </div>
@@ -187,8 +187,8 @@ export function DashboardView() {
         {upcoming ? (
           <div className="mt-3 space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
-              <span>Next: {upcoming.name}</span>
-              <span className="font-bold text-amber-300">${money(totalInvested)} / ${money(upcoming.minInvest)}</span>
+              <span className="truncate">Next: {upcoming.name}</span>
+              <span className="font-bold text-amber-300 shrink-0">${money(totalInvested)} / ${money(upcoming.minInvest)}</span>
             </div>
             <ProgressBar value={progress} tone="gold" />
           </div>
@@ -200,10 +200,10 @@ export function DashboardView() {
       {/* 4. ACTIVE PORTFOLIO HOLDINGS */}
       <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3 shadow-md">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5 truncate">
             <Layers className="size-4 text-amber-400 shrink-0" /> Active Holdings ({state.holdings.length})
           </span>
-          <button onClick={() => setView('invest')} className="text-xs text-amber-400 hover:underline flex items-center gap-1 font-semibold">
+          <button onClick={() => setView('invest')} className="text-xs text-amber-400 hover:underline flex items-center gap-1 font-semibold shrink-0">
             Explore <ChevronRight className="size-3.5" />
           </button>
         </div>
@@ -214,9 +214,9 @@ export function DashboardView() {
         ) : (
           <div className="space-y-2">
             {state.holdings.slice(0, 3).map((h) => (
-              <div key={h.id} className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-neutral-800 text-xs">
-                <div className="space-y-0.5">
-                  <p className="font-bold text-white truncate max-w-[200px]">{h.projectName}</p>
+              <div key={h.id} className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-neutral-800 text-xs gap-2">
+                <div className="space-y-0.5 min-w-0">
+                  <p className="font-bold text-white truncate">{h.projectName}</p>
                   <p className="text-[10px] text-neutral-400 font-mono">Principal: ${money(h.amount)}</p>
                 </div>
                 <span className="font-mono text-emerald-400 font-bold shrink-0">+{h.apy}% APY</span>
@@ -228,13 +228,13 @@ export function DashboardView() {
 
       {/* 5. REGIONAL OPPORTUNITIES PIPELINE (WITH SYNCHED DATA) */}
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
             Regional Opportunities
           </h3>
-          <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5 shrink-0">
             <span className="size-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-            Live Synced SADC Pipeline
+            Live Synced Pipeline
           </span>
         </div>
 
@@ -266,8 +266,8 @@ export function DashboardView() {
                 </div>
                 <div className="mt-3 space-y-1.5">
                   <div className="flex justify-between text-[11px] font-mono text-neutral-400">
-                    <span>Funded: ${money(funded)}</span>
-                    <span className="font-bold text-neutral-200">{pct}%</span>
+                    <span className="truncate">Funded: ${money(funded)}</span>
+                    <span className="font-bold text-neutral-200 shrink-0">{pct}%</span>
                   </div>
                   <ProgressBar value={pct} tone="green" />
                 </div>
@@ -279,7 +279,7 @@ export function DashboardView() {
 
       {/* 6. QUICK ACTIONS GRID */}
       <div className="space-y-3 pt-1">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
           Quick Actions & Hubs
         </h3>
         <div className="grid grid-cols-2 gap-3">
@@ -320,7 +320,7 @@ function ActionTile({ icon, label, detail, badge, tone, onClick }: { icon: React
           {badge}
         </span>
       </div>
-      <div className="mt-3 space-y-0.5">
+      <div className="mt-3 space-y-0.5 min-w-0">
         <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors truncate">{label}</h4>
         <p className="text-[10px] text-neutral-400 truncate">{detail}</p>
       </div>
