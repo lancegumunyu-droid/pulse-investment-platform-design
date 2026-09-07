@@ -314,7 +314,6 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
       
-      // Credit cash balance after updating transaction status
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
     } else {
       const { error } = await db
@@ -345,7 +344,6 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
         .eq('id', id)
       if (error) return { ok: false, error: `transactions update failed: ${error.message}` }
     } else {
-      // Return deducted cash balance back on rejection
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
       const { error } = await db
         .from('transactions')
@@ -390,7 +388,6 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
         meta: { label: 'Received transfer', senderId: txn.user_id },
       })
     } else {
-      // Refund sender balance
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
       const { error } = await db
         .from('transactions')
@@ -683,42 +680,72 @@ export async function deleteSignal(id: string): Promise<{ ok: boolean; error?: s
   }
 }
 
-// Process yield payouts using dynamic target yield from the DB
+// ==========================================
+// UPGRADED BATCHED PROJECT PAYOUT
+// ==========================================
+
 export async function processProjectPayout(projectId: string, customYieldRate?: number): Promise<{ ok: boolean; error?: string }> {
   try {
     const admin = await requireAdminScope(['full', 'operations', 'finance'])
     const db = serviceClient()
 
-    // Fetch project to retrieve target yield
-    const { data: project } = await db.from('projects').select('target_yield').eq('id', projectId).single()
+    // 1. Fetch project to retrieve target yield safely
+    const { data: project, error: projErr } = await db.from('projects').select('target_yield').eq('id', projectId).single()
+    if (projErr) return { ok: false, error: `Failed to fetch project: ${projErr.message}` }
+
     const yieldRate = customYieldRate ?? (project?.target_yield ? parseFloat(project.target_yield) / 100 : 0.10)
 
-    const { data: holdings } = await db.from('holdings').select('*').eq('project_id', projectId)
+    // 2. Fetch all holdings for this project
+    const { data: holdings, error: holdErr } = await db.from('holdings').select('*').eq('project_id', projectId)
+    if (holdErr) return { ok: false, error: `Failed to fetch project holdings: ${holdErr.message}` }
 
-    if (holdings && holdings.length > 0) {
-      // Execute payouts asynchronously across holdings
+    if (!holdings || holdings.length === 0) {
+      return { ok: true }
+    }
+
+    const errors: string[] = []
+    const BATCH_SIZE = 20
+
+    // 3. Process payouts in safe chunks to protect DB connection pool and isolate errors
+    for (let i = 0; i < holdings.length; i += BATCH_SIZE) {
+      const batch = holdings.slice(i, i + BATCH_SIZE)
+
       await Promise.all(
-        holdings.map(async (h) => {
-          const yieldPayout = Number(h.amount) * yieldRate
-          if (yieldPayout > 0) {
-            await adjustAccount(h.user_id, { cash_balance: yieldPayout })
-            await recordTxn(h.user_id, {
-              type: 'yield',
-              amount: yieldPayout,
-              currency: 'USD',
-              status: 'completed',
-              processedBy: admin.id,
-              meta: { label: `Project Payout (${projectId})` },
-            })
+        batch.map(async (h) => {
+          try {
+            const yieldPayout = Number(h.amount) * yieldRate
+            if (yieldPayout > 0) {
+              await adjustAccount(h.user_id, { cash_balance: yieldPayout })
+              await recordTxn(h.user_id, {
+                type: 'yield',
+                amount: yieldPayout,
+                currency: 'USD',
+                status: 'completed',
+                processedBy: admin.id,
+                meta: { label: `Project Payout (${projectId})`, rate: yieldRate },
+              })
+            }
+          } catch (err) {
+            console.error(`Failed payout for user ${h.user_id}:`, (err as Error).message)
+            errors.push(`User ${h.user_id}: ${(err as Error).message}`)
           }
         })
       )
     }
+
+    if (errors.length > 0) {
+      console.warn(`Project payout completed with ${errors.length} individual errors.`)
+    }
+
     return { ok: true }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
 }
+
+// ==========================================
+// TEAM VOLUME REPORT
+// ==========================================
 
 export async function getTeamVolumeReport(): Promise<
   | { ok: true; scope: 'manager' | 'director'; rows: { userId: string; name: string | null; email: string | null; kycVerified: boolean; investedVolume: number }[] }
