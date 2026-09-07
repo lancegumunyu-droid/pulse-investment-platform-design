@@ -52,7 +52,14 @@ const FALLBACK_PROJECTS: Project[] = [
 ]
 
 export function DashboardView() {
-  const { state, api, totalInvested, currentTier, portfolioValue, openModal, setView } = usePulse()
+  const state = usePulse((s) => s.state)
+  const api = usePulse((s) => s.api)
+  const totalInvested = usePulse((s) => s.totalInvested)
+  const currentTier = usePulse((s) => s.currentTier)
+  const portfolioValue = usePulse((s) => s.portfolioValue)
+  const openModal = usePulse((s) => s.openModal)
+  const setView = usePulse((s) => s.setView)
+  
   const upcoming = nextTier(currentTier.id)
   const progress = upcoming ? Math.min(100, (totalInvested / upcoming.minInvest) * 100) : 100
 
@@ -333,11 +340,11 @@ export function DashboardView() {
                   <div className="flex justify-between text-xs text-neutral-300">
                     <span>Funded Progress: <strong className="text-white">${money(funded)}</strong> / ${money(goal)}</span>
                     <span className="font-black text-amber-400">{pct}%</span>
-                  </div>
-                  <ProgressBar value={pct} tone="gold" />
                 </div>
+                <ProgressBar value={pct} tone="gold" />
               </div>
-            )
+            </div>
+          )
           })}
         </div>
       </div>
@@ -444,14 +451,14 @@ export function DashboardView() {
                 {isSubmitting ? 'Deploying...' : 'Confirm & Deploy'}
               </Button>
             </div>
-            
+             
             <p className="text-[10px] text-center text-neutral-500 pt-1">
               Yields and payouts are distributed directly to your wallet upon administrative clearance.
-            </p>
+          </p>
           </motion.div>
         </div>
       )}
-    </div>
+  </div>
   )
 }
 
@@ -473,6 +480,6 @@ function ActionTile({ icon, label, detail, badge, onClick }: { icon: React.React
         <h4 className="text-xs font-extrabold text-white group-hover:text-amber-300 transition-colors truncate">{label}</h4>
         <p className="text-[10px] text-neutral-400 truncate">{detail}</p>
       </div>
-    </div>
+  </div>
   )
 }
