@@ -102,11 +102,34 @@ function KycModal({ onClose }: { onClose: () => void }) {
 
   const phoneValid = /^\+?[0-9\s\-()]{7,16}$/.test(form.phone.trim())
   const idValid = /^[A-Za-z0-9\-\s]{5,20}$/.test(form.idNumber.trim())
+
+  // Timezone-safe & exact calendar age verification
   const ageValid = (() => {
     if (!form.dob) return false
-    const dob = new Date(form.dob)
-    if (Number.isNaN(dob.getTime())) return false
-    const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+
+    const parts = form.dob.split('-')
+    if (parts.length !== 3) return false
+
+    const birthYear = parseInt(parts[0], 10)
+    const birthMonth = parseInt(parts[1], 10) - 1 // JS months are 0-indexed
+    const birthDay = parseInt(parts[2], 10)
+
+    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) return false
+
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const currentMonth = today.getMonth()
+    const currentDay = today.getDate()
+
+    let age = currentYear - birthYear
+    const monthDifference = currentMonth - birthMonth
+    const isBeforeBirthdayThisYear =
+      monthDifference < 0 || (monthDifference === 0 && currentDay < birthDay)
+
+    if (isBeforeBirthdayThisYear) {
+      age--
+    }
+
     return age >= 18
   })()
 
