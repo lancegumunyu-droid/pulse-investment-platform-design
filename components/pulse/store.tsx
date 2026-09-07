@@ -52,6 +52,14 @@ export type KycStatus = 'none' | 'pending' | 'verified' | 'rejected'
 export type Holding = SnapshotHolding
 export type Txn = SnapshotTxn
 
+export interface NotificationRow {
+  id: string
+  title: string
+  body: string
+  read: boolean
+  createdAt: string
+}
+
 export interface ModalState {
   type: 'kyc' | 'invest' | 'deposit' | 'withdraw' | 'transfer' | null
   payload?: Record<string, unknown>
@@ -163,6 +171,8 @@ interface StoreContext {
     transfer: (recipientIdentifier: string, amount: number) => Promise<ActionResult>
     liveProjectFunding: () => Promise<{ ok: true; funding: Record<string, number> } | { ok: false; error: string }>
     closeInvestment: (holdingId: string) => Promise<ActionResult>
+    notifications: () => Promise<{ ok: true; rows: NotificationRow[] } | { ok: false; error: string }>
+    markNotificationRead: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
   }
 }
 
@@ -254,6 +264,10 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       transfer: (recipientIdentifier, amount) => run(() => requestTransferAction(recipientIdentifier, amount)),
       liveProjectFunding: () => getLiveProjectFunding(),
       closeInvestment: (holdingId) => run(() => closeInvestment(holdingId)),
+      
+      // Safe coming-soon placeholders so unbuilt features don't crash UI
+      notifications: async () => ({ ok: true, rows: [] }),
+      markNotificationRead: async (_id: string) => ({ ok: true }),
     }),
     [run],
   )
