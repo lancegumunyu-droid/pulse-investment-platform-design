@@ -23,7 +23,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#050505',
+  themeColor: '#060608',
   colorScheme: 'dark',
 }
 
@@ -76,13 +76,13 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
-      <body className="bg-[#050505] text-zinc-100 font-sans antialiased selection:bg-[#f59e0b] selection:text-black min-h-screen flex flex-col">
-        <div className="flex min-h-screen flex-col">
+      <body className="bg-background text-foreground font-sans antialiased selection:bg-amber-500 selection:text-black min-h-screen flex flex-col pt-safe pb-safe pl-safe pr-safe">
+        <div className="flex min-h-screen flex-col relative overflow-hidden">
           <SiteNav />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pulse-app">{children}</main>
           <SiteFooter />
         </div>
         <PWAInstaller />
