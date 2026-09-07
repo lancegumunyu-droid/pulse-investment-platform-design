@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Bell, Check, CheckCheck } from 'lucide-react'
 import { usePulse, type NotificationRow } from './store'
 import { cn } from '@/lib/utils'
@@ -73,81 +74,92 @@ export function NotificationBell() {
           setOpen((v) => !v)
           if (!open) load()
         }}
-        className="relative flex size-9 items-center justify-center rounded-xl bg-white/[0.04] text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-foreground"
+        className={cn(
+          'relative flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400 transition-all hover:bg-white/[0.08] hover:text-white',
+          open && 'border-amber-400/50 bg-amber-400/10 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+        )}
         aria-label="Notifications"
       >
         <Bell className="size-4" />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-gold text-[9px] font-bold text-primary-foreground shadow-sm">
+          <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-bold text-zinc-950 shadow-[0_0_8px_rgba(245,158,11,0.8)]">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
-      {open && (
-        <div className="animate-toast-in absolute right-0 top-11 z-50 max-h-96 w-80 overflow-y-auto rounded-2xl glass border border-white/10 bg-background/95 p-2 shadow-2xl backdrop-blur-xl no-scrollbar">
-          <div className="flex items-center justify-between border-b border-white/5 px-2 pb-2 pt-1">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold text-foreground">Notifications</p>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute right-0 top-12 z-50 max-h-[420px] w-80 overflow-y-auto rounded-2xl border border-amber-500/20 bg-zinc-950/95 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl no-scrollbar"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 px-2 pb-2.5 pt-1">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold text-white">Notifications</p>
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-400/30">
+                    {unreadCount} unread
+                  </span>
+                )}
+              </div>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-medium text-gold">
-                  {unreadCount} unread
-                </span>
+                <button
+                  onClick={markAllRead}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-400 transition-opacity hover:opacity-80"
+                >
+                  <CheckCheck className="size-3.5" />
+                  Mark all read
+                </button>
               )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                className="flex items-center gap-1 text-[11px] font-medium text-gold transition-opacity hover:opacity-80"
-              >
-                <CheckCheck className="size-3.5" />
-                Mark all read
-              </button>
-            )}
-          </div>
 
-          {loading && !rows ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              <div className="mx-auto mb-2 size-4 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-              Loading notifications…
-            </div>
-          ) : !rows || rows.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              <p className="font-medium text-foreground/80">No notifications yet</p>
-              <p className="mt-1 text-[10px] text-muted-foreground/70">Updates on transactions, KYC, and investments will appear here.</p>
-            </div>
-          ) : (
-            <div className="mt-1 space-y-1">
-              {rows.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => !n.read && markRead(n.id)}
-                  className={cn(
-                    'group w-full rounded-xl px-3 py-2.5 text-left transition-colors',
-                    n.read
-                      ? 'bg-transparent hover:bg-white/[0.03]'
-                      : 'border border-gold/10 bg-gold-soft/60 hover:bg-gold-soft/80',
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={cn('text-xs font-semibold leading-snug', n.read ? 'text-foreground/90' : 'text-gold')}>
-                      {n.title}
-                    </p>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {!n.read && <span className="size-1.5 rounded-full bg-gold" />}
-                      {n.read && <Check className="size-3 text-muted-foreground/60" />}
+            {loading && !rows ? (
+              <div className="py-12 text-center text-xs text-zinc-400">
+                <div className="mx-auto mb-2.5 size-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                Loading notifications…
+              </div>
+            ) : !rows || rows.length === 0 ? (
+              <div className="py-12 text-center text-xs text-zinc-400">
+                <p className="font-semibold text-white">No notifications yet</p>
+                <p className="mt-1 text-[11px] text-zinc-500">Updates on transactions, KYC, and investments will appear here.</p>
+              </div>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {rows.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => !n.read && markRead(n.id)}
+                    className={cn(
+                      'group w-full rounded-xl px-3 py-2.5 text-left transition-all',
+                      n.read
+                        ? 'bg-transparent hover:bg-white/[0.03]'
+                        : 'border border-amber-400/25 bg-amber-400/10 hover:bg-amber-400/15 shadow-[0_0_15px_rgba(245,158,11,0.08)]',
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={cn('text-xs font-semibold leading-snug', n.read ? 'text-zinc-300' : 'text-amber-400')}>
+                        {n.title}
+                      </p>
+                      <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                        {!n.read && <span className="size-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />}
+                        {n.read && <Check className="size-3 text-zinc-500" />}
+                      </div>
                     </div>
-                  </div>
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{n.body}</p>
-                  <p className="mt-1.5 text-[10px] font-medium text-muted-foreground/70">
-                    {formatRelativeTime(n.createdAt)}
-                  </p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                    <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">{n.body}</p>
+                    <p className="mt-2 text-[10px] font-medium text-zinc-500">
+                      {formatRelativeTime(n.createdAt)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
