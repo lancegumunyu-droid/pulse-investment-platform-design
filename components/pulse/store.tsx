@@ -6,6 +6,7 @@ import {
   useContext,
   useMemo,
   useTransition,
+  useState,
   type ReactNode,
 } from 'react'
 import { useRouter } from 'next/navigation'
@@ -207,7 +208,6 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
   const applyResult = useCallback((res: ActionResult): ActionResult => {
     if (res.ok) {
-      // Force a fresh object clone so React and useMemo re-sync all balances instantly
       setState({ ...fromSnapshot(res.snapshot) })
     }
     return res
@@ -302,7 +302,6 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
-// Overloaded usePulse hook supporting both standard context consumer and Zustand-style selectors
 export function usePulse(): StoreContext
 export function usePulse<T>(selector: (state: StoreContext) => T): T
 export function usePulse<T>(selector?: (state: StoreContext) => T) {
