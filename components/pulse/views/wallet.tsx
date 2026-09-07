@@ -163,7 +163,7 @@ export function WalletView() {
   const pulseStaked = state.staked
   const totalPulse = pulseLiquid + pulseStaked
   
-  const [activities, setActivities] = useState(state.txns)
+  const [activities, setActivities] = useState(state.txns || [])
   const [receivingAddress, setReceivingAddress] = useState(state.wallet || '')
   const [showSellDrawer, setShowSellDrawer] = useState(false)
   const [sellAmount, setSellAmount] = useState(pulseLiquid.toString())
@@ -445,7 +445,7 @@ export function WalletView() {
               <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
             </motion.div>
           ) : (
-            activities.Item?.map ? activities.map((item, idx) => {
+            activities.map((item, idx) => {
               const isPositive = item.amount >= 0
               const isPending = item.status === 'pending'
 
@@ -495,7 +495,7 @@ export function WalletView() {
                   </div>
                 </motion.div>
               )
-            }) : null
+            })
           )}
         </div>
       </motion.div>
