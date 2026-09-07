@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Globe, ShieldCheck, TrendingUp, Zap } from 'lucide-react'
@@ -60,143 +61,184 @@ export default async function HomePage() {
   const PROJECTS_FEATURED = PROJECTS.slice(0, 3)
 
   return (
-    <>
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-white/[0.06]">
-        {/* ambient pulse glow, matches globals.css body gradients */}
+    <div className="flex flex-col min-h-screen">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden border-b border-white/[0.08] bg-gradient-to-b from-background via-background/95 to-background">
+        {/* Ambient background glows */}
         <div
-          className="pointer-events-none absolute inset-x-0 -top-40 h-[32rem] opacity-80"
+          className="pointer-events-none absolute inset-x-0 -top-40 h-[36rem] opacity-70"
           style={{
             background:
-              'radial-gradient(40rem 40rem at 70% 0%, rgba(245,158,11,0.14), transparent 60%), radial-gradient(30rem 30rem at 10% 30%, rgba(16,185,129,0.08), transparent 55%)',
+              'radial-gradient(45rem 45rem at 70% 0%, rgba(245,158,11,0.18), transparent 65%), radial-gradient(35rem 35rem at 15% 25%, rgba(16,185,129,0.08), transparent 60%)',
           }}
         />
 
-        <div className="relative mx-auto max-w-6xl px-5 pb-24 pt-20 md:pt-32">
-          <div className="animate-rise inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/[0.08] px-3.5 py-1.5 text-xs font-semibold text-gold">
-            <span className="relative flex size-1.5">
+        <div className="relative mx-auto max-w-6xl px-5 pb-28 pt-24 md:pt-36">
+          <div className="animate-rise inline-flex items-center gap-2.5 rounded-full border border-gold/40 bg-gold/10 px-4 py-1.5 text-xs font-semibold text-gold shadow-lg shadow-amber-500/10">
+            <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-gold" />
+              <span className="relative inline-flex size-2 rounded-full bg-gold" />
             </span>
             Private sale open — secure your PULSE allocation
           </div>
 
           <h1
-            className="animate-rise mt-6 max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-balance md:text-6xl md:leading-tight"
+            className="animate-rise mt-6 max-w-3xl text-4xl font-extrabold tracking-tight text-balance md:text-6xl md:leading-[1.12]"
             style={{ animationDelay: '80ms' }}
           >
-            Real African projects. <span className="text-gold">Real returns.</span> Real transparency.
+            Real African projects.{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500">
+              Real returns.
+            </span>{' '}
+            Real transparency.
           </h1>
 
           <p
-            className="animate-rise mt-5 max-w-xl text-base leading-relaxed text-muted-foreground text-pretty md:text-lg"
+            className="animate-rise mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground text-pretty md:text-lg font-normal"
             style={{ animationDelay: '140ms' }}
           >
             Pulse connects sophisticated investors to high-impact SADC projects across energy, agriculture, fintech,
             and infrastructure. Yields are variable and based on actual project performance.
           </p>
 
-          <div className="animate-rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: '200ms' }}>
+          <div className="animate-rise mt-9 flex flex-wrap items-center gap-4" style={{ animationDelay: '200ms' }}>
             <Link
               href="/auth/sign-up"
-              className="group inline-flex items-center gap-2 rounded-xl bg-gold px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_16px_32px_-16px_rgba(245,158,11,0.55)] transition-all hover:opacity-90 hover:shadow-[0_20px_40px_-16px_rgba(245,158,11,0.7)]"
+              className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-7 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_16px_32px_-12px_rgba(245,158,11,0.5)] transition-all hover:opacity-95 hover:shadow-[0_20px_40px_-10px_rgba(245,158,11,0.7)]"
             >
               Start investing
-              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/projects"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-medium transition-colors hover:bg-white/[0.07]"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3.5 text-sm font-medium transition-all hover:bg-white/[0.08] hover:border-white/25"
             >
               Browse projects
             </Link>
           </div>
 
-          {/* Stats strip */}
+          {/* Stats Strip */}
           <div
-            className="animate-rise mt-14 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] md:grid-cols-4"
+            className="animate-rise mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/[0.1] bg-white/[0.05] md:grid-cols-4 shadow-2xl backdrop-blur-xl"
             style={{ animationDelay: '260ms' }}
           >
             {STATS.map((s) => (
-              <div key={s.label} className="bg-background px-6 py-5 transition-colors hover:bg-white/[0.02]">
-                <p className="text-2xl font-semibold tracking-tight">{s.value}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
+              <div key={s.label} className="bg-background/90 px-6 py-6 transition-colors hover:bg-white/[0.03]">
+                <p className="text-3xl font-bold tracking-tight text-foreground">{s.value}</p>
+                <p className="mt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{s.label}</p>
               </div>
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            Yields are targets, not guarantees. Investing involves risk of capital loss.
+          <p className="mt-4 text-xs text-muted-foreground/85">
+            * Yields are targets, not guarantees. Investing involves risk of capital loss.
           </p>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="mx-auto max-w-6xl px-5 py-20">
-        <div className="mb-12 max-w-xl">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gold">Why Pulse</p>
+      {/* Features Section */}
+      <section className="mx-auto max-w-6xl px-5 py-24">
+        <div className="mb-14 max-w-xl">
+          <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gold">Why Pulse</p>
           <h2 className="text-3xl font-semibold tracking-tight text-balance md:text-4xl">
             Built for the modern African investor
           </h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-3">
           {FEATURES.map((f, i) => (
             <div
               key={f.title}
-              className="animate-rise group rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 transition-all hover:-translate-y-0.5 hover:border-gold/25 hover:bg-white/[0.05]"
+              className="animate-rise group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-gold/30 hover:bg-white/[0.04] shadow-lg"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/[0.12] text-gold transition-transform group-hover:scale-110">
+              <span className="flex size-12 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-gold shadow-inner transition-transform group-hover:scale-110">
                 {f.icon}
               </span>
-              <p className="mt-4 font-semibold">{f.title}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+              <p className="mt-5 text-lg font-semibold text-foreground">{f.title}</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Featured projects */}
-      <section className="border-t border-white/[0.06] bg-white/[0.015]">
-        <div className="mx-auto max-w-6xl px-5 py-20">
-          <div className="mb-12 flex items-end justify-between gap-4">
+      {/* Featured Projects Section (With Crisp Image Headers) */}
+      <section className="border-t border-white/[0.08] bg-white/[0.01]">
+        <div className="mx-auto max-w-6xl px-5 py-24">
+          <div className="mb-14 flex items-end justify-between gap-4">
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gold">Live projects</p>
+              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gold">Live projects</p>
               <h2 className="text-3xl font-semibold tracking-tight text-balance">Where your capital goes</h2>
             </div>
-            <Link href="/projects" className="shrink-0 text-sm font-medium text-gold transition-opacity hover:opacity-80">
-              View all →
+            <Link
+              href="/projects"
+              className="shrink-0 text-sm font-semibold text-gold transition-opacity hover:opacity-80 inline-flex items-center gap-1"
+            >
+              View all <ArrowRight className="size-4" />
             </Link>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3">
             {PROJECTS_FEATURED.map((p, i) => {
               const pct = Math.round((p.funded / p.goal) * 100)
               return (
                 <div
                   key={p.id}
-                  className="animate-rise group rounded-2xl border border-white/[0.08] bg-background p-6 transition-all hover:-translate-y-0.5 hover:border-gold/25"
+                  className="animate-rise group rounded-2xl border border-white/[0.1] bg-card overflow-hidden shadow-2xl flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/40"
                   style={{ animationDelay: `${i * 80}ms` }}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs font-medium">
-                      {p.sector}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{p.country}</span>
-                  </div>
-                  <p className="mt-4 font-semibold">{p.name}</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">Target return: {p.targetYield} p.a.</p>
-
-                  <div className="mt-4">
-                    <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
-                      <span>Funded</span>
-                      <span className="font-semibold text-foreground">{pct}%</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
-                      <div
-                        className="h-full rounded-full bg-gold transition-[width] duration-700 ease-out group-hover:brightness-110"
-                        style={{ width: `${pct}%` }}
+                  {/* Clean image thumbnail header */}
+                  <div className="relative h-52 w-full overflow-hidden bg-white/5">
+                    {p.image ? (
+                      <Image
+                        src={p.image}
+                        alt={p.name}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover transition-transform duration-700 group-hover:scale-105"
                       />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-black flex items-center justify-center text-amber-400 font-bold">
+                        Pulse Project
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-black/30" />
+
+                    {/* Sector Badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className="rounded-lg border border-white/20 bg-background/80 backdrop-blur-md px-3 py-1 text-xs font-semibold text-foreground shadow-lg">
+                        {p.sector}
+                      </span>
+                    </div>
+
+                    {/* Location Tag */}
+                    <div className="absolute top-3 right-3">
+                      <span className="rounded-lg border border-white/10 bg-black/60 backdrop-blur-md px-2.5 py-1 text-xs font-medium text-amber-400">
+                        {p.country}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Content body */}
+                  <div className="p-6 flex-1 flex flex-col justify-between">
+                    <div>
+                      <p className="text-lg font-semibold text-foreground">{p.name}</p>
+                      <p className="mt-1 text-sm font-medium text-muted-foreground">
+                        Target return: <span className="text-amber-400 font-semibold">{p.targetYield} p.a.</span>
+                      </p>
+                    </div>
+
+                    {/* Funding bar */}
+                    <div className="mt-6">
+                      <div className="mb-2 flex justify-between text-xs text-muted-foreground font-mono">
+                        <span>Funded</span>
+                        <span className="font-bold text-foreground">{pct}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.08] p-0.5 border border-white/5">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-1000 group-hover:brightness-110"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -206,15 +248,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="mx-auto max-w-6xl px-5 py-20">
-        <div className="glass-gold relative overflow-hidden rounded-3xl px-8 py-14 text-center">
+      {/* CTA Section */}
+      <section className="mx-auto max-w-6xl px-5 py-24">
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.12] bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-8 py-16 text-center shadow-2xl backdrop-blur-xl">
           <div
-            className="pointer-events-none absolute inset-x-0 -top-32 h-64 opacity-60"
-            style={{ background: 'radial-gradient(24rem 24rem at 50% 0%, rgba(245,158,11,0.3), transparent 65%)' }}
+            className="pointer-events-none absolute inset-x-0 -top-32 h-64 opacity-70"
+            style={{ background: 'radial-gradient(28rem 28rem at 50% 0%, rgba(245,158,11,0.35), transparent 65%)' }}
           />
           <div className="relative">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gold">Get started</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gold">Get started</p>
             <h2 className="mx-auto max-w-lg text-3xl font-semibold tracking-tight text-balance md:text-4xl">
               Ready to invest in Africa&apos;s growth?
             </h2>
@@ -222,16 +264,16 @@ export default async function HomePage() {
               Create your account, complete identity verification, and invest in vetted SADC projects — all from your
               phone. Yields are variable. Capital is at risk.
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/auth/sign-up"
-                className="inline-flex items-center gap-2 rounded-xl bg-gold px-7 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-amber-500/25 transition-all hover:opacity-95"
               >
                 Create free account <ArrowRight className="size-4" />
               </Link>
               <Link
                 href="/contact"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/12 px-7 py-3 text-sm font-medium transition-colors hover:bg-white/[0.04]"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 text-sm font-medium transition-colors hover:bg-white/[0.08]"
               >
                 Talk to us
               </Link>
@@ -239,6 +281,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-    </>
+    </div>
   )
 }
