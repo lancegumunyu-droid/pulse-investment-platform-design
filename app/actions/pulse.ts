@@ -1,12 +1,16 @@
 'use server'
 
-import { serviceClient } from './service'
 import { createClient } from '@/lib/supabase/server'
 import { tierForAmount, type TierId, PROJECTS, type Project, TOKEN } from '@/lib/pulse-data'
 import type { Snapshot, SnapshotTxn, LeaderboardRow, FounderRow, MyReferralRow } from './types'
 
+// Helper to get a Supabase client inside server actions
+async function getSupabase() {
+  return await createClient()
+}
+
 export async function getLiveProjects(): Promise<Project[]> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const { data: rows } = await db.from('holdings').select('project_id, amount')
   const liveByProject = new Map<string, number>()
   for (const r of rows ?? []) {
@@ -66,7 +70,7 @@ export interface AccountRow {
 }
 
 export async function ensureAccount(userId: string): Promise<AccountRow> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const { data } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
   if (data) return data as AccountRow
   const { data: created, error } = await db
@@ -79,7 +83,7 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
 }
 
 export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const { data: txns, error } = await db
     .from('transactions')
     .select('type, amount, currency, status, meta')
@@ -122,7 +126,7 @@ export async function calculateCashBalanceFromLedger(userId: string): Promise<nu
 }
 
 export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const { data: txns, error } = await db
     .from('transactions')
     .select('type, amount, currency, status, meta')
@@ -161,7 +165,7 @@ export async function calculateTokenBalanceFromLedger(userId: string): Promise<n
 }
 
 export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const { data: txns, error } = await db
     .from('transactions')
     .select('type, amount, currency, status')
@@ -188,7 +192,7 @@ export async function adjustAccount(
   userId: string,
   deltas: Partial<Pick<AccountRow, 'cash_balance' | 'invested_balance' | 'staked_balance' | 'token_balance' | 'pending_yield'>>,
 ): Promise<AccountRow> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const acct = await ensureAccount(userId)
   const next: Record<string, number> = {}
   for (const [k, v] of Object.entries(deltas)) {
@@ -214,7 +218,7 @@ export async function recordTxn(userId: string, row: {
   meta?: Record<string, unknown>
   processedBy?: string | null
 }) {
-  const db = serviceClient()
+  const db = await getSupabase()
   const { data, error } = await db
     .from('transactions')
     .insert({
@@ -234,7 +238,7 @@ export async function recordTxn(userId: string, row: {
 }
 
 export async function getSnapshot(userId: string): Promise<Snapshot> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }, { data: referrals }, { data: badgeRows }, { data: cardApp }, { data: wallets }] = await Promise.all([
     db.from('profiles').select('*').eq('id', userId).maybeSingle(),
     ensureAccount(userId),
@@ -315,15 +319,33 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
 }
 
 export async function fetchSnapshot(): Promise<Snapshot | null> {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   return getSnapshot(user.id)
 }
 
 // User Action Wrappers
+export async function validateReferralCode(code: string): Promise<{ valid: boolean; error?: string }> {
+  if (!code || code.trim() === '') return { valid: false, error: 'Code cannot be empty' }
+  try {
+    const db = await getSupabase()
+    const { data } = await db.from('profiles').select('id').eq('referral_code', code.trim()).maybeSingle()
+    if (data) {
+      return { valid: true }
+    }
+    const { data: acctData } = await db.from('accounts').select('user_id').eq('wallet_id', code.trim()).maybeSingle()
+    if (acctData) {
+      return { valid: true }
+    }
+    return { valid: false, error: 'Invalid or expired referral code' }
+  } catch (e) {
+    return { valid: false, error: (e as Error).message }
+  }
+}
+
 export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc', txReference: string) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
@@ -337,7 +359,7 @@ export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc
 }
 
 export async function requestWithdrawal(amount: number, destinationAddress: string, network: string, broker: string) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
@@ -351,11 +373,11 @@ export async function requestWithdrawal(amount: number, destinationAddress: stri
 }
 
 export async function invest(amount: number, projectId: string) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await adjustAccount(user.id, { cash_balance: -amount, invested_balance: amount })
     await db.from('holdings').insert({ user_id: user.id, project_id: projectId, amount })
     await recordTxn(user.id, { type: 'investment', amount, currency: 'USD', meta: { projectId } })
@@ -367,7 +389,7 @@ export async function invest(amount: number, projectId: string) {
 }
 
 export async function buyToken(cost: number, pulse: number) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
@@ -381,7 +403,7 @@ export async function buyToken(cost: number, pulse: number) {
 }
 
 export async function sellToken(pulseAmount: number) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
@@ -396,7 +418,7 @@ export async function sellToken(pulseAmount: number) {
 }
 
 export async function stake(amount: number) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
@@ -410,7 +432,7 @@ export async function stake(amount: number) {
 }
 
 export async function unstake(amount: number) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
@@ -424,11 +446,11 @@ export async function unstake(amount: number) {
 }
 
 export async function setWallet(address: string | null) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('profiles').update({ wallet_address: address }).eq('id', user.id)
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -438,11 +460,11 @@ export async function setWallet(address: string | null) {
 }
 
 export async function submitKyc(input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string; phone?: string; address?: string }) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('profiles').update({ kyc_status: 'pending', full_name: input.fullName }).eq('id', user.id)
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -452,11 +474,11 @@ export async function submitKyc(input: { fullName: string; idNumber: string; dat
 }
 
 export async function castVote(proposalId: string, choice: 'for' | 'against' | 'abstain') {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('votes').upsert({ user_id: user.id, proposal_id: proposalId, choice })
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -466,11 +488,11 @@ export async function castVote(proposalId: string, choice: 'for' | 'against' | '
 }
 
 export async function claimAdmin() {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('profiles').update({ role: 'admin' }).eq('id', user.id)
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -480,11 +502,11 @@ export async function claimAdmin() {
 }
 
 export async function setUsername(username: string) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('profiles').update({ username }).eq('id', user.id)
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -494,11 +516,11 @@ export async function setUsername(username: string) {
 }
 
 export async function applyForCard() {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('card_applications').upsert({ user_id: user.id, status: 'waitlisted' })
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -508,11 +530,11 @@ export async function applyForCard() {
 }
 
 export async function addSavedWallet(label: string, address: string) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('saved_wallets').insert({ user_id: user.id, label, address })
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -522,11 +544,11 @@ export async function addSavedWallet(label: string, address: string) {
 }
 
 export async function removeSavedWallet(id: string) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     await db.from('saved_wallets').delete().eq('id', id).eq('user_id', user.id)
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
@@ -536,7 +558,7 @@ export async function removeSavedWallet(id: string) {
 }
 
 export async function requestTransfer(recipientIdentifier: string, amount: number) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
@@ -550,11 +572,11 @@ export async function requestTransfer(recipientIdentifier: string, amount: numbe
 }
 
 export async function closeInvestment(holdingId: string) {
-  const supabase = await createClient()
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     const { data: holding } = await db.from('holdings').select('*').eq('id', holdingId).eq('user_id', user.id).single()
     if (!holding) return { ok: false as const, error: 'Holding not found' }
     
@@ -572,7 +594,7 @@ export async function closeInvestment(holdingId: string) {
 
 export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }> {
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     const { data } = await db.from('profiles').select('username, full_name, tier').limit(20)
     const rows: LeaderboardRow[] = (data ?? []).map((p, i) => ({
       rank: i + 1,
@@ -588,7 +610,7 @@ export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow
 
 export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }> {
   try {
-    const db = serviceClient()
+    const db = await getSupabase()
     const { data } = await db.from('profiles').select('username, full_name, founder_number').not('founder_number', 'is', null).order('founder_number', { ascending: true })
     const rows: FounderRow[] = (data ?? []).map((p) => ({
       founderNumber: p.founder_number,
@@ -602,10 +624,10 @@ export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] 
 
 export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }> {
   try {
-    const supabase = await createClient()
+    const supabase = await getSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: 'Unauthorized' }
-    const db = serviceClient()
+    const db = await getSupabase()
     const { data } = await db.from('profiles').select('username, full_name, kyc_status, created_at').eq('referred_by', user.id)
     const rows: MyReferralRow[] = (data ?? []).map((p) => ({
       name: p.username ?? p.full_name ?? 'Invited User',
@@ -619,7 +641,7 @@ export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[
 }
 
 export async function isUserAdmin(userId: string): Promise<boolean> {
-  const db = serviceClient()
+  const db = await getSupabase()
   const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
   return data?.role === 'admin'
 }
