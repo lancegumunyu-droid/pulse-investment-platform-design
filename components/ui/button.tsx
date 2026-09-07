@@ -6,22 +6,22 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-xl border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/25 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-xl border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-amber-400 focus-visible:ring-3 focus-visible:ring-amber-400/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-rose-500 aria-invalid:ring-3 aria-invalid:ring-rose-500/25 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90',
-        gold: 'border-gold/30 bg-gold text-primary-foreground shadow-lg shadow-gold/20 hover:bg-gold/90 hover:shadow-gold/30',
-        glass: 'border-white/10 bg-white/[0.04] text-foreground backdrop-blur-xl hover:border-gold/30 hover:bg-white/[0.08] shadow-sm',
+        default: 'bg-white text-zinc-950 shadow-[0_4px_20px_rgba(255,255,255,0.15)] hover:bg-zinc-200 hover:shadow-[0_4px_25px_rgba(255,255,255,0.25)]',
+        gold: 'border border-amber-400/40 bg-gradient-to-r from-amber-500 to-amber-400 text-zinc-950 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:brightness-110 hover:shadow-[0_0_25px_rgba(245,158,11,0.5)]',
+        glass: 'border border-white/10 bg-zinc-900/60 text-white backdrop-blur-2xl hover:border-amber-400/30 hover:bg-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.5)]',
         outline:
-          'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
+          'border border-white/10 bg-zinc-950/40 text-white hover:bg-white/[0.06] hover:text-white aria-expanded:bg-zinc-9oding aria-expanded:text-white',
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
+          'bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800 aria-expanded:bg-zinc-800',
         ghost:
-          'hover:bg-white/[0.06] hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-white/10',
+          'hover:bg-white/[0.06] hover:text-white aria-expanded:bg-white/10 text-zinc-300',
         destructive:
-          'bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30',
-        link: 'text-gold underline-offset-4 hover:underline',
+          'bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 focus-visible:border-rose-500/50 focus-visible:ring-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]',
+        link: 'text-amber-400 underline-offset-4 hover:underline hover:text-amber-300',
       },
       size: {
         default:
