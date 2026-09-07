@@ -265,7 +265,6 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       liveProjectFunding: () => getLiveProjectFunding(),
       closeInvestment: (holdingId) => run(() => closeInvestment(holdingId)),
       
-      // Safe coming-soon placeholders so unbuilt features don't crash UI
       notifications: async () => ({ ok: true, rows: [] }),
       markNotificationRead: async (_id: string) => ({ ok: true }),
     }),
@@ -301,10 +300,13 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
-export function usePulse() {
+// Overloaded usePulse hook supporting both standard context consumer and Zustand-style selectors
+export function usePulse(): StoreContext
+export function usePulse<T>(selector: (state: StoreContext) => T): T
+export function usePulse<T>(selector?: (state: StoreContext) => T) {
   const ctx = useContext(Ctx)
   if (!ctx) throw new Error('usePulse must be used within PulseProvider')
-  return ctx
+  return selector ? selector(ctx) : ctx
 }
 
 export function money(n: number, digits = 2) {
