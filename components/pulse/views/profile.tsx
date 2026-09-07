@@ -122,7 +122,7 @@ export function ProfileView() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5 pb-32 pt-2 px-1 text-zinc-100 font-sans">
       <motion.div variants={itemVariants}>
         <SectionTitle title="Profile" subtitle="Account details, verification, and network activity." icon={<User className="size-5 text-amber-400 drop-shadow-[0_0_10px_rgba(245,166,35,0.6)]" />} />
       </motion.div>
@@ -148,15 +148,15 @@ export function ProfileView() {
                     autoFocus
                     className="min-w-0 flex-1 rounded-xl border border-amber-400/50 bg-black/80 px-3 py-2 text-sm text-white outline-none focus:shadow-[0_0_15px_rgba(245,166,35,0.3)]"
                   />
-                  <Button size="sm" className="shrink-0 bg-gradient-to-r from-amber-400 to-amber-500 font-bold text-black hover:brightness-110 shadow-[0_0_15px_rgba(245,166,35,0.4)]" disabled={savingUsername} onClick={saveUsername}>
+                  <Button size="sm" className="shrink-0 bg-gradient-to-r from-amber-400 to-amber-500 font-bold text-black hover:brightness-110 shadow-[0_0_15px_rgba(245,166,35,0.4)] cursor-pointer" disabled={savingUsername} onClick={saveUsername}>
                     Save
                   </Button>
-                  <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground hover:text-white" onClick={() => { setEditingUsername(false); setUsernameInput(state.username ?? '') }}>
+                  <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground hover:text-white cursor-pointer" onClick={() => { setEditingUsername(false); setUsernameInput(state.username ?? '') }}>
                     Cancel
                   </Button>
                 </div>
               ) : (
-                <button onClick={() => setEditingUsername(true)} className="text-left group/btn">
+                <button onClick={() => setEditingUsername(true)} className="text-left group/btn cursor-pointer">
                   <p className="truncate text-lg font-bold text-white group-hover/btn:text-amber-300 transition-colors drop-shadow-sm">
                     {state.username ? `@${state.username}` : 'Set a username →'}
                   </p>
@@ -254,7 +254,7 @@ export function ProfileView() {
                 <BadgeCheck className="size-3.5" /> Verified
               </Pill>
             ) : (
-              <Button size="sm" className="bg-gradient-to-r from-amber-400 to-amber-500 font-bold text-black hover:brightness-110 shadow-[0_0_20px_rgba(245,166,35,0.4)]" onClick={() => openModal('kyc')}>
+              <Button size="sm" className="bg-gradient-to-r from-amber-400 to-amber-500 font-bold text-black hover:brightness-110 shadow-[0_0_20px_rgba(245,166,35,0.4)] cursor-pointer" onClick={() => openModal('kyc')}>
                 {state.kyc === 'pending' ? 'Pending' : 'Verify'}
               </Button>
             )}
@@ -278,7 +278,7 @@ export function ProfileView() {
           </div>
           <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-black/60 px-3.5 py-2.5 shadow-inner">
             <span className="flex-1 truncate font-mono text-sm text-amber-300">{referralLink}</span>
-            <button onClick={copyRef} className="text-amber-400 hover:text-white transition-colors" aria-label="Copy referral link">
+            <button onClick={copyRef} className="text-amber-400 hover:text-white transition-colors cursor-pointer" aria-label="Copy referral link">
               <Copy className="size-4" />
             </button>
           </div>
@@ -308,7 +308,7 @@ export function ProfileView() {
       ].map((section, idx) => (
         <motion.div key={idx} variants={itemVariants} whileHover={{ scale: 1.005 }} className="transition-all">
           <Glass className="border border-white/10 hover:border-amber-400/30 bg-black/40 backdrop-blur-xl p-5 shadow-lg transition-colors">
-            <button onClick={section.toggle} className="flex w-full items-center justify-between text-left" disabled={section.loading}>
+            <button onClick={section.toggle} className="flex w-full items-center justify-between text-left cursor-pointer" disabled={section.loading}>
               <div className="flex items-center gap-3">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,166,35,0.2)]">
                   {section.icon}
@@ -364,7 +364,7 @@ export function ProfileView() {
           <Button
             variant="outline"
             size="lg"
-            className="h-11 w-full border-amber-400/40 bg-amber-500/10 text-amber-300 font-bold hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,166,35,0.2)] transition-all"
+            className="h-11 w-full border-amber-400/40 bg-amber-500/10 text-amber-300 font-bold hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,166,35,0.2)] transition-all cursor-pointer"
             onClick={openAdmin}
           >
             <Lock className="size-4" />
@@ -377,7 +377,7 @@ export function ProfileView() {
         <Button
           variant="ghost"
           size="lg"
-          className="h-11 w-full font-bold text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+          className="h-11 w-full font-bold text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
           onClick={signOut}
         >
           <LogOut className="size-4" /> Sign out
