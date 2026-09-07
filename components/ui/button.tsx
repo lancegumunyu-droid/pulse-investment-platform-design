@@ -6,19 +6,22 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-xl border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-amber-400 focus-visible:ring-3 focus-visible:ring-amber-400/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-rose-500 aria-invalid:ring-3 aria-invalid:ring-rose-500/25 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-xl border border-transparent bg-clip-padding font-sans text-sm font-semibold whitespace-nowrap transition-all duration-300 ease-out outline-none select-none focus-visible:border-amber-400 focus-visible:ring-3 focus-visible:ring-amber-400/50 active:scale-[0.98] transform-gpu disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-rose-500 aria-invalid:ring-3 aria-invalid:ring-rose-500/25 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-white text-zinc-950 shadow-[0_4px_20px_rgba(255,255,255,0.15)] hover:bg-zinc-200 hover:shadow-[0_4px_25px_rgba(255,255,255,0.25)]',
-        gold: 'border border-amber-400/40 bg-gradient-to-r from-amber-500 to-amber-400 text-zinc-950 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:brightness-110 hover:shadow-[0_0_25px_rgba(245,158,11,0.5)]',
-        glass: 'border border-white/10 bg-zinc-900/60 text-white backdrop-blur-2xl hover:border-amber-400/30 hover:bg-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.5)]',
+        default:
+          'bg-white text-zinc-950 shadow-[0_4px_20px_rgba(255,255,255,0.15)] hover:bg-zinc-200 hover:shadow-[0_4px_25px_rgba(255,255,255,0.25)] hover:-translate-y-0.5',
+        gold: 
+          'border border-amber-400/50 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-zinc-950 shadow-[0_0_20px_rgba(245,158,11,0.35)] hover:brightness-110 hover:shadow-[0_0_30px_rgba(245,158,11,0.55),0_0_15px_rgba(16,185,129,0.25)] hover:-translate-y-0.5',
+        glass: 
+          'border border-white/16 bg-zinc-900/60 text-white backdrop-blur-2xl hover:border-amber-400/40 hover:bg-white/[0.1] hover:shadow-[0_0_25px_rgba(245,158,11,0.3)] hover:-translate-y-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.5)]',
         outline:
-          'border border-white/10 bg-zinc-950/40 text-white hover:bg-white/[0.06] hover:text-white aria-expanded:bg-zinc-9oding aria-expanded:text-white',
+          'border border-white/12 bg-zinc-950/40 text-white hover:bg-white/[0.08] hover:border-white/25 aria-expanded:bg-zinc-900 aria-expanded:text-white hover:-translate-y-0.5',
         secondary:
-          'bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800 aria-expanded:bg-zinc-800',
+          'bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800 hover:border-white/20 aria-expanded:bg-zinc-800',
         ghost:
-          'hover:bg-white/[0.06] hover:text-white aria-expanded:bg-white/10 text-zinc-300',
+          'hover:bg-white/[0.08] hover:text-white aria-expanded:bg-white/10 text-zinc-300',
         destructive:
           'bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 focus-visible:border-rose-500/50 focus-visible:ring-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]',
         link: 'text-amber-400 underline-offset-4 hover:underline hover:text-amber-300',
