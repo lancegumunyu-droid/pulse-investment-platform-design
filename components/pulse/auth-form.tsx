@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Sparkles, ShieldCheck, ArrowRight, Lock, Mail, User } from 'lucide-react'
+import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Sparkles, ShieldCheck, ArrowRight, Lock, Mail, User, Loader2 } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isSignUp = mode === 'sign-up'
+  
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -46,12 +47,14 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   const inFlightRef = useRef(false)
 
+  // Rate-limit countdown handler
   useEffect(() => {
     if (emailCooldown <= 0) return
     const timer = setTimeout(() => setEmailCooldown((prev) => Math.max(0, prev - 1)), 1000)
     return () => clearTimeout(timer)
   }, [emailCooldown])
 
+  // Initialize referral code from URL search params
   useEffect(() => {
     const fromUrl = searchParams.get('ref')
     if (fromUrl) {
@@ -86,6 +89,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     }
   }, [])
 
+  // Debounced referral validation
   useEffect(() => {
     if (!isSignUp) {
       setRefStatus('valid')
@@ -99,7 +103,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     }
     const t = setTimeout(() => {
       verifyCode(code)
-    }, 500)
+    }, 400)
     return () => clearTimeout(t)
   }, [refCode, isSignUp, verifyCode])
 
@@ -109,22 +113,22 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     if (inFlightRef.current || emailCooldown > 0) return
 
     if (!email.trim()) {
-      setError({ type: 'error', message: 'Please enter your email address' })
+      setError({ type: 'error', message: 'Please enter your email address.' })
       return
     }
     if (!password) {
-      setError({ type: 'error', message: 'Please enter a password (minimum 6 characters)' })
+      setError({ type: 'error', message: 'Please enter a password (minimum 6 characters).' })
       return
     }
     if (isSignUp) {
       if (!fullName.trim()) {
-        setError({ type: 'error', message: 'Please enter your full name' })
+        setError({ type: 'error', message: 'Please enter your full legal name.' })
         return
       }
       if (refStatus !== 'valid') {
         setError({
           type: 'error',
-          message: refStatus === 'invalid' && refError ? refError : 'Please enter a valid referral code from an existing Pulse member',
+          message: refStatus === 'invalid' && refError ? refError : 'A valid Pulse referral code is required to join.',
         })
         return
       }
@@ -163,9 +167,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           if (isEmailRateLimit) {
             setError({
               type: 'warning',
-              message: 'Too many signup attempts. Please wait 5 minutes before trying again.',
+              message: 'Too many signup attempts. Please wait 120 seconds before retrying.',
             })
-            setEmailCooldown(300)
+            setEmailCooldown(120)
           } else if (errorLower.includes('already registered') || errorLower.includes('already exists')) {
             setError({ type: 'error', message: 'This email is already registered. Please sign in instead.' })
           } else if (errorLower.includes('invalid email')) {
@@ -179,8 +183,10 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         }
 
         if (data?.user) {
-          setError({ type: 'success', message: 'Account initialized! Check your email to confirm your access.' })
-          setTimeout(() => router.push('/auth/sign-up-success'), 1500)
+          setError({ type: 'success', message: 'Account initialized! Redirecting to secure success terminal...' })
+          setTimeout(() => {
+            router.push(`/auth/sign-up-success?email=${encodeURIComponent(cleanEmail)}`)
+          }, 1000)
         }
       } else {
         const cleanEmail = email.trim().toLowerCase()
@@ -201,13 +207,16 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         }
 
         if (data?.user) {
-          router.push('/app')
-          router.refresh()
+          setError({ type: 'success', message: 'Authentication successful. Entering dashboard...' })
+          setTimeout(() => {
+            router.push('/app')
+            router.refresh()
+          }, 800)
           return
         }
       }
     } catch (err) {
-      setError({ type: 'error', message: (err as Error).message || 'An unexpected error occurred.' })
+      setError({ type: 'error', message: (err as Error).message || 'An unexpected connection error occurred.' })
     } finally {
       inFlightRef.current = false
       setLoading(false)
@@ -223,7 +232,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           animate={{ opacity: 1, scale: 1 }}
           className="relative z-10 w-full max-w-md rounded-[28px] p-8 border border-amber-500/20 bg-zinc-950/80 backdrop-blur-2xl shadow-2xl text-center"
         >
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2 size-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
           <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-inner">
             <AlertCircle className="size-7" />
           </span>
@@ -240,7 +248,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-[#050505] overflow-hidden px-4 py-12 selection:bg-amber-500/30 selection:text-amber-200">
-      
       {/* Immersive Background Atmosphere */}
       <div className="pointer-events-none absolute -top-48 -left-48 size-[500px] rounded-full bg-amber-500/[0.08] blur-[140px] animate-pulse" />
       <div className="pointer-events-none absolute -bottom-48 -right-48 size-[500px] rounded-full bg-emerald-500/[0.06] blur-[140px] animate-pulse" style={{ animationDuration: '4s' }} />
@@ -252,7 +259,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="relative rounded-[32px] border border-white/[0.08] bg-zinc-950/80 backdrop-blur-3xl p-8 sm:p-10 shadow-2xl overflow-hidden group">
+        <div className="relative rounded-[32px] border border-white/[0.08] bg-zinc-950/80 backdrop-blur-3xl p-8 sm:p-10 shadow-[0_25px_70px_rgba(0,0,0,0.9)] overflow-hidden group">
           
           {/* Top Shimmer Border Line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_20px_rgba(245,158,11,0.6)]" />
@@ -326,8 +333,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         required
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
-                        placeholder="e.g. Alexander Vance"
+                        disabled={isFormDisabled}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
+                        placeholder="e.g. Tendai Moyo"
                       />
                     </label>
                   </motion.div>
@@ -348,11 +356,12 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                           value={refCode}
                           onChange={(e) => setRefCode(e.target.value.toUpperCase())}
                           required
-                          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-mono text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner pr-10 uppercase tracking-widest"
+                          disabled={isFormDisabled}
+                          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-mono text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner pr-10 uppercase tracking-widest disabled:opacity-50"
                           placeholder="PULSE-XXXXXXXX"
                         />
                         <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                          {refStatus === 'checking' && <Activity className="size-4 animate-spin text-zinc-400" />}
+                          {refStatus === 'checking' && <Loader2 className="size-4 animate-spin text-zinc-400" />}
                           {refStatus === 'valid' && <CheckCircle2 className="size-4 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />}
                           {refStatus === 'invalid' && <XCircle className="size-4 text-rose-500" />}
                         </div>
@@ -388,8 +397,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={isFormDisabled}
                   autoComplete="email"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
                   placeholder="name@institution.com"
                 />
               </label>
@@ -405,9 +415,10 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isFormDisabled}
                   minLength={6}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
                   placeholder="••••••••••••"
                 />
               </label>
@@ -443,14 +454,17 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             <motion.div whileTap={{ scale: isFormDisabled ? 1 : 0.98 }} className="pt-2">
               <Button
                 type="submit"
+                variant="gold"
                 size="lg"
                 disabled={isFormDisabled}
-                className="h-12 w-full bg-amber-400 font-semibold text-neutral-950 hover:bg-amber-300 shadow-lg shadow-amber-400/20 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-40 disabled:cursor-not-allowed"
+                className="h-12 w-full font-semibold shadow-[0_0_25px_rgba(245,158,11,0.3)] hover:shadow-[0_0_35px_rgba(245,158,11,0.5)] rounded-xl transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <Activity className="size-4 animate-spin text-neutral-950" /> Establishing Secure Handshake...
+                    <Loader2 className="size-4 animate-spin text-zinc-950" /> Establishing Secure Handshake...
                   </span>
+                ) : emailCooldown > 0 ? (
+                  <span>Wait {emailCooldown}s before retrying</span>
                 ) : (
                   <>
                     {isSignUp ? 'Request Syndicate Access' : 'Access Terminal'}
