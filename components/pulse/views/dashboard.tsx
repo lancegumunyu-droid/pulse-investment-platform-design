@@ -5,7 +5,7 @@ import { motion, useMotionTemplate, useMotionValue } from 'framer-motion'
 import { 
   ArrowDownRight, ArrowUpRight, Building2, ChevronRight, 
   Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, 
-  TrendingUp, Zap, Lock, RefreshCw
+  TrendingUp, Zap, Lock, RefreshCw, Award
 } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { ProgressBar, RiskNote } from '../ui-bits'
@@ -29,17 +29,10 @@ export function DashboardView() {
   const totalReturnDollars = Math.max(0, portfolioValue - initialBenchmark)
 
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
-  const [rotatedImages, setRotatedImages] = useState<Record<string, boolean>>({})
   
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const cursorGlow = useMotionTemplate`radial-gradient(380px circle at ${mouseX}px ${mouseY}px, rgba(245, 158, 11, 0.38), rgba(16, 185, 129, 0.22) 50%, transparent 85%)`
-
-  const toggleImageRotation = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setRotatedImages(prev => ({ ...prev, [id]: !prev[id] }))
-    toast({ title: 'Visual Matrix Shifted', description: 'Alternative institutional asset angle rendered.', variant: 'info' })
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -59,13 +52,11 @@ export function DashboardView() {
         @keyframes pulseEmeraldRich { 0%, 100% { border-color: rgba(16,185,129,.6); box-shadow: 0 0 22px rgba(16,185,129,.32); } 50% { border-color: rgba(52,211,153,.95); box-shadow: 0 0 40px rgba(52,211,153,.6); } }
         @keyframes pulseConicSpin { to { transform: rotate(360deg); } }
         @keyframes pulseLiquidMove { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-        @keyframes pulseAmbientFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
         .pulse-pure-shimmer { animation: pulseShimmer 3.4s ease-in-out infinite; }
         .pulse-pure-emerald-rich { animation: pulseEmeraldRich 3.2s ease-in-out infinite; }
         .pulse-conic-spin { animation: pulseConicSpin 8s linear infinite; }
         .pulse-liquid-motion { background-size: 200% 200%; animation: pulseLiquidMove 5s ease-in-out infinite; }
-        .pulse-ambient-float { animation: pulseAmbientFloat 4.8s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { .pulse-pure-shimmer, .pulse-pure-emerald-rich, .pulse-conic-spin, .pulse-liquid-motion, .pulse-ambient-float { animation: none; } }
+        @media (prefers-reduced-motion: reduce) { .pulse-pure-shimmer, .pulse-pure-emerald-rich, .pulse-conic-spin, .pulse-liquid-motion { animation: none; } }
       `}</style>
 
       {/* 1. STATUS HEADER */}
@@ -174,6 +165,53 @@ export function DashboardView() {
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* 3. TIER PROGRESSION CARD (Restored Missing Info) */}
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4.5 space-y-3">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+            <Award className="size-4 text-amber-400" /> Tier Status: {currentTier.name}
+          </span>
+          {upcoming ? (
+            <span className="text-amber-300 font-mono font-medium">Next: {upcoming.name}</span>
+          ) : (
+            <span className="text-emerald-400 font-bold">Max Tier Reached</span>
+          )}
+        </div>
+        <ProgressBar value={progress} />
+        {upcoming && (
+          <p className="text-[11px] text-neutral-400 text-right font-mono">
+            ${money(Math.max(0, upcoming.minInvest - totalInvested))} more to upgrade tier
+          p</p>
+        )}
+      </div>
+
+      {/* 4. QUICK ACTIVE HOLDINGS PREVIEW */}
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4.5 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Active Portfolios ({state.holdings.length})</span>
+          <button onClick={() => setView('invest')} className="text-xs text-amber-400 hover:underline flex items-center gap-1 font-semibold">
+            View All <ChevronRight className="size-3.5" />
+          </button>
+        </div>
+        {state.holdings.length === 0 ? (
+          <div className="text-center py-6 text-xs text-neutral-500">
+            No active project deployments yet. Explore sectors to start earning yields.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {state.holdings.slice(0, 2).map((h) => (
+              <div key={h.id} className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-neutral-800 text-xs">
+                <div>
+                  <p className="font-bold text-white">{h.projectName}</p>
+                  <p className="text-[10px] text-neutral-400 font-mono">Principal: ${money(h.amount)}</p>
+                </div>
+                <span className="font-mono text-emerald-400 font-bold">+{h.apy}% APY</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
