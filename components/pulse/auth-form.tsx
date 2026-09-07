@@ -216,7 +216,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       }
     } catch (err) {
       setError({ type: 'error', message: (err as Error).message || 'An unexpected connection error occurred.' })
-    } finally {
+    } font-sans finally {
       inFlightRef.current = false
       setLoading(false)
     }
@@ -307,10 +307,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
           </motion.div>
 
           {/* Form Content */}
-          <motion.form
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
+          <form
             onSubmit={submit}
             className="space-y-4"
           >
@@ -472,7 +469,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                 )}
               </Button>
             </motion.div>
-          </motion.form>
+          </form>
 
           {/* Switch Mode Footer Link */}
           <motion.div
