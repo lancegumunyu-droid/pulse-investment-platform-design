@@ -37,7 +37,7 @@ export function DashboardView() {
   }, [api])
 
   return (
-    <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-36 text-neutral-100 antialiased">
+    <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-16 text-neutral-100 antialiased">
       <style>{`
         @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.45); box-shadow: 0 0 22px rgba(245,158,11,.22), inset 0 0 14px rgba(245,158,11,.08); } 50% { border-color: rgba(245,158,11,.85); box-shadow: 0 0 40px rgba(245,158,11,.45), inset 0 0 25px rgba(245,158,11,.2); } }
         @keyframes pulseEmerald { 0%, 100% { border-color: rgba(5,150,105,.5); box-shadow: 0 0 20px rgba(5,150,105,.25); } 50% { border-color: rgba(16,185,129,.9); box-shadow: 0 0 35px rgba(16,185,129,.55); } }
@@ -54,7 +54,7 @@ export function DashboardView() {
       <motion.div 
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="pulse-pure-shimmer flex items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-neutral-950/95 px-4 py-3.5 shadow-[0_0_35px_rgba(245,158,11,.2)] backdrop-blur-xl"
+        className="pulse-pure-shimmer flex items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-neutral-950/95 px-4 py-3 shadow-[0_0_35px_rgba(245,158,11,.2)] backdrop-blur-xl"
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="relative flex size-2.5 shrink-0">
@@ -88,7 +88,7 @@ export function DashboardView() {
         >
           <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
            
-          <div className="relative z-10 space-y-4 p-5 sm:p-6">
+          <div className="relative z-10 space-y-3.5 p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-amber-300/90 truncate">
                 Total Net Portfolio Value
@@ -115,12 +115,12 @@ export function DashboardView() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-2 gap-3 pt-0.5">
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   aria-label="Deposit capital"
                   size="lg"
-                  className="pulse-liquid-motion pulse-action h-11 w-full rounded-xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_35px_rgba(245,158,11,.7)] hover:from-amber-300 hover:to-amber-200"
+                  className="pulse-liquid-motion pulse-action h-10 w-full rounded-xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_35px_rgba(245,158,11,.7)] hover:from-amber-300 hover:to-amber-200"
                   onClick={() => openModal('deposit')}
                 >
                   <ArrowDownRight className="size-4 shrink-0 stroke-[3]" />
@@ -131,7 +131,7 @@ export function DashboardView() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-11 w-full rounded-xl border border-neutral-600/90 bg-neutral-900/90 px-3 text-xs font-bold text-white shadow-[0_0_20px_rgba(0,0,0,.6)] hover:border-amber-400/50 hover:bg-neutral-800"
+                  className="h-10 w-full rounded-xl border border-neutral-600/90 bg-neutral-900/90 px-3 text-xs font-bold text-white shadow-[0_0_20px_rgba(0,0,0,.6)] hover:border-amber-400/50 hover:bg-neutral-800"
                   onClick={() => openModal('withdraw')}
                 >
                   <ArrowUpRight className="size-4 shrink-0 stroke-[2.5]" />
@@ -141,7 +141,7 @@ export function DashboardView() {
             </div>
           </div>
 
-          <div className="relative z-10 grid grid-cols-3 divide-x divide-neutral-800/90 border-t border-neutral-800/90 bg-neutral-950/90 p-3.5 text-center">
+          <div className="relative z-10 grid grid-cols-3 divide-x divide-neutral-800/90 border-t border-neutral-800/90 bg-neutral-950/90 p-3 text-center">
             <div className="px-1 overflow-hidden">
               <p className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">Cash</p>
               <p className="mt-0.5 font-mono text-sm font-black text-white truncate">${money(state.cash, 0)}</p>
@@ -162,7 +162,7 @@ export function DashboardView() {
       <motion.div 
         animate={{ borderColor: ['rgba(245,158,11,.4)', 'rgba(245,158,11,.8)', 'rgba(245,158,11,.4)'] }} 
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }} 
-        className="pulse-pure-shimmer relative rounded-2xl border border-amber-500/50 bg-neutral-950 p-4 shadow-[0_0_40px_rgba(245,158,11,.2)]"
+        className="pulse-pure-shimmer relative rounded-2xl border border-amber-500/50 bg-neutral-950 p-3.5 shadow-[0_0_40px_rgba(245,158,11,.2)]"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -177,7 +177,7 @@ export function DashboardView() {
         </div>
 
         {upcoming ? (
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-2.5 space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
               <span className="truncate">Next Tier: {upcoming.name}</span>
               <span className="font-bold text-amber-300 shrink-0">${money(totalInvested)} / ${money(upcoming.minInvest)}</span>
@@ -190,7 +190,7 @@ export function DashboardView() {
       </motion.div>
 
       {/* 4. ACTIVE PORTFOLIO HOLDINGS */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3 shadow-md">
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-3.5 space-y-2.5 shadow-md">
         <div className="flex items-center justify-between">
           <span className="text-xs font-extrabold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5 truncate">
             <Layers className="size-4 text-amber-400 shrink-0" /> Active Holdings ({state.holdings.length})
@@ -200,13 +200,13 @@ export function DashboardView() {
           </button>
         </div>
         {state.holdings.length === 0 ? (
-          <div className="text-center py-5 text-xs text-neutral-500">
+          <div className="text-center py-4 text-xs text-neutral-500">
             No active deployments yet. Browse high-yield sectors below.
           </div>
         ) : (
           <div className="space-y-2">
             {state.holdings.slice(0, 3).map((h) => (
-              <div key={h.id} className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-neutral-800 text-xs gap-2">
+              <div key={h.id} className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-2.5 border border-neutral-800 text-xs gap-2">
                 <div className="space-y-0.5 min-w-0">
                   <p className="font-bold text-white truncate">{h.projectName}</p>
                   <p className="text-[10px] text-neutral-400 font-mono">Principal: ${money(h.amount)}</p>
@@ -218,11 +218,11 @@ export function DashboardView() {
         )}
       </div>
 
-      {/* 5. REGIONAL OPPORTUNITIES PIPELINE (WITH HIGH-QUALITY IMAGES RESTORED) */}
+      {/* 5. ALL 4 REGIONAL OPPORTUNITIES PIPELINE */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
-            Regional Opportunities
+            Regional Opportunities ({PROJECTS.length})
           </h3>
           <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5 shrink-0">
             <span className="size-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
@@ -231,7 +231,7 @@ export function DashboardView() {
         </div>
 
         <div className="grid gap-3">
-          {PROJECTS.slice(0, 2).map((p) => {
+          {PROJECTS.map((p) => {
             const funded = liveFunding?.[p.id] ?? p.fundedAmount
             const pct = p.targetRaise > 0 ? Math.min(100, Math.round((funded / p.targetRaise) * 100)) : 0
             return (
@@ -239,31 +239,30 @@ export function DashboardView() {
                 key={p.id}
                 whileHover={{ scale: 1.01 }}
                 onClick={() => setView('invest')}
-                className="group cursor-pointer overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 transition-all hover:border-amber-500/60 shadow-md"
+                className="group cursor-pointer overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 transition-all hover:border-amber-500/60 shadow-lg"
               >
-                {/* High Quality Project Image Header */}
-                <div className="relative h-32 w-full overflow-hidden">
+                <div className="relative h-36 w-full overflow-hidden">
                   <img 
                     src={p.image} 
                     alt={p.name} 
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" 
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
-                  <div className="absolute bottom-2.5 left-3.5 right-3.5 flex items-end justify-between">
-                    <div>
-                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">{p.country} &bull; {p.sector}</p>
-                      <h4 className="text-sm font-extrabold text-white group-hover:text-amber-200 transition-colors drop-shadow-md">{p.name}</h4>
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/50 to-transparent" />
+                  <div className="absolute bottom-3 left-3.5 right-3.5 flex items-end justify-between">
+                    <div className="space-y-0.5 min-w-0 pr-2">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300 truncate">{p.country} &bull; {p.sector}</p>
+                      <h4 className="text-sm font-extrabold text-white group-hover:text-amber-200 transition-colors drop-shadow-md truncate">{p.name}</h4>
                     </div>
-                    <span className="rounded-lg border border-emerald-500/50 bg-emerald-950/90 px-2.5 py-1 font-mono text-[11px] font-extrabold text-emerald-300 shadow-lg shrink-0">
+                    <span className="rounded-lg border border-emerald-500/60 bg-emerald-950/90 px-2.5 py-1 font-mono text-[11px] font-extrabold text-emerald-300 shadow-xl shrink-0">
                       {p.targetYield}
                     </span>
                   </div>
                 </div>
 
-                <div className="p-4 pt-2 space-y-2">
+                <div className="p-3.5 pt-2 space-y-2 bg-neutral-950/90">
                   <div className="flex justify-between text-[11px] font-mono text-neutral-400">
-                    <span className="truncate">Funded: ${money(funded)}</span>
-                    <span className="font-bold text-neutral-200 shrink-0">{pct}%</span>
+                    <span className="truncate">Funded: <strong className="text-white">${money(funded)}</strong> / ${money(p.targetRaise)}</span>
+                    <span className="font-extrabold text-amber-300 shrink-0">{pct}%</span>
                   </div>
                   <ProgressBar value={pct} tone="green" />
                 </div>
@@ -274,7 +273,7 @@ export function DashboardView() {
       </div>
 
       {/* 6. QUICK ACTIONS GRID */}
-      <div className="space-y-3 pt-1">
+      <div className="space-y-2.5 pt-1">
         <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
           Quick Actions & Hubs
         </h3>
