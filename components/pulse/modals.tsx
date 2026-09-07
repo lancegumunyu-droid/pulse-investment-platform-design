@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, AlertCircle, Clock, X, CheckCircle2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, AlertCircle, Clock, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { money, usePulse } from './store'
 import { RiskNote } from './ui-bits'
@@ -61,7 +62,7 @@ function ModalShell({
             <span className="flex size-10 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-400 border border-amber-400/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
               {icon}
             </span>
-            <h3 className="text-base font-semibold tracking-tight text-white">{title}</h3>
+            <h3 className="text-base font-semibold tracking-tight text-white font-display">{title}</h3>
           </div>
           <button
             onClick={onClose}
@@ -79,13 +80,19 @@ function ModalShell({
 
 export function Modals() {
   const { modal, closeModal } = usePulse()
-  if (!modal.type) return null
-  if (modal.type === 'kyc') return <KycModal onClose={closeModal} />
-  if (modal.type === 'invest') return <InvestModal onClose={closeModal} />
-  if (modal.type === 'deposit') return <DepositModal onClose={closeModal} />
-  if (modal.type === 'withdraw') return <WithdrawModal onClose={closeModal} />
-  if (modal.type === 'transfer') return <TransferModal onClose={closeModal} />
-  return null
+  return (
+    <AnimatePresence>
+      {modal.type && (
+        <>
+          {modal.type === 'kyc' && <KycModal onClose={closeModal} />}
+          {modal.type === 'invest' && <InvestModal onClose={closeModal} />}
+          {modal.type === 'deposit' && <DepositModal onClose={closeModal} />}
+          {modal.type === 'withdraw' && <WithdrawModal onClose={closeModal} />}
+          {modal.type === 'transfer' && <TransferModal onClose={closeModal} />}
+        </>
+      )}
+    </AnimatePresence>
+  )
 }
 
 function KycModal({ onClose }: { onClose: () => void }) {
