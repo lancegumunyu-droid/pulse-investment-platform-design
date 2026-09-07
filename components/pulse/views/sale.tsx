@@ -52,9 +52,9 @@ const badgePulse = {
     transition: {
       duration: 2.5,
       repeat: Infinity,
-      ease: "easeInOut"
-    }
-  }
+      ease: 'easeInOut',
+    },
+  },
 }
 
 // ============================================================================
@@ -330,7 +330,7 @@ export function SaleView() {
             >
               <Button
                 size="lg"
-                className="h-13 w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 text-black font-mono font-black text-xs uppercase tracking-wider transition-all duration-300 rounded-xl shadow-[0_0_25px_rgba(245,158,11,0.4)] border border-amber-200/60 hover:brightness-110 animate-liquid flex items-center justify-center gap-2"
+                className="h-13 w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 text-black font-mono font-black text-xs uppercase tracking-wider transition-all duration-300 rounded-xl shadow-[0_0_25px_rgba(245,158,11,0.4)] border border-amber-200/60 hover:brightness-110 animate-liquid flex items-center justify-center gap-2 cursor-pointer"
                 disabled={value <= 0 || busy}
                 onClick={buy}
               >
