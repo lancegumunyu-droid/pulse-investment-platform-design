@@ -98,120 +98,124 @@ export default async function HomePage() {
   }
 
   return (
-    <>
+    <div className="pulse-home pulse-view">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-white/[0.06]">
-        <div className="mx-auto max-w-6xl px-5 pb-24 pt-20 md:pt-32">
-          <div className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/[0.08] px-3.5 py-1.5 text-xs font-semibold text-gold">
-            <span className="size-1.5 rounded-full bg-gold" />
+      
+      {/* Hero Section */}
+      <section className="relative overflow-hidden border-b border-white/[0.08]">
+        <div className="absolute inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+        <div className="mx-auto max-w-6xl px-5 pb-24 pt-24 md:pt-36">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-gold/40 bg-gold/10 px-4 py-1.5 text-xs font-semibold text-gold animate-rise shadow-lg shadow-amber-500/5">
+            <span className="size-2 rounded-full bg-gold animate-pulse-beat" />
             Private sale open — secure your PULSE allocation
           </div>
 
-          <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-balance md:text-6xl md:leading-tight">
+          <h1 className="text-hero mt-6 max-w-3xl font-display text-balance tracking-tight">
             Real African projects.{' '}
-            <span className="text-gold">Real returns.</span>{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500">Real returns.</span>{' '}
             Real transparency.
           </h1>
 
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground text-pretty md:text-lg">
+          <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground text-pretty md:text-lg font-technical">
             Pulse connects sophisticated investors to high-impact SADC projects across energy, agriculture, fintech,
             and infrastructure. Yields are variable and based on actual project performance.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-9 flex flex-wrap items-center gap-4">
             <Link
               href="/auth/sign-up"
-              className="pulse-action inline-flex items-center gap-2 rounded-xl bg-gold px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              className="pulse-action inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-7 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-amber-500/25"
             >
-              Start investing <ArrowRight className="size-4" />
+              Start investing <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/projects"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-6 py-3 text-sm font-medium transition-colors hover:bg-white/[0.07]"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-7 py-3.5 text-sm font-medium transition-all hover:bg-white/[0.09] hover:border-white/25"
             >
               Browse projects
             </Link>
           </div>
 
           {/* Stats strip */}
-          <div className="mt-14 grid grid-cols-2 gap-px rounded-2xl border border-white/[0.08] bg-white/[0.04] overflow-hidden md:grid-cols-4">
+          <div className="mt-16 grid grid-cols-2 gap-px rounded-2xl border border-white/[0.1] bg-white/[0.04] overflow-hidden shadow-2xl md:grid-cols-4 backdrop-blur-xl">
             {STATS.map((s) => (
-              <div key={s.label} className="bg-background px-6 py-5">
-                <p className="text-2xl font-semibold tracking-tight">{s.value}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
+              <div key={s.label} className="bg-background/80 px-6 py-6 transition-colors hover:bg-white/[0.02]">
+                <p className="text-3xl font-bold tracking-tight font-display text-foreground">{s.value}</p>
+                <p className="mt-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">{s.label}</p>
               </div>
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            Yields are targets, not guarantees. Investing involves risk of capital loss.
+          <p className="mt-4 text-xs text-muted-foreground font-technical">
+            * Yields are targets, not guarantees. Investing involves risk of capital loss.
           </p>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="mx-auto max-w-6xl px-5 py-20">
-        <div className="mb-12 max-w-xl">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gold">Why Pulse</p>
-          <h2 className="text-3xl font-semibold tracking-tight text-balance md:text-4xl">
+      {/* Features Section */}
+      <section className="mx-auto max-w-6xl px-5 py-24">
+        <div className="mb-14 max-w-xl">
+          <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gold">Why Pulse</p>
+          <h2 className="text-3xl font-display font-semibold tracking-tight text-balance md:text-4xl">
             Built for the modern African investor
           </h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-gold/[0.12] text-gold">
+            <div key={f.title} className="glow-card rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7 backdrop-blur-md">
+              <span className="flex size-12 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-gold shadow-inner">
                 {f.icon}
               </span>
-              <p className="mt-4 font-semibold">{f.title}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+              <p className="mt-5 text-lg font-display font-semibold text-foreground">{f.title}</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground font-technical">{f.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Featured projects */}
-      <section className="border-t border-white/[0.06] bg-white/[0.015]">
-        <div className="mx-auto max-w-6xl px-5 py-20">
-          <div className="mb-12 flex items-end justify-between gap-4">
+      {/* Featured Projects Section */}
+      <section className="border-t border-white/[0.08] bg-white/[0.01]">
+        <div className="mx-auto max-w-6xl px-5 py-24">
+          <div className="mb-14 flex items-end justify-between gap-4">
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gold">Live projects</p>
-              <h2 className="text-3xl font-semibold tracking-tight text-balance">
+              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gold">Live projects</p>
+              <h2 className="text-3xl font-display font-semibold tracking-tight text-balance">
                 Where your capital goes
               </h2>
             </div>
             <Link
               href="/projects"
-              className="shrink-0 text-sm font-medium text-gold transition-opacity hover:opacity-80"
+              className="shrink-0 text-sm font-semibold text-gold transition-opacity hover:opacity-80 inline-flex items-center gap-1"
             >
-              View all →
+              View all <ArrowRight className="size-4" />
             </Link>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3">
             {PROJECTS.map((p) => (
-              <div key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-background p-6">
-                <Image src={p.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-20 transition-transform duration-500 group-hover:scale-105" aria-hidden="true" />
-                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-transparent" aria-hidden="true" />
+              <div key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-card p-6 shadow-xl">
+                <Image src={p.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-20 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
+                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-transparent" aria-hidden="true" />
+                
                 <div className="relative flex items-center justify-between">
-                  <span className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs font-medium">
+                  <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium backdrop-blur-md">
                     {p.sector}
                   </span>
-                  <span className="text-xs text-muted-foreground">{p.location}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{p.location}</span>
                 </div>
-                <p className="mt-4 font-semibold">{p.name}</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">Target return: {p.target} p.a.</p>
+                
+                <p className="relative mt-5 text-lg font-display font-semibold text-foreground">{p.name}</p>
+                <p className="relative mt-1 text-sm font-medium text-amber-400">Target return: {p.target} p.a.</p>
 
                 {/* Funding bar */}
-                <div className="mt-4">
-                  <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
+                <div className="relative mt-6">
+                  <div className="mb-2 flex justify-between text-xs text-muted-foreground font-technical">
                     <span>Funded</span>
-                    <span className="font-semibold text-foreground">{p.funded}%</span>
+                    <span className="font-bold text-foreground">{p.funded}%</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.08] p-0.5 border border-white/5">
                     <div
-                      className="h-full rounded-full bg-gold"
+                      className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-1000"
                       style={{ width: `${p.funded}%` }}
                     />
                   </div>
@@ -222,33 +226,33 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="mx-auto max-w-6xl px-5 py-20">
-        <div className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03] px-8 py-14 text-center">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gold">Get started</p>
-          <h2 className="mx-auto max-w-lg text-3xl font-semibold tracking-tight text-balance md:text-4xl">
+      {/* CTA Section */}
+      <section className="mx-auto max-w-6xl px-5 py-24">
+        <div className="glow-edge overflow-hidden rounded-3xl border border-white/[0.1] bg-gradient-to-b from-white/[0.05] to-white/[0.02] px-8 py-16 text-center shadow-2xl backdrop-blur-xl">
+          <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gold">Get started</p>
+          <h2 className="mx-auto max-w-lg text-3xl font-display font-semibold tracking-tight text-balance md:text-4xl">
             Ready to invest in Africa&apos;s growth?
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground text-pretty">
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground text-pretty font-technical">
             Create your account, complete identity verification, and invest in vetted SADC projects — all from your
             phone. Yields are variable. Capital is at risk.
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/auth/sign-up"
-              className="inline-flex items-center gap-2 rounded-xl bg-gold px-7 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              className="pulse-action inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-amber-500/25"
             >
               Create free account <ArrowRight className="size-4" />
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/12 px-7 py-3 text-sm font-medium transition-colors hover:bg-white/[0.04]"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3.5 text-sm font-medium transition-colors hover:bg-white/[0.08]"
             >
               Talk to us
             </Link>
           </div>
         </div>
       </section>
-    </>
+    </div>
   )
 }
