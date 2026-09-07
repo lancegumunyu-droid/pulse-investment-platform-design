@@ -15,6 +15,7 @@ const DISMISS_KEY = 'pulse_pwa_prompt_dismissed'
 const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // Re-prompt after 7 days
 
 export function PWAInstaller() {
+  const [mounted, setMounted] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
@@ -22,6 +23,8 @@ export function PWAInstaller() {
   const [showIosGuide, setShowIosGuide] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+
     // Detect if app is already running in standalone mode (installed PWA)
     const checkStandalone = () => {
       const isStandaloneMode =
@@ -103,7 +106,7 @@ export function PWAInstaller() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()))
   }
 
-  if (isStandalone || (!installPrompt && !isIos)) {
+  if (!mounted || isStandalone || (!installPrompt && !isIos)) {
     return null
   }
 
@@ -115,7 +118,7 @@ export function PWAInstaller() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 15, scale: 0.95 }}
           transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          className="fixed bottom-20 right-4 z-50 max-w-sm sm:bottom-6 sm:right-6"
+          className="fixed bottom-20 right-4 z-50 max-w-sm sm:bottom-6 sm:right-6 font-sans"
         >
           <div className="relative flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-zinc-950/95 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
             <div className="flex items-start justify-between gap-3">
@@ -124,15 +127,15 @@ export function PWAInstaller() {
                   <Download className="size-5" />
                 </span>
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Install Pulse App</h4>
-                  <p className="mt-0.5 text-xs text-zinc-400">
+                  <h4 className="text-sm font-semibold text-white font-display">Install Pulse App</h4>
+                  <p className="mt-0.5 text-xs text-zinc-300 font-sans">
                     Get real-time investment updates and fast access to SADC projects.
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleDismiss}
-                className="rounded-full p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded-full p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
                 aria-label="Close"
               >
                 <X className="size-4" />
@@ -149,7 +152,7 @@ export function PWAInstaller() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-1 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-zinc-400">
+                  <div className="mt-1 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-zinc-300 font-sans">
                     <div className="flex items-center gap-2 font-medium text-white">
                       <Share className="size-4 text-amber-400" />
                       <span>Tap Share in Safari menu</span>
@@ -175,7 +178,7 @@ export function PWAInstaller() {
                 size="sm"
                 onClick={handleInstallClick}
                 className={cn(
-                  'h-8 bg-amber-400 px-3.5 text-xs font-semibold text-zinc-950 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:bg-amber-300'
+                  'h-8 bg-amber-400 px-3.5 text-xs font-semibold text-zinc-950 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:bg-amber-300 hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] transition-all'
                 )}
               >
                 {isIos ? (showIosGuide ? 'Hide instructions' : 'How to install') : 'Install'}
