@@ -185,8 +185,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         if (data?.user) {
           setError({ type: 'success', message: 'Account initialized! Redirecting to secure success terminal...' })
           setTimeout(() => {
-            router.push(`/auth/sign-up-success?email=${encodeURIComponent(cleanEmail)}`)
-          }, 1000)
+            window.location.href = `/auth/sign-up-success?email=${encodeURIComponent(cleanEmail)}`
+          }, 800)
         }
       } else {
         const cleanEmail = email.trim().toLowerCase()
@@ -209,9 +209,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         if (data?.user) {
           setError({ type: 'success', message: 'Authentication successful. Entering dashboard...' })
           setTimeout(() => {
-            router.push('/app')
-            router.refresh()
-          }, 800)
+            window.location.href = '/app'
+          }, 600)
           return
         }
       }
