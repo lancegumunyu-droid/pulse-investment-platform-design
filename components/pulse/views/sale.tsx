@@ -168,18 +168,18 @@ export function SaleView() {
       `}</style>
 
       {/* ------------------------------------------------------------------ */}
-      {/* SECTION HEADER                                                     */}
+      {/* 01. SECTION HEADER                                                 */}
       {/* ------------------------------------------------------------------ */}
       <motion.div variants={itemVariants}>
         <SectionTitle
-          title="$PULSE Private Sale"
+          title="01 // $PULSE Private Sale"
           subtitle="Early access to the ecosystem token that powers staking and governance."
           icon={<Sparkles className="size-5 text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" />}
         />
       </motion.div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* SALE STATS HERO CARD (WITH CONIC ROTATING GLASS BORDER)            */}
+      {/* 02. SALE STATS HERO CARD (WITH CONIC ROTATING GLASS BORDER)        */}
       {/* ------------------------------------------------------------------ */}
       <motion.div variants={itemVariants}>
         <div className="relative p-[1.5px] rounded-3xl overflow-hidden shadow-[0_0_35px_rgba(245,158,11,0.22)]">
@@ -210,8 +210,8 @@ export function SaleView() {
 
             <div className="relative z-10 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-widest text-amber-400/90">
-                  Sale Price
+                <p className="font-mono text-[11px] font-black uppercase tracking-widest text-amber-400/90">
+                  02 // Sale Price
                 </p>
                 <p className="mt-1 font-mono text-3xl font-black text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]">
                   ${TOKEN.salePrice.toFixed(2)}
@@ -219,7 +219,7 @@ export function SaleView() {
               </div>
 
               <motion.div variants={badgePulse} initial="initial" animate="animate">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]">
                   <Zap className="size-3 text-emerald-400 fill-emerald-400" />
                   +{TOKEN.bonusPct}% Bonus
                 </span>
@@ -227,9 +227,9 @@ export function SaleView() {
             </div>
 
             <div className="relative z-10 mt-6">
-              <div className="mb-2 flex justify-between text-xs font-semibold">
+              <div className="mb-2 flex justify-between font-mono text-xs font-semibold">
                 <span className="text-zinc-400">{pct}% of round raised</span>
-                <span className="font-mono text-white tracking-wide">
+                <span className="text-white tracking-wide">
                   ${money(SALE_RAISED, 0)} <span className="text-zinc-500">/ ${money(SALE_GOAL, 0)}</span>
                 </span>
               </div>
@@ -242,7 +242,7 @@ export function SaleView() {
       </motion.div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* CALCULATOR & INTERACTIVE PURCHASE PANEL                            */}
+      {/* 03. CALCULATOR & INTERACTIVE PURCHASE PANEL                        */}
       {/* ------------------------------------------------------------------ */}
       <motion.div variants={itemVariants}>
         <div
@@ -265,9 +265,9 @@ export function SaleView() {
 
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-extrabold text-white tracking-wide flex items-center gap-2">
+              <p className="font-display text-sm font-extrabold text-white tracking-wide flex items-center gap-2">
                 <Coins className="size-4 text-amber-400" />
-                USDT Calculator
+                03 // USDT Calculator
               </p>
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider">
                 Instant Settlement
@@ -276,7 +276,7 @@ export function SaleView() {
 
             {/* Input Field */}
             <label className="block">
-              <span className="mb-1.5 block text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+              <span className="mb-1.5 block font-mono text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                 You Pay (USDT)
               </span>
               <div className="relative">
@@ -311,7 +311,7 @@ export function SaleView() {
                   whileHover={{ scale: 1.03 }}
                   onClick={() => setUsd(String(v))}
                   className={cn(
-                    'rounded-xl border py-2.5 text-xs font-black transition-all shadow-md',
+                    'rounded-xl border py-2.5 font-mono text-xs font-black transition-all shadow-md',
                     value === v
                       ? 'border-amber-400/60 bg-amber-500/20 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
                       : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/[0.08] hover:text-white'
@@ -330,7 +330,7 @@ export function SaleView() {
             >
               <Button
                 size="lg"
-                className="h-13 w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 text-black font-black text-xs uppercase tracking-wider transition-all duration-300 rounded-xl shadow-[0_0_25px_rgba(245,158,11,0.4)] border border-amber-200/60 hover:brightness-110 animate-liquid flex items-center justify-center gap-2"
+                className="h-13 w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 text-black font-mono font-black text-xs uppercase tracking-wider transition-all duration-300 rounded-xl shadow-[0_0_25px_rgba(245,158,11,0.4)] border border-amber-200/60 hover:brightness-110 animate-liquid flex items-center justify-center gap-2"
                 disabled={value <= 0 || busy}
                 onClick={buy}
               >
@@ -347,7 +347,7 @@ export function SaleView() {
               </Button>
             </motion.div>
 
-            <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+            <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-[10px] font-black uppercase tracking-widest text-zinc-500">
               <ShieldCheck className="size-3.5 text-amber-400/80" />
               <span>Settled via NOWPayments · Simulated</span>
             </div>
@@ -356,10 +356,10 @@ export function SaleView() {
       </motion.div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* RISK NOTE CONTAINER                                               */}
+      {/* 04. RISK NOTE CONTAINER                                            */}
       {/* ------------------------------------------------------------------ */}
       <motion.div variants={itemVariants}>
-        <div className="p-0.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-transparent to-amber-500/20">
+        <div className="p-0.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-transparent to-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
           <RiskNote />
         </div>
       </motion.div>
@@ -371,7 +371,7 @@ export function SaleView() {
 function Row({ label, value, tone, bold }: { label: string; value: string; tone?: 'gold' | 'green'; bold?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-zinc-400 text-xs font-semibold">{label}</span>
+      <span className="text-zinc-400 font-mono text-xs font-semibold">{label}</span>
       <span
         className={cn(
           'font-mono text-xs font-bold tracking-wide',
@@ -387,5 +387,4 @@ function Row({ label, value, tone, bold }: { label: string; value: string; tone?
       </span>
     </div>
   )
-            }
-              
+}
