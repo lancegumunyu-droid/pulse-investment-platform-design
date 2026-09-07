@@ -216,7 +216,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       }
     } catch (err) {
       setError({ type: 'error', message: (err as Error).message || 'An unexpected connection error occurred.' })
-    } font-sans finally {
+    } finally {
       inFlightRef.current = false
       setLoading(false)
     }
