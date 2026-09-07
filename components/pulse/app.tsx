@@ -3,10 +3,83 @@
 import React from 'react'
 import type { Snapshot } from '@/app/actions/types'
 import { PulseProvider, usePulse } from './store'
-import { InvestView } from './views/invest-view'
 
 interface PulseAppProps {
   initialSnapshot: Snapshot | null
+}
+
+// Inline InvestView component to eliminate any file resolution errors
+function InvestView() {
+  const { state, api, toast } = usePulse()
+  const [loadingId, setLoadingId] = React.useState<string | null>(null)
+
+  const handleInvest = async (projectId: string, amount: number) => {
+    setLoadingId(projectId)
+    const res = await api.invest(amount, projectId)
+    setLoadingId(null)
+    if (res.ok) {
+      toast({ title: 'Success', description: 'Investment successfully completed!', variant: 'success' })
+    } else {
+      toast({ title: 'Investment Failed', description: res.error, variant: 'error' })
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b border-zinc-800 pb-4">
+        <h2 className="text-xl font-black text-white">Investment Tiers & Opportunities</h2>
+        <p className="text-xs text-zinc-400">Deploy your available cash into high-yield vetted pools.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase font-bold">
+                Tier 1 Pool
+              </span>
+              <h3 className="text-lg font-bold text-white mt-2">Venture Growth Fund Alpha</h3>
+            </div>
+            <span className="font-mono text-emerald-400 font-bold text-sm">14.5% APY</span>
+          </div>
+          <p className="text-xs text-zinc-400">Targeted allocation toward high-growth decentralized assets and tokenized debt instruments.</p>
+          <div className="flex justify-between items-center pt-2 border-t border-zinc-800/80 text-xs">
+            <span className="text-zinc-500">Min Investment: $500</span>
+            <button
+              disabled={loadingId === 'proj-1' || state.cash < 500}
+              onClick={() => handleInvest('proj-1', 500)}
+              className="rounded-lg bg-amber-500 px-4 py-2 font-bold text-black hover:bg-amber-400 disabled:opacity-50 transition"
+            >
+              {loadingId === 'proj-1' ? 'Processing...' : 'Invest $500'}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase font-bold">
+                Tier 2 Pool
+              </span>
+              <h3 className="text-lg font-bold text-white mt-2">Infrastructure & Node Pool</h3>
+            </div>
+            <span className="font-mono text-cyan-400 font-bold text-sm">18.2% APY</span>
+          </div>
+          <p className="text-xs text-zinc-400">Institutional validation node infrastructure backed by multi-sig escrow collateral.</p>
+          <div className="flex justify-between items-center pt-2 border-t border-zinc-800/80 text-xs">
+            <span className="text-zinc-500">Min Investment: $1,000</span>
+            <button
+              disabled={loadingId === 'proj-2' || state.cash < 1000}
+              onClick={() => handleInvest('proj-2', 1000)}
+              className="rounded-lg bg-cyan-500 px-4 py-2 font-bold text-black hover:bg-cyan-400 disabled:opacity-50 transition"
+            >
+              {loadingId === 'proj-2' ? 'Processing...' : 'Invest $1,000'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function DashboardContent() {
