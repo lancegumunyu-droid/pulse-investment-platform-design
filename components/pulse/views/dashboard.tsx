@@ -8,8 +8,48 @@ import {
 } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { ProgressBar } from '../ui-bits'
-import { nextTier, FALLBACK_PROJECTS, type Project } from '@/lib/pulse-data'
+import { nextTier, type Project } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
+
+// Complete SADC Sovereign Institutional Project Pipeline
+const FALLBACK_PROJECTS: Project[] = [
+  {
+    id: 'proj-1',
+    name: 'Sandsloot Lithium & Tantalum Extraction Hub',
+    sector: 'Critical Minerals',
+    country: 'South Africa',
+    targetYield: '22.5% APY',
+    goal: 500000,
+    funded: 385000,
+    risk: 'Secured / Tier 1',
+    summary: 'High-grade pegmatite mineral extraction facility located within the Northern Limb of the Bushveld Complex, fully backed by sovereign offtake agreements.',
+    image: 'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?q=80&w=1000&auto=format&fit=crop'
+  },
+  {
+    id: 'proj-2',
+    name: 'Kalahari Green Hydrogen & Ammonia Corridor',
+    sector: 'Clean Energy',
+    country: 'Namibia',
+    targetYield: '19.8% APY',
+    goal: 1200000,
+    funded: 940000,
+    risk: 'Sovereign Guarantee',
+    summary: 'Utility-scale green hydrogen production plant leveraging localized solar irradiance to supply regional heavy industry and European export markets.',
+    image: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?q=80&w=1000&auto=format&fit=crop'
+  },
+  {
+    id: 'proj-3',
+    name: 'Copperbelt High-Voltage Grid Modernization',
+    sector: 'Infrastructure',
+    country: 'Zambia',
+    targetYield: '24.0% APY',
+    goal: 850000,
+    funded: 620000,
+    risk: 'Secured Asset',
+    summary: 'Advanced transmission infrastructure upgrade ensuring uninterrupted high-voltage power distribution to major mining houses and industrial nodes.',
+    image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=1000&auto=format&fit=crop'
+  }
+]
 
 export function DashboardView() {
   const { state, api, totalInvested, currentTier, portfolioValue, openModal, setView } = usePulse()
@@ -64,7 +104,6 @@ export function DashboardView() {
       const res = await api.invest(amount, selectedProject.id)
       if (res.ok) {
         setInvestSuccess(`Successfully deployed $${money(amount)} into ${selectedProject.name}!`)
-        // Refresh live funding numbers instantly from the action state
         setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, funded: p.funded + amount } : p))
         setTimeout(() => {
           setSelectedProject(null)
@@ -89,16 +128,16 @@ export function DashboardView() {
           100% { background-position: 200% 0; }
         }
         .shimmer-card {
-          background: linear-gradient(110deg, #0a0a0a 40%, #261d0a 50%, #0a0a0a 60%);
+          background: linear-gradient(110deg, #0d0a04 30%, #3b2808 50%, #0d0a04 70%);
           background-size: 200% 100%;
-          animation: shimmerGold 6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          animation: shimmerGold 5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         .gold-glow-hover {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .gold-glow-hover:hover {
           border-color: rgba(251, 191, 36, 0.9) !important;
-          box-shadow: 0 0 30px rgba(245, 158, 11, 0.35), inset 0 0 15px rgba(245, 158, 11, 0.15);
+          box-shadow: 0 0 35px rgba(245, 158, 11, 0.4), inset 0 0 20px rgba(245, 158, 11, 0.18);
           transform: translateY(-2px);
         }
       `}</style>
@@ -124,7 +163,7 @@ export function DashboardView() {
       </motion.div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <div className="shimmer-card relative overflow-hidden rounded-3xl border border-amber-500/60 p-5 shadow-[0_0_50px_rgba(245,158,11,0.25)]">
+      <div className="shimmer-card relative overflow-hidden rounded-3xl border border-amber-500/70 p-5 shadow-[0_0_55px_rgba(245,158,11,0.3)]">
         <div className="relative z-10 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold uppercase tracking-widest text-amber-300/90 truncate">
@@ -132,7 +171,7 @@ export function DashboardView() {
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/90 px-3 py-1 text-xs font-bold text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0">
               <TrendingUp className="size-3.5 text-emerald-400 shrink-0" />
-              +{(portfolioReturnPct || 18.4).toFixed(1)}% APY
+              +{portfolioReturnPct.toFixed(1)}% APY
             </span>
           </div>
 
@@ -144,7 +183,7 @@ export function DashboardView() {
               <span className="text-xs font-bold text-amber-400">USDT</span>
             </div>
             <p className="text-xs text-neutral-300 font-medium">
-              Sovereign Return: <span className="text-emerald-400 font-bold">+${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)</span>
+              Sovereign Return: <span className="text-emerald-400 font-bold">+${money(totalReturnDollars, 2)} ({portfolioReturnPct.toFixed(1)}%)</span>
             </p>
           </div>
 
@@ -180,7 +219,7 @@ export function DashboardView() {
           </div>
           <div className="px-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">$PULSE Assets</p>
-            <p className="mt-1 text-sm font-black text-amber-300">{money(state.pulse + state.staked, 0)}</p>
+            <p className="mt-1 text-sm font-black text-amber-300">${money(state.pulse + state.staked, 0)}</p>
           </div>
         </div>
       </div>
