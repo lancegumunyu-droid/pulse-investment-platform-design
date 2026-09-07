@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Sparkles, ShieldCheck, ArrowRight } from 'lucide-react'
+import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Sparkles, ShieldCheck, ArrowRight, Lock, Mail, User } from 'lucide-react'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
@@ -216,15 +216,15 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
   if (!isSupabaseConfigured()) {
     return (
-      <div className="relative min-h-screen w-full flex items-center justify-center bg-[#030303] overflow-hidden px-4">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-950/20 via-black to-black" />
+      <div className="relative min-h-screen w-full flex items-center justify-center bg-[#050505] overflow-hidden px-4">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-950/20 via-[#050505] to-[#050505]" />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 w-full max-w-md rounded-3xl p-8 border border-amber-500/20 bg-black/60 backdrop-blur-2xl shadow-2xl text-center"
+          className="relative z-10 w-full max-w-md rounded-[28px] p-8 border border-amber-500/20 bg-zinc-950/80 backdrop-blur-2xl shadow-2xl text-center"
         >
           <div className="absolute -top-12 left-1/2 -translate-x-1/2 size-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-          <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+          <span className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-inner">
             <AlertCircle className="size-7" />
           </span>
           <h1 className="text-xl font-bold tracking-tight text-white">Configuration Required</h1>
@@ -239,20 +239,25 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const isFormDisabled = loading || emailCooldown > 0
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#030303] overflow-hidden px-4 py-12 selection:bg-amber-500/30 selection:text-amber-300">
-      <div className="pointer-events-none absolute -top-48 -left-48 size-[500px] rounded-full bg-amber-500/10 blur-[140px] animate-pulse" />
-      <div className="pointer-events-none absolute -bottom-48 -right-48 size-[500px] rounded-full bg-emerald-500/10 blur-[140px] animate-pulse" style={{ animationDuration: '4s' }} />
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f1f0a_1px,transparent_1px),linear-gradient(to_bottom,#1f1f1f0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#050505] overflow-hidden px-4 py-12 selection:bg-amber-500/30 selection:text-amber-200">
+      
+      {/* Immersive Background Atmosphere */}
+      <div className="pointer-events-none absolute -top-48 -left-48 size-[500px] rounded-full bg-amber-500/[0.08] blur-[140px] animate-pulse" />
+      <div className="pointer-events-none absolute -bottom-48 -right-48 size-[500px] rounded-full bg-emerald-500/[0.06] blur-[140px] animate-pulse" style={{ animationDuration: '4s' }} />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
 
       <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.96 }}
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="relative rounded-[28px] border border-amber-500/30 bg-black/70 backdrop-blur-3xl p-8 shadow-2xl overflow-hidden group">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
+        <div className="relative rounded-[32px] border border-white/[0.08] bg-zinc-950/80 backdrop-blur-3xl p-8 sm:p-10 shadow-2xl overflow-hidden group">
+          
+          {/* Top Shimmer Border Line */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_20px_rgba(245,158,11,0.6)]" />
 
+          {/* Rate Limit Alert Banner */}
           <AnimatePresence>
             {emailCooldown > 0 && (
               <motion.div
@@ -274,15 +279,16 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             )}
           </AnimatePresence>
 
+          {/* Header Branding */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
             className="flex flex-col items-center text-center mb-8"
           >
             <div className="relative mb-4">
-              <div className="absolute -inset-2 rounded-2xl bg-amber-500/20 blur-xl animate-pulse" />
-              <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-400/20 to-black border border-amber-500/40 text-amber-400 shadow-inner shadow-amber-500/30">
+              <div className="absolute -inset-3 rounded-2xl bg-amber-500/20 blur-xl animate-pulse" />
+              <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-400/20 to-zinc-900 border border-amber-500/40 text-amber-400 shadow-inner shadow-amber-500/30">
                 <Sparkles className="size-7" />
               </div>
             </div>
@@ -294,10 +300,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </p>
           </motion.div>
 
+          {/* Form Content */}
           <motion.form
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
             onSubmit={submit}
             className="space-y-4"
           >
@@ -312,7 +319,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                     className="overflow-hidden"
                   >
                     <label className="block">
-                      <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Full Legal Name</span>
+                      <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                        <User className="size-3 text-amber-400" /> Full Legal Name
+                      </span>
                       <input
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
@@ -331,7 +340,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                     className="overflow-hidden"
                   >
                     <label className="block">
-                      <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Syndicate Referral Code</span>
+                      <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                        <Sparkles className="size-3 text-amber-400" /> Syndicate Referral Code
+                      </span>
                       <div className="relative">
                         <input
                           value={refCode}
@@ -369,7 +380,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
             <div>
               <label className="block">
-                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Secure Email</span>
+                <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                  <Mail className="size-3 text-amber-400" /> Secure Email
+                </span>
                 <input
                   type="email"
                   value={email}
@@ -384,7 +397,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
 
             <div>
               <label className="block">
-                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Password / Passkey</span>
+                <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                  <Lock className="size-3 text-amber-400" /> Password / Passkey
+                </span>
                 <input
                   type="password"
                   value={password}
@@ -446,6 +461,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </motion.div>
           </motion.form>
 
+          {/* Switch Mode Footer Link */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -463,6 +479,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </Link>
           </motion.div>
 
+          {/* Security Footnote */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
