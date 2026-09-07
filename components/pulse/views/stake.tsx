@@ -358,5 +358,4 @@ export function StakeView() {
       </motion.div>
     </motion.div>
   )
-                  }
-    
+}
