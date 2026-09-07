@@ -85,7 +85,7 @@ function Screen() {
 export function PulseApp({ initial }: { initial: Snapshot }) {
   return (
     <PulseProvider initial={initial}>
-      <div className="pulse-app relative w-full min-h-screen min-h-[100dvh] flex flex-col bg-[#050505] text-zinc-100 selection:bg-amber-500/30 selection:text-amber-200 antialiased overflow-x-hidden">
+      <div className="pulse-app relative w-full min-h-screen min-h-[100dvh] flex flex-col bg-[#050505] text-zinc-100 selection:bg-amber-500/30 selection:text-amber-200 antialiased overflow-x-clip">
         
         {/* Immersive Multi-Layer Ambient Lighting Atmosphere */}
         <div className="pointer-events-none fixed inset-0 z-0 flex justify-center overflow-hidden">
