@@ -21,7 +21,7 @@ export function Glass({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        'rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all duration-300 glow-card',
+        'rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all duration-300 glow-card font-sans',
         gold
           ? 'border border-amber-400/40 bg-gradient-to-br from-zinc-950/95 via-zinc-900/90 to-amber-950/25 shadow-[0_0_30px_rgba(245,158,11,0.14)] glass-gold'
           : 'border border-white/10 bg-zinc-950/85 glass',
@@ -45,7 +45,7 @@ export function SectionTitle({
   className?: string
 }) {
   return (
-    <div className={cn('mb-4 md:mb-6 flex items-start gap-3 min-w-0', className)}>
+    <div className={cn('mb-4 md:mb-6 flex items-start gap-3 min-w-0 font-sans', className)}>
       {icon ? (
         <div className="mt-0.5 flex size-9 md:size-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/35 bg-amber-400/10 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
           {icon}
@@ -53,7 +53,7 @@ export function SectionTitle({
       ) : null}
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-base md:text-lg font-bold tracking-tight text-white font-display">{title}</h2>
-        {subtitle ? <p className="mt-0.5 text-xs md:text-sm leading-relaxed text-zinc-400">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-0.5 text-xs md:text-sm leading-relaxed text-zinc-300 font-sans">{subtitle}</p> : null}
       </div>
     </div>
   )
@@ -78,7 +78,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] md:text-[11px] font-semibold tracking-wide backdrop-blur-md shrink-0 truncate',
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] md:text-[11px] font-semibold tracking-wide backdrop-blur-md shrink-0 truncate font-mono',
         tones[tone],
         className
       )}
@@ -97,11 +97,14 @@ export function ProgressBar({
   tone?: 'gold' | 'green'
   className?: string
 }) {
+  // Ensure visible minimum width floor for low fractional percentages (> 0% but < 1.5%)
+  const calculatedWidth = value > 0 ? Math.max(1.5, Math.min(100, value)) : 0
+
   return (
     <div className={cn('h-2 w-full overflow-hidden rounded-full bg-white/10 p-0.5 shadow-inner backdrop-blur-md border border-white/5', className)}>
       <motion.div
         initial={{ width: 0 }}
-        animate={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        animate={{ width: `${calculatedWidth}%` }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
           'h-full rounded-full shimmer-sweep',
@@ -118,7 +121,7 @@ export function RiskNote({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex items-start gap-2.5 rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-3 md:p-4 text-[11px] md:text-xs leading-relaxed text-zinc-300 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl glow-card',
+        'flex items-start gap-2.5 rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-3 md:p-4 text-[11px] md:text-xs leading-relaxed text-zinc-300 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl glow-card font-sans',
         className,
       )}
     >
@@ -140,10 +143,10 @@ export function Stat({
   className?: string
 }) {
   return (
-    <div className={cn('pulse-tile rounded-xl md:rounded-2xl p-3.5 md:p-4 border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] overflow-hidden', className)}>
+    <div className={cn('pulse-tile rounded-xl md:rounded-2xl p-3.5 md:p-4 border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] overflow-hidden font-sans', className)}>
       <p className="text-[10px] md:text-[11px] font-medium uppercase tracking-wider text-zinc-400 font-technical truncate">{label}</p>
-      <p className="mt-1 font-sans text-base md:text-lg font-bold tracking-tight text-white font-display truncate">{value}</p>
-      {sub ? <p className="mt-0.5 text-[11px] text-zinc-400/95 truncate">{sub}</p> : null}
+      <p className="mt-1 text-base md:text-lg font-bold tracking-tight text-white font-display truncate">{value}</p>
+      {sub ? <p className="mt-0.5 text-[11px] text-zinc-300/90 truncate font-mono">{sub}</p> : null}
     </div>
   )
 }
