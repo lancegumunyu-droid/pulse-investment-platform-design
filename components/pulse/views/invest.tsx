@@ -20,6 +20,7 @@ export function InvestView() {
   const mouseX = useMotionValue(200)
   const mouseY = useMotionValue(100)
   const spotlight = useMotionTemplate`radial-gradient(240px circle at ${mouseX}px ${mouseY}px, rgba(245,158,11,.2), transparent 76%)`
+  
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
     mouseX.set(event.clientX - rect.left)
@@ -27,7 +28,7 @@ export function InvestView() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="mx-auto flex max-w-md flex-col gap-6 px-1 pb-32 pt-2 text-zinc-100 selection:bg-amber-500/30">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="mx-auto flex max-w-md flex-col gap-6 px-1 pb-32 pt-2 text-zinc-100 selection:bg-amber-500/30 antialiased">
       <style>{`
         @keyframes investConic { to { transform: rotate(360deg); } }
         @keyframes investSweep { 0% { transform: translateX(-150%) skewX(-20deg); } 50%,100% { transform: translateX(250%) skewX(-20deg); } }
