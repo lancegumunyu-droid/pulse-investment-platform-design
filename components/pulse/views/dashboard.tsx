@@ -7,7 +7,7 @@ import {
   Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, 
   TrendingUp, Zap, Lock, RefreshCw
 } from 'lucide-react'
-import { money, usePulse } from '../store' // <-- ADDED usePulse HERE
+import { money, usePulse } from '../store'
 import { ProgressBar, RiskNote } from '../ui-bits'
 import { PROJECTS, nextTier, isProjectClosed, type ProjectSector } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
@@ -98,15 +98,15 @@ export function DashboardView() {
         <motion.div 
           whileHover={{ scale: 1.008 }} 
           onPointerMove={(event) => { 
-            const rect = event.currentTarget.getBoundingClientRect(); 
-            mouseX.set(event.clientX - rect.left); 
-            mouseY.set(event.clientY - rect.top); 
+            const rect = event.currentTarget.getBoundingClientRect() 
+            mouseX.set(event.clientX - rect.left) 
+            mouseY.set(event.clientY - rect.top) 
           }} 
           className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-3xl bg-neutral-950/95 shadow-[0_0_50px_rgba(245,158,11,.25)]"
         >
           <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
           <div className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-amber-500/25 blur-3xl animate-pulse" />
-           
+          
           <div className="relative z-10 space-y-4 p-5 sm:p-6">
             <div className="flex min-w-0 items-start justify-between gap-3">
               <span className="text-xs font-extrabold uppercase tracking-wider text-neutral-300">
@@ -116,64 +116,65 @@ export function DashboardView() {
                 animate={{ scale: [1, 1.05, 1], filter: ['brightness(1)', 'brightness(1.2)', 'brightness(1)'] }} 
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} 
                 className="pulse-pure-emerald-rich inline-flex max-w-[48%] shrink-0 items-center gap-1.5 rounded-lg border border-emerald-500/70 bg-emerald-950/95 px-3 py-1 text-[11px] font-black leading-tight text-emerald-300 shadow-[0_0_28px_rgba(16,185,129,.5)] sm:max-w-none sm:text-xs"
-            >
-              <TrendingUp className="size-4 text-emerald-400 animate-pulse" />
-              +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
-            </motion.span>
-          </div>
-
-          <div>
-            <div className="flex items-baseline gap-2">
-              <h1 className="font-display text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)] sm:text-5xl">
-                ${money(portfolioValue)}
-              </h1>
-              <span className="font-mono text-xs font-bold text-amber-300">USDT</span>
+              >
+                <TrendingUp className="size-4 text-emerald-400 animate-pulse" />
+                +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
+              </motion.span>
             </div>
-            <p className="mt-2 text-xs font-medium text-neutral-200">
-              Cumulative Yield: <span className="text-emerald-400 font-extrabold drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">+${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)</span>
-            </p>
+
+            <div>
+              <div className="flex items-baseline gap-2">
+                <h1 className="font-display text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)] sm:text-5xl">
+                  ${money(portfolioValue)}
+                </h1>
+                <span className="font-mono text-xs font-bold text-amber-300">USDT</span>
+              </div>
+              <p className="mt-2 text-xs font-medium text-neutral-200">
+                Cumulative Yield: <span className="text-emerald-400 font-extrabold drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">+${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)</span>
+              </p>
+            </div>
+
+            <div className="grid min-w-0 grid-cols-2 gap-3.5 pt-1">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                <Button
+                  aria-label="Deposit capital"
+                  size="lg"
+                  className="pulse-liquid-motion pulse-action h-12 w-full min-w-0 rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_40px_rgba(245,158,11,.7)] transition-all hover:from-amber-300 hover:to-amber-200"
+                  onClick={() => openModal('deposit')}
+                >
+                  <ArrowDownRight className="size-4 shrink-0 stroke-[3]" /><span className="truncate">Deposit Capital</span>
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 w-full min-w-0 rounded-2xl border border-neutral-600/90 bg-gradient-to-r from-neutral-800 to-neutral-900 px-3 text-xs font-bold text-white shadow-[0_0_25px_rgba(0,0,0,.75)] transition-all hover:border-neutral-400 hover:bg-neutral-800"
+                  onClick={() => openModal('withdraw')}
+                >
+                  <ArrowUpRight className="size-4 shrink-0 stroke-[2.5]" /><span className="truncate">Withdraw Earnings</span>
+                </Button>
+              </motion.div>
+            </div>
           </div>
 
-          <div className="grid min-w-0 grid-cols-2 gap-3.5 pt-1">
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-              <Button
-                aria-label="Deposit capital"
-                size="lg"
-                className="pulse-liquid-motion pulse-action h-12 w-full min-w-0 rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_40px_rgba(245,158,11,.7)] transition-all hover:from-amber-300 hover:to-amber-200"
-                onClick={() => openModal('deposit')}
-              >
-                <ArrowDownRight className="size-4 shrink-0 stroke-[3]" /><span className="truncate">Deposit Capital</span>
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-12 w-full min-w-0 rounded-2xl border border-neutral-600/90 bg-gradient-to-r from-neutral-800 to-neutral-900 px-3 text-xs font-bold text-white shadow-[0_0_25px_rgba(0,0,0,.75)] transition-all hover:border-neutral-400 hover:bg-neutral-800"
-                onClick={() => openModal('withdraw')}
-              >
-                <ArrowUpRight className="size-4 shrink-0 stroke-[2.5]" /><span className="truncate">Withdraw Earnings</span>
-              </Button>
-            </motion.div>
+          {/* Integrated Asset Breakdown Row */}
+          <div className="relative z-10 grid grid-cols-3 gap-1 border-t border-neutral-800/90 bg-neutral-950 p-4 text-center backdrop-blur-md">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Available Cash</p>
+              <p className="mt-1 font-mono text-base font-black text-white">${money(state.cash, 0)}</p>
+            </div>
+            <div className="border-x border-neutral-800/90">
+              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Active Principal</p>
+              <p className="mt-1 font-mono text-base font-black text-white">${money(totalInvested, 0)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">PULSE Tokens</p>
+              <p className="mt-1 font-mono text-base font-black text-amber-300 drop-shadow-[0_0_12px_rgba(245,158,11,0.6)]">{money(state.pulse + state.staked, 0)}</p>
+            </div>
           </div>
-        </div>
-
-        {/* Integrated Asset Breakdown Row */}
-        <div className="relative z-10 grid grid-cols-3 gap-1 border-t border-neutral-800/90 bg-neutral-950 p-4 text-center backdrop-blur-md">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Available Cash</p>
-            <p className="mt-1 font-mono text-base font-black text-white">${money(state.cash, 0)}</p>
-          </div>
-          <div className="border-x border-neutral-800/90">
-            <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Active Principal</p>
-            <p className="mt-1 font-mono text-base font-black text-white">${money(totalInvested, 0)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">PULSE Tokens</p>
-            <p className="mt-1 font-mono text-base font-black text-amber-300 drop-shadow-[0_0_12px_rgba(245,158,11,0.6)]">{money(state.pulse + state.staked, 0)}</p>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   )
 }
