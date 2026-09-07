@@ -17,7 +17,7 @@ import {
   ChevronRight,
   AlertCircle
 } from 'lucide-react'
-import { usePulse } from '../../context/PulseContext'
+import { usePulse } from '../store'
 
 export const WalletView: React.FC = () => {
   const { 
@@ -62,8 +62,8 @@ export const WalletView: React.FC = () => {
 
   // --- Calculated Values ---
   const pulseRate = 0.08 // $0.08 per PULSE
-  const totalPulse = pulseLiquid + pulseStaked
-  const totalPortfolioValue = (totalPulse * pulseRate) + vaultCash
+  const totalPulse = (pulseLiquid || 0) + (pulseStaked || 0)
+  const totalPortfolioValue = (totalPulse * pulseRate) + (vaultCash || 0)
 
   const calculatedCashOutput = useMemo(() => {
     const numericAmt = parseFloat(sellAmount.replace(/,/g, '')) || 0
@@ -83,13 +83,15 @@ export const WalletView: React.FC = () => {
       return
     }
 
-    if (numericAmt > pulseLiquid) {
-      setSellError(`Amount exceeds liquid balance (${pulseLiquid.toLocaleString()} PULSE).`)
+    if (numericAmt > (pulseLiquid || 0)) {
+      setSellError(`Amount exceeds liquid balance (${(pulseLiquid || 0).toLocaleString()} PULSE).`)
       return
     }
 
     // Execute transaction via context
-    sellPulse(numericAmt)
+    if (sellPulse) {
+      sellPulse(numericAmt)
+    }
     setIsSuccess(true)
 
     setTimeout(() => {
@@ -199,13 +201,13 @@ export const WalletView: React.FC = () => {
             <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
               <span className="text-xs text-neutral-400 block mb-1">Liquid Tokens</span>
               <span className="text-lg font-bold font-mono text-emerald-400">
-                {pulseLiquid.toLocaleString()} <span className="text-xs text-neutral-500">PULSE</span>
+                {(pulseLiquid || 0).toLocaleString()} <span className="text-xs text-neutral-500">PULSE</span>
               </span>
             </div>
             <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
               <span className="text-xs text-neutral-400 block mb-1">Staked Tokens</span>
               <span className="text-lg font-bold font-mono text-teal-400">
-                {pulseStaked.toLocaleString()} <span className="text-xs text-neutral-500">PULSE</span>
+                {(pulseStaked || 0).toLocaleString()} <span className="text-xs text-neutral-500">PULSE</span>
               </span>
             </div>
           </div>
@@ -223,7 +225,7 @@ export const WalletView: React.FC = () => {
               </div>
               <div className="mt-4">
                 <div className="text-2xl font-bold font-mono">
-                  ${vaultCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(vaultCash || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-xs text-neutral-400 mt-1 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3 text-emerald-400" /> Ready for withdrawal
@@ -231,8 +233,8 @@ export const WalletView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-neutral-900/80 border border-white/10 flex flex-col justify-between relative overflow-hidden">
-              <div className="flex justify-between items-center">
+            <div className="p-5 rounded-2xl bg-neutral-900/80 border border-white/10 flex flex-col justify-between relative overflow-hidden flex-wrap">
+              <div className="flex justify-between items-center w-full">
                 <span className="text-xs font-mono text-neutral-400 uppercase">Token Rate</span>
                 <Sparkles className="w-4 h-4 text-teal-400" />
               </div>
@@ -258,7 +260,7 @@ export const WalletView: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              {activities.length === 0 ? (
+              {(!activities || activities.length === 0) ? (
                 <div className="text-center py-8 text-neutral-500 text-sm">
                   No recent activities found on network.
                 </div>
@@ -356,7 +358,7 @@ export const WalletView: React.FC = () => {
                   <div>
                     <div className="flex justify-between text-xs text-neutral-400 mb-2 font-mono">
                       <span>Amount to Sell</span>
-                      <span>Available: {pulseLiquid.toLocaleString()} PULSE</span>
+                      <span>Available: {(pulseLiquid || 0).toLocaleString()} PULSE</span>
                     </div>
                     <div className="relative">
                       <input
@@ -368,7 +370,7 @@ export const WalletView: React.FC = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => setSellAmount(pulseLiquid.toString())}
+                        onClick={() => setSellAmount((pulseLiquid || 0).toString())}
                         className="absolute right-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-mono bg-white/10 hover:bg-white/20 rounded-md text-emerald-400 transition"
                       >
                         MAX
@@ -417,6 +419,5 @@ export const WalletView: React.FC = () => {
   )
 }
 
-// Export Alias to guarantee backward compatibility with both import styles
 export const Wallet = WalletView
 export default WalletView
