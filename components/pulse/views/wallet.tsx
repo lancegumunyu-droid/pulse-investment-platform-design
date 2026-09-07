@@ -158,7 +158,6 @@ function DynamicMetallicCard({
 export function WalletView() {
   const { state, openModal, api } = usePulse()
   
-  // Get data directly from Zustand store
   const cashBalance = `$${money(state.cash)}`
   const pulseLiquid = state.pulse
   const pulseStaked = state.staked
@@ -171,26 +170,22 @@ export function WalletView() {
   const [isSelling, setIsSelling] = useState(false)
   const [sellSuccess, setSellSuccess] = useState(false)
 
-  // Sync activities when txns change from store
   useEffect(() => {
     if (state.txns) {
       setActivities(state.txns)
     }
   }, [state.txns])
 
-  // Sync wallet address from store
   useEffect(() => {
     if (state.wallet !== undefined) {
       setReceivingAddress(state.wallet || '')
     }
   }, [state.wallet])
 
-  // Sync sell amount when pulse liquid changes
   useEffect(() => {
     setSellAmount(pulseLiquid.toString())
   }, [pulseLiquid])
 
-  // Card data from store
   const cardData = {
     name: state.fullName ? state.fullName.toUpperCase() : 'VALUED MEMBER',
     number: '•••• •••• •••• ••••',
@@ -212,7 +207,6 @@ export function WalletView() {
           setShowSellDrawer(false)
         }, 2000)
       } else {
-        // Handle error with toast if available
         console.error('Sale failed:', result.error)
       }
     } finally {
@@ -451,7 +445,7 @@ export function WalletView() {
               <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
             </motion.div>
           ) : (
-            activities.map((item, idx) => {
+            activities.Item?.map ? activities.map((item, idx) => {
               const isPositive = item.amount >= 0
               const isPending = item.status === 'pending'
 
@@ -501,7 +495,7 @@ export function WalletView() {
                   </div>
                 </motion.div>
               )
-            })
+            }) : null
           )}
         </div>
       </motion.div>
