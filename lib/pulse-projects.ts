@@ -1,5 +1,69 @@
 export type TierId = 'tier_1' | 'tier_2' | 'tier_3' | 'tier_institutional'
 
+export interface Tier {
+  id: TierId
+  name: string
+  minInvest: number
+  yieldLabel: string
+  yieldLow: number
+  yieldHigh: number
+  perks: string[]
+  highlight?: boolean
+}
+
+export const TIERS: Tier[] = [
+  {
+    id: 'tier_1',
+    name: 'Tier 1 Starter',
+    minInvest: 500,
+    yieldLabel: '14–18% target',
+    yieldLow: 14,
+    yieldHigh: 18,
+    perks: ['Access to Tier 1 syndicated assets', 'Monthly performance reports', 'Standard support'],
+  },
+  {
+    id: 'tier_2',
+    name: 'Tier 2 Growth',
+    minInvest: 1000,
+    yieldLabel: '18–24% target',
+    yieldLow: 18,
+    yieldHigh: 24,
+    perks: ['All Tier 1 benefits', 'Secured critical mineral exposure', 'Quarterly strategy briefings'],
+    highlight: true,
+  },
+  {
+    id: 'tier_3',
+    name: 'Tier 3 Advanced',
+    minInvest: 5000,
+    yieldLabel: '22–26% target',
+    yieldLow: 22,
+    yieldHigh: 26,
+    perks: ['All Tier 2 benefits', 'Early access to institutional syndicates', 'Priority governance voting'],
+  },
+  {
+    id: 'tier_institutional',
+    name: 'Institutional Syndicate',
+    minInvest: 25000,
+    yieldLabel: '25% + target',
+    yieldLow: 25,
+    yieldHigh: 30,
+    perks: ['Dedicated portfolio manager', 'Direct asset site-visit invitations', 'Custom legal SPV structuring'],
+  },
+]
+
+export function tierForAmount(totalInvested: number): Tier {
+  let current = TIERS[0]
+  for (const t of TIERS) {
+    if (totalInvested >= t.minInvest) current = t
+  }
+  return current
+}
+
+export function nextTier(current: TierId): Tier | null {
+  const idx = TIERS.findIndex((t) => t.id === current)
+  return idx >= 0 && idx < TIERS.length - 1 ? TIERS[idx + 1] : null
+}
+
 export interface PulseProject {
   id: string
   title: string
@@ -82,3 +146,14 @@ export const PULSE_PROJECTS: PulseProject[] = [
     metrics: { irr: '16.0%', duration: '48 Months', riskProfile: 'Conservative' }
   }
 ]
+
+// Backward compatibility alias for any existing code imports referencing PROJECTS
+export const PROJECTS = PULSE_PROJECTS
+
+export const PLATFORM_WALLETS: Record<'usdttrc20' | 'btc', string> = {
+  usdttrc20: 'THB24HhGT515q2kT8qJRBdXMbGCu4uyAKZ',
+  btc: '35oZ6ywxKnhVA5r2EccdUb1Jy7qJrU2mH8',
+}
+
+export const RISK_DISCLAIMER =
+  'Risk Warning: Alternative investments, private equity syndicates, and digital assets carry a high level of risk and may not be suitable for all investors. Capital is at risk. Before deciding to participate, carefully consider your financial objectives and risk tolerance.'
