@@ -2,7 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-/* pulse theme v2 - Kinetic Deep Space Edition (World-Class Award Winning Upgrade) */
+/* Pulse Theme v2 - Kinetic Obsidian & Deep Space Specification */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -33,9 +33,10 @@
   --color-green-soft: var(--green-soft);
   --color-danger: var(--danger);
 
-  --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), 'Geist Mono', 'Geist Mono Fallback', ui-monospace, monospace;
-  --font-display: var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  /* Unified Modern Sans-Serif Stack (MD Section 1 Compliance) */
+  --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-space-grotesk), 'Space Grotesk', var(--font-sans), sans-serif;
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -77,16 +78,23 @@
 }
 
 @layer base {
-  * {
+  *, ::before, ::after {
     @apply border-border;
+    box-sizing: border-box;
   }
+
   html {
     @apply bg-background;
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
+    height: 100%;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    min-height: 100dvh;
     background-image:
       radial-gradient(70rem 70rem at 85% -10%, rgba(245, 158, 11, 0.14), transparent 60%),
       radial-gradient(60rem 60rem at -10% 25%, rgba(16, 185, 129, 0.10), transparent 55%),
@@ -103,6 +111,7 @@
     line-height: 1.1;
     font-weight: 800;
     letter-spacing: -0.03em;
+    font-family: var(--font-display);
   }
 
   @media (min-width: 640px) {
@@ -120,9 +129,15 @@
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
   }
-  .font-display { font-family: var(--font-display); }
-  .pulse-home { font-family: var(--font-sans); }
-  .pulse-home h1, .pulse-home h2, .pulse-home h3, .pulse-home h4 { font-family: var(--font-display); }
+  .font-display { 
+    font-family: var(--font-display); 
+  }
+  .pulse-home { 
+    font-family: var(--font-sans); 
+  }
+  .pulse-home h1, .pulse-home h2, .pulse-home h3, .pulse-home h4 { 
+    font-family: var(--font-display); 
+  }
 
   /* Premium Obsidian Surface Styling */
   .pulse-surface {
@@ -144,7 +159,7 @@
     color: #f4f4f6; 
   }
   
-  /* WORLD-BEST HOOVER & INTERACTION PHYSICS */
+  /* HIGH-PERFORMANCE HOVER & INTERACTION PHYSICS (MD Section 1 & Section 3) */
   .pulse-screen button:not([aria-label]) { 
     transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .3s cubic-bezier(0.16, 1, 0.3, 1), filter .3s ease; 
   }
@@ -159,7 +174,7 @@
   }
   
   .pulse-action:hover { 
-    transform: translateY(-3px) scale(1.02); 
+    transform: translate3d(0, -3px, 0) scale(1.02); 
     box-shadow: 0 0 45px rgba(245,158,11,0.55), 0 0 15px rgba(16,185,129,0.3); 
     filter: brightness(1.12); 
   }
@@ -177,7 +192,7 @@
   .glow-card:hover, .glow-card:focus-within, .pulse-tile:hover, .pulse-tile:focus-within { 
     border-color: rgba(245,158,11,.65); 
     box-shadow: 0 0 45px -5px rgba(245,158,11,.4), 0 0 20px rgba(16,185,129,0.2), 0 0 0 1px rgba(245,158,11,.5); 
-    transform: translateY(-4px);
+    transform: translate3d(0, -4px, 0);
   }
   
   .glow-card::after { 
@@ -233,16 +248,12 @@
     .animate-pulse-beat, .pulse-tile, .pulse-action, .pulse-tab-active, .pulse-screen { animation: none; transition: none; } 
   }
 
-  /* Mobile Safe Area Insets */
+  /* Mobile Safe Area & Screen Layout Insets (MD Section 6 Alignment) */
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
   .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
   .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
   .mb-safe { margin-bottom: env(safe-area-inset-bottom, 16px); }
-
-  /* Legacy Typography Utilities */
-  .font-cooper { font-family: 'Cooper BT W01 Light', 'Georgia', serif; }
-  .font-cooper-medium { font-family: 'Cooper BT W01 Medium', 'Cooper BT W01 Light', 'Georgia', serif; font-weight: 500; }
 
   /* Premium Glassmorphism Styles */
   .glass {
@@ -280,6 +291,7 @@
     background: rgba(255, 255, 255, 0.06);
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
+    font-family: var(--font-sans);
     outline: none;
     transition: border-color 0.25s ease, box-shadow 0.25s ease;
   }
@@ -292,16 +304,16 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Animations */
+  /* Keyframe Animations */
   @keyframes pulse-rise {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translate3d(0, 12px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
   }
   .animate-rise { animation: pulse-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
   @keyframes toast-in {
-    from { opacity: 0; transform: translateY(-18px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from { opacity: 0; transform: translate3d(0, -18px, 0) scale(0.95); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   }
   .animate-toast-in { animation: toast-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
