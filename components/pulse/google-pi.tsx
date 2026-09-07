@@ -1,7 +1,7 @@
 'use client'
 
 import Script from 'next/script'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export interface PiAuthResult {
   accessToken: string
@@ -29,23 +29,28 @@ export async function authenticatePi(): Promise<PiAuthResult> {
     throw new Error('Pi Browser environment and SDK are required for authentication.')
   }
 
-  // Pi.authenticate expects: (scopes, onIncompletePaymentFound)
   return window.Pi.authenticate(
     ['username', 'payments', 'wallet_address'],
     (payment) => {
       console.warn('Incomplete Pi payment detected during handshake:', payment)
-      // Optional: Send this data to your backend error/payment recovery tracking logs
     }
   )
 }
 
 export function GooglePiRuntime() {
+  const [isPiBrowser, setIsPiBrowser] = useState(false)
+
   useEffect(() => {
     window.dataLayer = window.dataLayer || []
     window.dataLayer.push({ event: 'pulse_page_view' })
+
+    // Safely check user agent client-side to see if we are in Pi Browser
+    if (typeof window !== 'undefined') {
+      const isPi = navigator.userAgent.includes('PiBrowser')
+      setIsPiBrowser(isPi)
+    }
   }, [])
 
-  // Automatically enable sandbox mode when running outside of production
   const isSandbox = process.env.NODE_ENV !== 'production'
 
   return (
@@ -57,15 +62,19 @@ export function GooglePiRuntime() {
       <Script id="pulse-ga4" strategy="afterInteractive">
         {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-JGWQDH6RR7',{anonymize_ip:true});`}
       </Script>
-      <Script
-        src="https://sdk.minepi.com/pi-sdk.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          if (window.Pi) {
-            window.Pi.init({ version: '2.0', sandbox: isSandbox })
-          }
-        }}
-      />
+
+      {/* Conditionally inject Pi SDK ONLY when running inside the native Pi Browser */}
+      {isPiBrowser && (
+        <Script
+          src="https://sdk.minepi.com/pi-sdk.js"
+          strategy="afterInteractive"
+          onLoad={() => {
+            if (window.Pi) {
+              window.Pi.init({ version: '2.0', sandbox: isSandbox })
+            }
+          }}
+        />
+      )}
     </>
   )
 }
