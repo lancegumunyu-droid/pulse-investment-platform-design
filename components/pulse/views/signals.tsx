@@ -48,19 +48,23 @@ const itemVariants = {
   },
 }
 
-// High-Fidelity 3D Perspective Reactive Signal Card
+// ============================================================================
+// HIGH-FIDELITY 3D PERSPECTIVE REACTIVE SIGNAL CARD
+// ============================================================================
 function SignalCard3D({
   signal,
   project,
   liveFunding,
   onInvest,
   getUrgencyTone,
+  index,
 }: {
   signal: Signal
   project?: typeof INITIAL_PROJECTS[0]
   liveFunding: Record<string, number> | null
   onInvest: (projectId: string) => void
   getUrgencyTone: (urgency: string) => 'danger' | 'gold' | 'green' | 'muted'
+  index: number
 }) {
   const [mousePos, setMousePos] = useState({ x: 200, y: 100 })
   const [isHovered, setIsHovered] = useState(false)
@@ -114,6 +118,7 @@ function SignalCard3D({
     : null
 
   const displayWindow = signal.window_label || signal.window
+  const formattedIndex = String(index + 1).padStart(2, '0')
 
   return (
     <motion.div
@@ -127,7 +132,7 @@ function SignalCard3D({
           rotateX: isHovered ? rotateX : 0,
           rotateY: isHovered ? rotateY : 0,
           transformStyle: 'preserve-3d',
-          background: `radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 166, 35, 0.18), transparent 80%), linear-gradient(180deg, rgba(24, 28, 38, 0.95) 0%, rgba(10, 12, 16, 0.99) 100%)`,
+          background: `radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 158, 11, 0.18), transparent 80%), linear-gradient(180deg, rgba(20, 24, 33, 0.95) 0%, rgba(8, 10, 14, 0.99) 100%)`,
         }}
         onPointerMove={handlePointerMove}
         onPointerEnter={handlePointerEnter}
@@ -147,15 +152,18 @@ function SignalCard3D({
           }}
         />
 
-        {/* Header Row: Urgency & Target Yield (3D Depth: 25px) */}
+        {/* Header Row: Structural Numbering, Urgency & Target Yield (3D Depth: 25px) */}
         <div
           className="flex items-center justify-between gap-3 border-b border-white/10 pb-3.5 relative z-10"
           style={{ transform: 'translateZ(25px)' }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="font-mono text-[11px] font-black text-amber-400 tracking-widest">
+              {formattedIndex} //
+            </span>
             <span className="relative flex size-3">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-80" />
-              <span className="relative inline-flex size-3 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,166,35,1)]" />
+              <span className="relative inline-flex size-3 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,1)]" />
             </span>
             <Pill tone={getUrgencyTone(signal.urgency)}>
               <span className="font-mono font-black uppercase tracking-wider text-[9px]">
@@ -200,7 +208,7 @@ function SignalCard3D({
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}
                 transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-                className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 rounded-full shadow-[0_0_15px_rgba(245,166,35,0.7)]"
+                className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.7)]"
               />
             </div>
           </div>
@@ -226,7 +234,7 @@ function SignalCard3D({
           <motion.div whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}>
             <Button
               size="sm"
-              className="bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_25px_rgba(245,166,35,0.5)] flex items-center gap-1.5 px-4 h-9 cursor-pointer border border-amber-300/50"
+              className="bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_25px_rgba(245,158,11,0.5)] flex items-center gap-1.5 px-4 h-9 cursor-pointer border border-amber-300/50"
               onClick={() => onInvest(signal.project_id)}
             >
               <Zap className="size-3.5 fill-black" />
@@ -240,7 +248,9 @@ function SignalCard3D({
   )
 }
 
-// High-Shimmer Animated Skeleton Loader
+// ============================================================================
+// HIGH-SHIMMER ANIMATED SKELETON LOADER
+// ============================================================================
 function SignalsSkeletonLoader() {
   return (
     <div className="space-y-4">
@@ -252,7 +262,6 @@ function SignalsSkeletonLoader() {
           transition={{ duration: 0.4, delay: i * 0.1 }}
           className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#12151c]/90 p-5 space-y-4 shadow-2xl"
         >
-          {/* Animated Shimmer Wave */}
           <motion.div
             className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent"
             animate={{ translateX: ['-100%', '100%'] }}
@@ -284,6 +293,9 @@ function SignalsSkeletonLoader() {
   )
 }
 
+// ============================================================================
+// MAIN SIGNALS VIEW COMPONENT
+// ============================================================================
 export function SignalsView() {
   const supabase = useMemo(() => createClient(), [])
   const { api, openModal } = usePulse()
@@ -451,7 +463,7 @@ export function SignalsView() {
       ) : (
         <div className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {signals.map((signal) => {
+            {signals.map((signal, index) => {
               const project = INITIAL_PROJECTS.find((p) => p.id === signal.project_id)
               return (
                 <SignalCard3D
@@ -461,6 +473,7 @@ export function SignalsView() {
                   liveFunding={liveFunding}
                   onInvest={(projectId) => openModal('invest', { projectId })}
                   getUrgencyTone={getUrgencyTone}
+                  index={index}
                 />
               )
             })}
@@ -474,5 +487,4 @@ export function SignalsView() {
       </motion.div>
     </motion.div>
   )
-      }
-            
+}
