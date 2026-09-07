@@ -17,26 +17,28 @@ import { WalletView } from './views/wallet'
 import { ProfileView } from './views/profile'
 import { AdminView } from './views/admin'
 
-// High-end screen transition configuration
+// High-end screen transition configuration with micro-spring dynamics
 const viewVariants = {
   initial: {
     opacity: 0,
-    y: 12,
+    y: 10,
+    scale: 0.992,
   },
   animate: {
     opacity: 1,
     y: 0,
     scale: 1,
     transition: {
-      duration: 0.28,
+      duration: 0.32,
       ease: [0.22, 1, 0.36, 1], // Luxury cubic-bezier curve
     },
   },
   exit: {
     opacity: 0,
-    y: -8,
+    y: -6,
+    scale: 0.996,
     transition: {
-      duration: 0.16,
+      duration: 0.18,
       ease: 'easeIn',
     },
   },
@@ -57,9 +59,9 @@ const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
 function Screen() {
   const { view } = usePulse()
 
-  // Reset scroll to top on view changes
+  // Reset scroll to top smoothly on view changes
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [view])
 
   const ActiveView = VIEW_COMPONENTS[view] || DashboardView
@@ -72,7 +74,7 @@ function Screen() {
         initial="initial"
         animate="animate"
         exit="exit"
-        className="pulse-view w-full"
+        className="pulse-view w-full flex flex-col flex-1"
       >
         <ActiveView />
       </motion.div>
@@ -83,26 +85,39 @@ function Screen() {
 export function PulseApp({ initial }: { initial: Snapshot }) {
   return (
     <PulseProvider initial={initial}>
-      <div className="pulse-app relative w-full min-h-screen min-h-[100dvh] flex flex-col bg-[#050505] text-[#f4f4f5] selection:bg-[#e8a317]/30 selection:text-[#f0d9a8] shadow-2xl">
-        {/* Ambient Glow Atmosphere */}
+      <div className="pulse-app relative w-full min-h-screen min-h-[100dvh] flex flex-col bg-[#050505] text-zinc-100 selection:bg-amber-500/30 selection:text-amber-200 antialiased overflow-x-hidden">
+        
+        {/* Immersive Multi-Layer Ambient Lighting Atmosphere */}
         <div className="pointer-events-none fixed inset-0 z-0 flex justify-center overflow-hidden">
-          <div className="h-[350px] w-full bg-radial from-[#e8a317]/10 via-transparent to-transparent blur-3xl opacity-60" />
+          {/* Primary Top Gold Core Gradient */}
+          <div className="absolute top-0 h-[450px] w-full max-w-7xl bg-radial from-amber-500/[0.08] via-amber-600/[0.02] to-transparent blur-[120px] opacity-70" />
+          {/* Secondary Bottom Ambient Balancer */}
+          <div className="absolute bottom-[-10%] h-[300px] w-[600px] bg-radial from-amber-500/[0.04] via-transparent to-transparent blur-[100px] opacity-50" />
         </div>
 
-        {/* Floating Top Bar */}
-        <header className="relative z-20 pt-safe">
-          <TopBar />
-        </header>
+        {/* Global Wrapper constraining content on large desktop displays while preserving native fluid width on mobile */}
+        <div className="relative z-10 flex flex-col flex-1 w-full max-w-7xl mx-auto shadow-2xl bg-[#050505]/40 backdrop-blur-[2px]">
+          
+          {/* Floating Sticky Top Bar */}
+          <header className="sticky top-0 z-40 w-full pt-safe backdrop-blur-xl bg-[#050505]/80 border-b border-white/[0.06]">
+            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <TopBar />
+            </div>
+          </header>
 
-        {/* Animated Screen Content Area */}
-        <main className="pulse-screen relative z-10 flex-1 w-full overflow-y-auto px-4 pt-4 pb-40">
-          <Screen />
-        </main>
+          {/* Animated Screen Content Area with Responsive Desktop Max-W & Padding */}
+          <main className="pulse-screen relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-40">
+            <Screen />
+          </main>
 
-        {/* Bottom Navigation & Overlays */}
-        <footer className="relative z-30 pb-safe">
-          <BottomNav />
-        </footer>
+          {/* Bottom Navigation & Overlays */}
+          <footer className="fixed bottom-0 left-0 right-0 z-40 pb-safe pointer-events-none">
+            <div className="w-full max-w-lg mx-auto px-4 pointer-events-auto">
+              <BottomNav />
+            </div>
+          </footer>
+
+        </div>
 
         <Modals />
         <Toaster />
