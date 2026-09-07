@@ -20,8 +20,8 @@ function formatRelativeTime(dateString: string) {
 }
 
 /**
- * NotificationBell — self-contained bell + dropdown, fetches on mount and
- * on open, marks read on click or batch mark all.
+ * NotificationBell — self-contained bell + dropdown, fetches safely on mount
+ * with fallback protection for unbuilt backend services.
  */
 export function NotificationBell() {
   const { api } = usePulse()
@@ -32,12 +32,27 @@ export function NotificationBell() {
 
   const load = async () => {
     setLoading(true)
-    const res = await api.notifications()
-    if (res.ok) setRows(res.rows)
+    try {
+      // Safe check to ensure the API function exists before invoking
+      if (api && typeof api.notifications === 'function') {
+        const res = await api.notifications()
+        if (res?.ok) {
+          setRows(res.rows)
+        } else {
+          setRows([])
+        }
+      } else {
+        // Fallback state if backend method isn't implemented yet
+        setRows([])
+      }
+    } catch (err) {
+      console.warn('Notifications endpoint not ready:', err)
+      setRows([])
+    }
     setLoading(false)
   }
 
-  // Poll lightly every 60s to keep unread badges up-to-date
+  // Poll lightly every 60s
   useEffect(() => {
     load()
     const t = setInterval(load, 60_000)
@@ -57,14 +72,26 @@ export function NotificationBell() {
 
   const markRead = async (id: string) => {
     setRows((prev) => (prev ? prev.map((n) => (n.id === id ? { ...n, read: true } : n)) : prev))
-    await api.markNotificationRead(id)
+    try {
+      if (api && typeof api.markNotificationRead === 'function') {
+        await api.markNotificationRead(id)
+      }
+    } catch (err) {
+      console.warn('Failed to sync markRead:', err)
+    }
   }
 
   const markAllRead = async () => {
     if (!rows || unreadCount === 0) return
     const unreadIds = rows.filter((n) => !n.read).map((n) => n.id)
     setRows((prev) => (prev ? prev.map((n) => ({ ...n, read: true })) : prev))
-    await Promise.all(unreadIds.map((id) => api.markNotificationRead(id)))
+    try {
+      if (api && typeof api.markNotificationRead === 'function') {
+        await Promise.all(unreadIds.map((id) => api.markNotificationRead(id)))
+      }
+    } catch (err) {
+      console.warn('Failed to sync markAllRead:', err)
+    }
   }
 
   return (
