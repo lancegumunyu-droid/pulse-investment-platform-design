@@ -1,81 +1,61 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabase'
-
-interface WalletData {
-  portfolio_balance: number
-  cash_balance: number
-  liquid_balance: number
-  staked_balance: number
-  withdrawal_address: string | null
-}
-
-interface Activity {
-  id: string
-  type: string
-  amount: number
-  status: string
-  created_at: string
-}
+import React, { useState } from 'react'
+import { Wallet, ArrowUpRight, ArrowDownLeft, ShieldCheck, History, CreditCard, ChevronRight, CheckCircle2, X } from 'lucide-react'
+import { usePulse } from '../store'
 
 export function WalletView() {
-  const [wallet, setWallet] = useState<WalletData | null>(null)
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [loading, setLoading] = useState(true)
+  const { 
+    pulseLiquid, 
+    pulseStaked, 
+    vaultCash, 
+    activities, 
+    sellPulse,
+    portfolioBalance,
+    withdrawalAddress,
+    setWithdrawalAddress
+  } = usePulse()
+
   const [addressInput, setAddressInput] = useState('')
+  const [isSellOpen, setIsSellOpen] = useState(false)
+  const [sellAmount, setSellAmount] = useState('')
+  const [sellError, setSellError] = useState<string | null>(null)
+  const [isSuccess, setIsSuccess] = useState(false)
 
-  useEffect(() => {
-    async function fetchWalletData() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      // Fetch wallet balances
-      const { data: walletData } = await supabase
-        .from('user_wallets')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      if (walletData) setWallet(walletData)
-
-      // Fetch live activity feed
-      const { data: activityData } = await supabase
-        .from('wallet_activities')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (activityData) setActivities(activityData)
-
-      setLoading(false)
+  const handleConnectWallet = () => {
+    if (!addressInput) return
+    if (setWithdrawalAddress) {
+      setWithdrawalAddress(addressInput)
     }
-
-    fetchWalletData()
-  }, [])
-
-  const handleConnectWallet = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !addressInput) return
-
-    const { error } = await supabase
-      .from('user_wallets')
-      .update({ withdrawal_address: addressInput })
-      .eq('user_id', user.id)
-
-    if (!error) {
-      setWallet(prev => prev ? { ...prev, withdrawal_address: addressInput } : null)
-      setAddressInput('')
-      alert('Withdrawal wallet connected successfully!')
-    }
+    setAddressInput('')
+    alert('Withdrawal wallet connected successfully!')
   }
 
-  if (loading) {
-    return <div className="p-6 text-center text-amber-400">Loading wallet ledger...</div>
+  const handleSellSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSellError(null)
+
+    const numericAmt = parseFloat(sellAmount)
+    if (isNaN(numericAmt) || numericAmt <= 0) {
+      setSellError('Please enter a valid amount greater than 0.')
+      return
+    }
+
+    if (numericAmt > (pulseLiquid || 0)) {
+      setSellError(`Amount exceeds liquid balance (${(pulseLiquid || 0).toLocaleString()} PULSE).`)
+      return
+    }
+
+    if (sellPulse) {
+      sellPulse(numericAmt)
+    }
+    setIsSuccess(true)
+
+    setTimeout(() => {
+      setIsSuccess(false)
+      setIsSellOpen(false)
+      setSellAmount('')
+    }, 1500)
   }
 
   return (
@@ -86,7 +66,7 @@ export function WalletView() {
         <div>
           <span className="text-xs text-zinc-400 tracking-wider">PORTFOLIO</span>
           <h2 className="text-2xl font-bold text-amber-400">
-            ${wallet?.portfolio_balance?.toLocaleString('en-US', { minimumFractionDigits: 2 }) ?? '0.00'}
+            ${(portfolioBalance ?? ((vaultCash || 0) + ((pulseLiquid || 0) + (pulseStaked || 0)) * 0.08)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </h2>
         </div>
       </div>
@@ -94,15 +74,20 @@ export function WalletView() {
       {/* Cash Wallet Section */}
       <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 space-y-4">
         <div>
-          <span className="text-xs text-amber-500 font-semibold tracking-wider">CASH WALLET</span>
+          <span className="text-xs text-amber-500 font-semibold tracking-wider">CASH WALLET / VAULT</span>
           <h3 className="text-3xl font-extrabold mt-1">
-            ${wallet?.cash_balance?.toLocaleString('en-US', { minimumFractionDigits: 2 }) ?? '0.00'}
+            ${(vaultCash || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </h3>
           <p className="text-xs text-zinc-400 mt-1">Available to invest, withdraw, or send</p>
         </div>
         <div className="grid grid-cols-3 gap-2 pt-2">
           <button className="bg-amber-400 text-black font-semibold py-2.5 rounded-xl text-sm hover:bg-amber-300 transition">Deposit</button>
-          <button className="bg-zinc-800 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-zinc-700 transition">Withdraw</button>
+          <button 
+            onClick={() => setIsSellOpen(true)}
+            className="bg-zinc-800 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-zinc-700 transition"
+          >
+            Liquidate
+          </button>
           <button className="bg-zinc-800 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-zinc-700 transition">Send</button>
         </div>
       </div>
@@ -110,11 +95,11 @@ export function WalletView() {
       {/* Withdrawal Wallet Connection */}
       <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
         <p className="text-xs text-zinc-400">
-          {wallet?.withdrawal_address 
-            ? `Connected: ${wallet.withdrawal_address.slice(0, 6)}...${wallet.withdrawal_address.slice(-4)}`
+          {withdrawalAddress 
+            ? `Connected: ${withdrawalAddress.slice(0, 6)}...${withdrawalAddress.slice(-4)}`
             : "No withdrawal wallet connected. Add address for USDT (TRC-20) or BTC."}
         </p>
-        {!wallet?.withdrawal_address && (
+        {!withdrawalAddress && (
           <div className="space-y-2">
             <input 
               type="text" 
@@ -138,12 +123,12 @@ export function WalletView() {
         <div className="bg-black p-3 rounded-lg border border-zinc-800">
           <span className="text-[10px] text-amber-400 block font-bold">PULSE WALLET</span>
           <span className="text-xs text-zinc-400 block mt-1">LIQUID - USABLE NOW</span>
-          <span className="text-lg font-bold mt-1 block">{wallet?.liquid_balance ?? 0}</span>
+          <span className="text-lg font-bold mt-1 block">{(pulseLiquid || 0).toLocaleString()}</span>
         </div>
         <div className="bg-black p-3 rounded-lg border border-zinc-800">
           <span className="text-[10px] text-transparent block font-bold">&nbsp;</span>
           <span className="text-xs text-zinc-400 block mt-1">STAKED - 24.8% APY</span>
-          <span className="text-lg font-bold mt-1 block">{wallet?.staked_balance ?? 0}</span>
+          <span className="text-lg font-bold mt-1 block">{(pulseStaked || 0).toLocaleString()}</span>
         </div>
       </div>
 
@@ -153,13 +138,13 @@ export function WalletView() {
           <span className="text-xs font-bold text-zinc-300">LIVE ACTIVITY FEED</span>
           <span className="text-[10px] text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-800">LIVE SYNC ACTIVE</span>
         </div>
-        {activities.length === 0 ? (
+        {(!activities || activities.length === 0) ? (
           <p className="text-xs text-zinc-500 py-2">No transaction activity recorded for this user account yet.</p>
         ) : (
-          activities.map((act) => (
-            <div key={act.id} className="flex justify-between text-xs py-1 border-b border-zinc-800">
-              <span className="text-zinc-300">{act.type}</span>
-              <span className="text-amber-400 font-mono">${act.amount}</span>
+          activities.slice(0, 5).map((act, idx) => (
+            <div key={act.id || idx} className="flex justify-between text-xs py-1 border-b border-zinc-800">
+              <span className="text-zinc-300">{act.description || act.type}</span>
+              <span className="text-amber-400 font-mono">{act.amount} PULSE</span>
             </div>
           ))
         )}
@@ -169,6 +154,49 @@ export function WalletView() {
       <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-900 text-[10px] text-zinc-500 leading-relaxed">
         <strong className="text-zinc-400">Risk Warning:</strong> Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you.
       </div>
+
+      {/* Liquidation Modal */}
+      {isSellOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-neutral-900 border border-white/20 p-6 space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-white/10">
+              <h3 className="text-lg font-bold">Liquidate PULSE Tokens</h3>
+              <button onClick={() => setIsSellOpen(false)} className="text-neutral-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isSuccess ? (
+              <div className="py-6 text-center space-y-2">
+                <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
+                <h4 className="font-bold text-lg">Liquidation Successful!</h4>
+              </div>
+            ) : (
+              <form onSubmit={handleSellSubmit} className="space-y-4">
+                <div>
+                  <label className="text-xs text-neutral-400 block mb-1">Amount (Max: {(pulseLiquid || 0)})</label>
+                  <input
+                    type="number"
+                    value={sellAmount}
+                    onChange={(e) => setSellAmount(e.target.value)}
+                    placeholder="0"
+                    className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-white font-mono focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                {sellError && <p className="text-xs text-rose-400">{sellError}</p>}
+
+                <button
+                  type="submit"
+                  className="w-full bg-amber-400 text-black font-semibold py-3 rounded-xl hover:bg-amber-300 transition"
+                >
+                  Confirm Liquidation
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   )
