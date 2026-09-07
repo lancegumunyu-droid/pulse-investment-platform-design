@@ -90,9 +90,9 @@ export function PulseApp({ initial }: { initial: Snapshot }) {
         {/* Immersive Multi-Layer Ambient Lighting Atmosphere */}
         <div className="pointer-events-none fixed inset-0 z-0 flex justify-center overflow-hidden">
           {/* Primary Top Gold Core Gradient */}
-          <div className="absolute top-0 h-[450px] w-full max-w-7xl bg-radial from-amber-500/[0.08] via-amber-600/[0.02] to-transparent blur-[120px] opacity-70" />
+          <div className="absolute top-0 h-[450px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/[0.08] via-amber-600/[0.02] to-transparent blur-[120px] opacity-70" />
           {/* Secondary Bottom Ambient Balancer */}
-          <div className="absolute bottom-[-10%] h-[300px] w-[600px] bg-radial from-amber-500/[0.04] via-transparent to-transparent blur-[100px] opacity-50" />
+          <div className="absolute bottom-[-10%] h-[300px] w-[600px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/[0.04] via-transparent to-transparent blur-[100px] opacity-50" />
         </div>
 
         {/* Global Wrapper constraining content on large desktop displays while preserving native fluid width on mobile */}
