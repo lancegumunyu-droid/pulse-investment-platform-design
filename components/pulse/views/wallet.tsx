@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState, useRef, useCallback, useMemo } from 'react'
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
 import { 
@@ -9,23 +11,21 @@ import {
   Sparkles, 
   TrendingUp, 
   History, 
-  Lock, 
   CheckCircle2, 
   X,
   CreditCard,
   ChevronRight,
   AlertCircle
 } from 'lucide-react'
-import { usePulse } from '../context/PulseContext'
+import { usePulse } from '../../context/PulseContext'
 
-export const Wallet: React.FC = () => {
+export const WalletView: React.FC = () => {
   const { 
     pulseLiquid, 
     pulseStaked, 
     vaultCash, 
     activities, 
-    sellPulse, 
-    transferTokens 
+    sellPulse
   } = usePulse()
 
   // --- Card Motion Values ---
@@ -71,7 +71,7 @@ export const Wallet: React.FC = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })
-  }, [sellAmount])
+  }, [sellAmount, pulseRate])
 
   const handleSellSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -416,3 +416,7 @@ export const Wallet: React.FC = () => {
     </div>
   )
 }
+
+// Export Alias to guarantee backward compatibility with both import styles
+export const Wallet = WalletView
+export default WalletView
