@@ -19,7 +19,7 @@ interface Activity {
   created_at: string
 }
 
-export default function PulseWallet() {
+export function WalletView() {
   const [wallet, setWallet] = useState<WalletData | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,7 +95,7 @@ export default function PulseWallet() {
       <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 space-y-4">
         <div>
           <span className="text-xs text-amber-500 font-semibold tracking-wider">CASH WALLET</span>
-          <h3 className="text-3xl font-ext500 mt-1">
+          <h3 className="text-3xl font-extrabold mt-1">
             ${wallet?.cash_balance?.toLocaleString('en-US', { minimumFractionDigits: 2 }) ?? '0.00'}
           </h3>
           <p className="text-xs text-zinc-400 mt-1">Available to invest, withdraw, or send</p>
@@ -172,4 +172,6 @@ export default function PulseWallet() {
 
     </div>
   )
-            }
+}
+
+export default WalletView
