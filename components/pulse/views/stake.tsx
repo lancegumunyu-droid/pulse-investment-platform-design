@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Vote, CheckCircle2, AlertCircle, TrendingUp, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react'
+import { Zap, Vote, CheckCircle2, AlertCircle, TrendingUp, Sparkles, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RiskNote } from '../ui-bits'
 
