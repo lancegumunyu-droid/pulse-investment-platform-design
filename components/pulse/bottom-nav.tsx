@@ -24,39 +24,42 @@ export function BottomNav() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       aria-label="Syndicate Navigation"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-gold/25 bg-background/90 backdrop-blur-2xl shadow-[0_-10px_35px_rgba(0,0,0,0.8)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-amber-500/20 bg-zinc-950/85 backdrop-blur-2xl shadow-[0_-12px_40px_rgba(0,0,0,0.85)]"
     >
-      <div className="mx-auto flex max-w-md items-stretch justify-between px-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 relative">
+      {/* Top Shimmer Border Accent */}
+      <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent pointer-events-none" />
+
+      <div className="mx-auto flex max-w-lg items-stretch justify-between px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 relative">
         {ITEMS.map(({ view: v, label, icon: Icon, badge }) => {
           const active = view === v
           return (
             <motion.button
               key={v}
-              whileTap={{ scale: 0.92 }}
+              whileTap={{ scale: 0.90 }}
               onClick={() => setView(v)}
               className={cn(
-                'pulse-tab relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[10px] font-medium transition-all select-none group',
-                active ? 'text-gold pulse-tab-active' : 'text-zinc-300/80 hover:text-white'
+                'pulse-tab relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-1.5 text-[10px] font-medium transition-colors select-none group',
+                active ? 'text-amber-400 font-semibold' : 'text-zinc-400 hover:text-white'
               )}
               aria-current={active ? 'page' : undefined}
             >
               {active && (
                 <motion.div
                   layoutId="activeTabIndicator"
-                  className="absolute inset-x-0.5 top-0 bottom-0 rounded-2xl bg-gradient-to-b from-amber-400/25 via-amber-500/10 to-emerald-500/10 border border-amber-400/50 shadow-[0_0_28px_rgba(245,158,11,0.28),inset_0_0_18px_rgba(245,158,11,0.08)] -z-10"
-                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  className="absolute inset-x-0.5 top-0 bottom-0 rounded-2xl bg-gradient-to-b from-amber-400/25 via-amber-500/10 to-transparent border border-amber-400/40 shadow-[0_0_24px_rgba(245,158,11,0.25),inset_0_0_12px_rgba(245,158,11,0.08)] -z-10"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
 
               <span
                 className={cn(
                   'relative flex size-7 items-center justify-center rounded-xl transition-all duration-200',
-                  active ? 'text-amber-400 scale-110' : 'group-hover:scale-105'
+                  active ? 'text-amber-400 scale-110 drop-shadow-[0_0_10px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'
                 )}
               >
-                <Icon className="size-[17px]" />
+                <Icon className="size-[18px]" />
                 {badge && (
-                  <span className="absolute -top-0.5 -right-0.5 flex size-2 items-center justify-center rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+                  <span className="absolute -top-0.5 -right-0.5 flex size-2 items-center justify-center rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)]" />
                 )}
               </span>
 
