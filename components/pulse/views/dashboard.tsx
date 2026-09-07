@@ -4,12 +4,11 @@ import { useEffect, useState } from 'react'
 import { motion, useMotionTemplate, useMotionValue } from 'framer-motion'
 import { 
   ArrowDownRight, ArrowUpRight, Building2, ChevronRight, 
-  Copy, Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, 
-  TrendingUp, Zap, Lock, RefreshCw, Award
+  Leaf, Pickaxe, Radio, Rocket, ShieldCheck, Sun, TrendingUp, Zap, Award, Layers
 } from 'lucide-react'
 import { money, usePulse } from '../store'
-import { ProgressBar, RiskNote } from '../ui-bits'
-import { PROJECTS, nextTier, isProjectClosed, type ProjectSector } from '@/lib/pulse-data'
+import { ProgressBar } from '../ui-bits'
+import { nextTier, PROJECTS, type ProjectSector } from '@/lib/pulse-data'
 import { Button } from '@/components/ui/button'
 
 const sectorIcon: Record<ProjectSector, typeof Sun> = {
@@ -20,7 +19,7 @@ const sectorIcon: Record<ProjectSector, typeof Sun> = {
 }
 
 export function DashboardView() {
-  const { state, api, totalInvested, currentTier, portfolioValue, openModal, setView, toast } = usePulse()
+  const { state, api, totalInvested, currentTier, portfolioValue, openModal, setView } = usePulse()
   const upcoming = nextTier(currentTier.id)
   const progress = upcoming ? Math.min(100, (totalInvested / upcoming.minInvest) * 100) : 100
 
@@ -28,11 +27,12 @@ export function DashboardView() {
   const portfolioReturnPct = portfolioValue > 0 ? ((portfolioValue / initialBenchmark) - 1) * 100 : 0
   const totalReturnDollars = Math.max(0, portfolioValue - initialBenchmark)
 
+  // SYNCHED DATA: Live background polling/sync from api.liveProjectFunding()
   const [liveFunding, setLiveFunding] = useState<Record<string, number> | null>(null)
   
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
-  const cursorGlow = useMotionTemplate`radial-gradient(380px circle at ${mouseX}px ${mouseY}px, rgba(245, 158, 11, 0.38), rgba(16, 185, 129, 0.22) 50%, transparent 85%)`
+  const cursorGlow = useMotionTemplate`radial-gradient(340px circle at ${mouseX}px ${mouseY}px, rgba(245, 158, 11, 0.28), rgba(5, 150, 105, 0.15) 50%, transparent 85%)`
 
   useEffect(() => {
     let cancelled = false
@@ -45,174 +45,285 @@ export function DashboardView() {
   }, [api])
 
   return (
-    <div className="pulse-home mx-auto w-full max-w-md space-y-6 pb-24 text-neutral-100 antialiased">
+    <div className="pulse-home mx-auto w-full max-w-md space-y-5 pb-24 text-neutral-100 antialiased">
       <style>{`
-        @keyframes pulsePureGlow { 0%, 100% { opacity: .5; transform: scale(1); filter: brightness(1); } 50% { opacity: 1; transform: scale(1.04); filter: brightness(1.25); } }
-        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.5); box-shadow: 0 0 25px rgba(245,158,11,.25), inset 0 0 16px rgba(245,158,11,.1); } 35% { border-color: rgba(16,185,129,.7); box-shadow: 0 0 35px rgba(16,185,129,.35), inset 0 0 20px rgba(16,185,129,.12); } 65% { border-color: rgba(245,158,11,.9); box-shadow: 0 0 45px rgba(245,158,11,.5), inset 0 0 28px rgba(245,158,11,.18); } }
-        @keyframes pulseEmeraldRich { 0%, 100% { border-color: rgba(16,185,129,.6); box-shadow: 0 0 22px rgba(16,185,129,.32); } 50% { border-color: rgba(52,211,153,.95); box-shadow: 0 0 40px rgba(52,211,153,.6); } }
+        @keyframes pulseShimmer { 0%, 100% { border-color: rgba(245,158,11,.4); box-shadow: 0 0 18px rgba(245,158,11,.18), inset 0 0 12px rgba(245,158,11,.06); } 35% { border-color: rgba(5,150,105,.65); box-shadow: 0 0 28px rgba(5,150,105,.3), inset 0 0 16px rgba(5,150,105,.1); } 65% { border-color: rgba(245,158,11,.85); box-shadow: 0 0 38px rgba(245,158,11,.45), inset 0 0 24px rgba(245,158,11,.15); } }
+        @keyframes pulseEmerald { 0%, 100% { border-color: rgba(5,150,105,.45); box-shadow: 0 0 16px rgba(5,150,105,.22); } 50% { border-color: rgba(16,185,129,.85); box-shadow: 0 0 32px rgba(16,185,129,.5); } }
         @keyframes pulseConicSpin { to { transform: rotate(360deg); } }
         @keyframes pulseLiquidMove { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-        .pulse-pure-shimmer { animation: pulseShimmer 3.4s ease-in-out infinite; }
-        .pulse-pure-emerald-rich { animation: pulseEmeraldRich 3.2s ease-in-out infinite; }
+        .pulse-pure-shimmer { animation: pulseShimmer 3.5s ease-in-out infinite; }
+        .pulse-pure-emerald { animation: pulseEmerald 3.2s ease-in-out infinite; }
         .pulse-conic-spin { animation: pulseConicSpin 8s linear infinite; }
         .pulse-liquid-motion { background-size: 200% 200%; animation: pulseLiquidMove 5s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { .pulse-pure-shimmer, .pulse-pure-emerald-rich, .pulse-conic-spin, .pulse-liquid-motion { animation: none; } }
+        @media (prefers-reduced-motion: reduce) { .pulse-pure-shimmer, .pulse-pure-emerald, .pulse-conic-spin, .pulse-liquid-motion { animation: none; } }
       `}</style>
 
       {/* 1. STATUS HEADER */}
       <motion.div 
-        initial={{ opacity: 0, y: -12 }}
+        initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="pulse-pure-shimmer flex flex-col items-start justify-between gap-2.5 rounded-2xl border border-amber-500/40 bg-neutral-950/95 px-4.5 py-4 shadow-[0_0_40px_rgba(245,158,11,.2)] backdrop-blur-2xl sm:flex-row sm:items-center"
+        className="pulse-pure-shimmer flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-neutral-950/90 px-4 py-3.5 shadow-[0_0_30px_rgba(245,158,11,.15)] backdrop-blur-xl"
       >
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="relative flex size-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-90" />
-            <span className="relative inline-flex size-3 rounded-full bg-emerald-500 shadow-[0_0_16px_rgba(16,185,129,1)]" />
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex size-2.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-80" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(5,150,105,0.9)]" />
           </span>
-          <span className="truncate text-xs font-black uppercase tracking-wider text-neutral-100">
-            SADC Capital Network &bull; Institutional Hub
+          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-100 sm:text-xs">
+            SADC Capital &bull; Synced Live Terminal
           </span>
         </div>
         <motion.span 
-          animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.03, 1] }} 
+          animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.02, 1] }} 
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} 
-          className="rounded-full border border-amber-500/60 bg-amber-500/20 px-3.5 py-1 text-xs font-bold text-amber-200 shadow-[0_0_26px_rgba(245,158,11,.35)]"
+          className="rounded-full border border-amber-500/45 bg-amber-500/15 px-3 py-0.5 text-xs font-semibold text-amber-200 shadow-[0_0_20px_rgba(245,158,11,.25)]"
         >
           {currentTier.name} Member
         </motion.span>
       </motion.div>
 
       {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <div className="relative overflow-hidden rounded-3xl p-px shadow-[0_0_65px_rgba(245,158,11,.35)]">
-        <motion.div className="pulse-conic-spin pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_120deg,#10b981_220deg,#f59e0b_360deg)] opacity-95" />
+      <div className="relative overflow-hidden rounded-3xl p-px shadow-[0_0_50px_rgba(245,158,11,.28)]">
+        <motion.div className="pulse-conic-spin pointer-events-none absolute -inset-[150%] bg-[conic-gradient(from_0deg,#f59e0b_0deg,transparent_100deg,#059669_200deg,#f59e0b_360deg)] opacity-90" />
         <motion.div 
-          whileHover={{ scale: 1.008 }} 
+          whileHover={{ scale: 1.006 }} 
           onPointerMove={(event) => { 
             const rect = event.currentTarget.getBoundingClientRect() 
             mouseX.set(event.clientX - rect.left) 
             mouseY.set(event.clientY - rect.top) 
           }} 
-          className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-3xl bg-neutral-950/95 shadow-[0_0_50px_rgba(245,158,11,.25)]"
+          className="glow-edge glass-gold pulse-surface group relative overflow-hidden rounded-3xl bg-neutral-950/95 shadow-[0_0_40px_rgba(245,158,11,.2)]"
         >
           <motion.div className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: cursorGlow }} />
-          <div className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-amber-500/25 blur-3xl animate-pulse" />
           
           <div className="relative z-10 space-y-4 p-5 sm:p-6">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-neutral-300">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">
                 Total Net Portfolio Value
               </span>
               <motion.span 
-                animate={{ scale: [1, 1.05, 1], filter: ['brightness(1)', 'brightness(1.2)', 'brightness(1)'] }} 
+                animate={{ scale: [1, 1.04, 1], filter: ['brightness(1)', 'brightness(1.15)', 'brightness(1)'] }} 
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} 
-                className="pulse-pure-emerald-rich inline-flex max-w-[48%] shrink-0 items-center gap-1.5 rounded-lg border border-emerald-500/70 bg-emerald-950/95 px-3 py-1 text-[11px] font-black leading-tight text-emerald-300 shadow-[0_0_28px_rgba(16,185,129,.5)] sm:max-w-none sm:text-xs"
+                className="pulse-pure-emerald inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/90 px-2.5 py-1 text-xs font-extrabold text-emerald-300 shadow-[0_0_22px_rgba(5,150,105,.35)]"
               >
-                <TrendingUp className="size-4 text-emerald-400 animate-pulse" />
+                <TrendingUp className="size-3.5 text-emerald-400 animate-pulse shrink-0" />
                 +{(portfolioReturnPct || 18.4).toFixed(1)}% APY Avg
               </motion.span>
             </div>
 
-            <div>
+            <div className="space-y-1">
               <div className="flex items-baseline gap-2">
-                <h1 className="font-display text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)] sm:text-5xl">
+                <h1 className="font-display text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] sm:text-4xl">
                   ${money(portfolioValue)}
                 </h1>
                 <span className="font-mono text-xs font-bold text-amber-300">USDT</span>
               </div>
-              <p className="mt-2 text-xs font-medium text-neutral-200">
-                Cumulative Yield: <span className="text-emerald-400 font-extrabold drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">+${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)</span>
+              <p className="text-xs font-medium text-neutral-300">
+                Cumulative Yield: <span className="text-emerald-400 font-bold">+${money(totalReturnDollars, 2)} ({money(portfolioReturnPct, 1)}%)</span>
               </p>
             </div>
 
-            <div className="grid min-w-0 grid-cols-2 gap-3.5 pt-1">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   aria-label="Deposit capital"
                   size="lg"
-                  className="pulse-liquid-motion pulse-action h-12 w-full min-w-0 rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_40px_rgba(245,158,11,.7)] transition-all hover:from-amber-300 hover:to-amber-200"
+                  className="pulse-liquid-motion pulse-action h-11 w-full rounded-xl border border-amber-200/90 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 px-3 text-xs font-black text-neutral-950 shadow-[0_0_30px_rgba(245,158,11,.6)] hover:from-amber-300 hover:to-amber-200"
                   onClick={() => openModal('deposit')}
                 >
-                  <ArrowDownRight className="size-4 shrink-0 stroke-[3]" /><span className="truncate">Deposit Capital</span>
+                  <ArrowDownRight className="size-4 shrink-0 stroke-[3]" />
+                  <span className="truncate">Deposit Capital</span>
                 </Button>
               </motion.div>
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-12 w-full min-w-0 rounded-2xl border border-neutral-600/90 bg-gradient-to-r from-neutral-800 to-neutral-900 px-3 text-xs font-bold text-white shadow-[0_0_25px_rgba(0,0,0,.75)] transition-all hover:border-neutral-400 hover:bg-neutral-800"
+                  className="h-11 w-full rounded-xl border border-neutral-600/90 bg-neutral-900/90 px-3 text-xs font-bold text-white shadow-[0_0_20px_rgba(0,0,0,.6)] hover:border-neutral-400 hover:bg-neutral-800"
                   onClick={() => openModal('withdraw')}
                 >
-                  <ArrowUpRight className="size-4 shrink-0 stroke-[2.5]" /><span className="truncate">Withdraw Earnings</span>
+                  <ArrowUpRight className="size-4 shrink-0 stroke-[2.5]" />
+                  <span className="truncate">Withdraw Earnings</span>
                 </Button>
               </motion.div>
             </div>
           </div>
 
-          {/* Integrated Asset Breakdown Row */}
-          <div className="relative z-10 grid grid-cols-3 gap-1 border-t border-neutral-800/90 bg-neutral-950 p-4 text-center backdrop-blur-md">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Available Cash</p>
-              <p className="mt-1 font-mono text-base font-black text-white">${money(state.cash, 0)}</p>
+          <div className="relative z-10 grid grid-cols-3 divide-x divide-neutral-800/90 border-t border-neutral-800/90 bg-neutral-950/90 p-3.5 text-center">
+            <div className="px-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Cash</p>
+              <p className="mt-0.5 font-mono text-sm font-black text-white">${money(state.cash, 0)}</p>
             </div>
-            <div className="border-x border-neutral-800/90">
-              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Active Principal</p>
-              <p className="mt-1 font-mono text-base font-black text-white">${money(totalInvested, 0)}</p>
+            <div className="px-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Principal</p>
+              <p className="mt-0.5 font-mono text-sm font-black text-white">${money(totalInvested, 0)}</p>
             </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">PULSE Tokens</p>
-              <p className="mt-1 font-mono text-base font-black text-amber-300 drop-shadow-[0_0_12px_rgba(245,158,11,0.6)]">{money(state.pulse + state.staked, 0)}</p>
+            <div className="px-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">$PULSE</p>
+              <p className="mt-0.5 font-mono text-sm font-black text-amber-300">{money(state.pulse + state.staked, 0)}</p>
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* 3. TIER PROGRESSION CARD (Restored Missing Info) */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4.5 space-y-3">
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-            <Award className="size-4 text-amber-400" /> Tier Status: {currentTier.name}
+      {/* 3. TIER STATUS BAR */}
+      <motion.div 
+        animate={{ borderColor: ['rgba(245,158,11,.35)', 'rgba(245,158,11,.7)', 'rgba(245,158,11,.35)'] }} 
+        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }} 
+        className="pulse-pure-shimmer relative rounded-2xl border border-amber-500/40 bg-neutral-950 p-4 shadow-[0_0_35px_rgba(245,158,11,.18)]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Award className="size-4 shrink-0 text-amber-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-200">
+              Standing: <span className="text-white font-extrabold">{currentTier.name} VIP</span>
+            </span>
+          </div>
+          <span className="rounded-md border border-emerald-500/45 bg-emerald-500/15 px-2 py-0.5 text-xs font-mono font-bold text-emerald-300 shadow-[0_0_12px_rgba(5,150,105,0.3)]">
+            {currentTier.yieldLabel}
           </span>
-          {upcoming ? (
-            <span className="text-amber-300 font-mono font-medium">Next: {upcoming.name}</span>
-          ) : (
-            <span className="text-emerald-400 font-bold">Max Tier Reached</span>
-          )}
         </div>
-        <ProgressBar value={progress} />
-        {upcoming && (
-          <p className="text-[11px] text-neutral-400 text-right font-mono">
-            ${money(Math.max(0, upcoming.minInvest - totalInvested))} more to upgrade tier
-          p</p>
-        )}
-      </div>
 
-      {/* 4. QUICK ACTIVE HOLDINGS PREVIEW */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4.5 space-y-3">
+        {upcoming ? (
+          <div className="mt-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
+              <span>Next: {upcoming.name}</span>
+              <span className="font-bold text-amber-300">${money(totalInvested)} / ${money(upcoming.minInvest)}</span>
+            </div>
+            <ProgressBar value={progress} tone="gold" />
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-emerald-300 font-semibold">Apex Institutional Rank Active &bull; Max Tier Unlocked.</p>
+        )}
+      </motion.div>
+
+      {/* 4. ACTIVE PORTFOLIO HOLDINGS */}
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3 shadow-md">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Active Portfolios ({state.holdings.length})</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
+            <Layers className="size-4 text-amber-400 shrink-0" /> Active Holdings ({state.holdings.length})
+          </span>
           <button onClick={() => setView('invest')} className="text-xs text-amber-400 hover:underline flex items-center gap-1 font-semibold">
-            View All <ChevronRight className="size-3.5" />
+            Explore <ChevronRight className="size-3.5" />
           </button>
         </div>
         {state.holdings.length === 0 ? (
-          <div className="text-center py-6 text-xs text-neutral-500">
-            No active project deployments yet. Explore sectors to start earning yields.
+          <div className="text-center py-5 text-xs text-neutral-500">
+            No active deployments yet. Browse high-yield sectors to begin.
           </div>
         ) : (
           <div className="space-y-2">
-            {state.holdings.slice(0, 2).map((h) => (
+            {state.holdings.slice(0, 3).map((h) => (
               <div key={h.id} className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-neutral-800 text-xs">
-                <div>
-                  <p className="font-bold text-white">{h.projectName}</p>
+                <div className="space-y-0.5">
+                  <p className="font-bold text-white truncate max-w-[200px]">{h.projectName}</p>
                   <p className="text-[10px] text-neutral-400 font-mono">Principal: ${money(h.amount)}</p>
                 </div>
-                <span className="font-mono text-emerald-400 font-bold">+{h.apy}% APY</span>
+                <span className="font-mono text-emerald-400 font-bold shrink-0">+{h.apy}% APY</span>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* 5. REGIONAL OPPORTUNITIES PIPELINE (WITH SYNCHED DATA) */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200">
+            Regional Opportunities
+          </h3>
+          <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            Live Synced SADC Pipeline
+          </span>
+        </div>
+
+        <div className="grid gap-3">
+          {PROJECTS.slice(0, 2).map((p) => {
+            const Icon = sectorIcon[p.sector] || Sun
+            const funded = liveFunding?.[p.id] ?? p.fundedAmount
+            const pct = Math.min(100, Math.round((funded / p.targetRaise) * 100))
+            return (
+              <motion.div
+                key={p.id}
+                whileHover={{ scale: 1.01 }}
+                onClick={() => setView('invest')}
+                className="group cursor-pointer rounded-2xl border border-neutral-800 bg-neutral-950 p-4 transition-all hover:border-amber-500/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                      <Icon className="size-4" />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <h4 className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition-colors">{p.name}</h4>
+                      <p className="text-[11px] text-neutral-400 truncate">{p.country} &bull; {p.sector}</p>
+                    </div>
+                  </div>
+                  <span className="rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-2.5 py-1 font-mono text-[11px] font-extrabold text-emerald-300 shrink-0">
+                    {p.targetYield}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-neutral-400">
+                    <span>Funded: ${money(funded)}</span>
+                    <span className="font-bold text-neutral-200">{pct}%</span>
+                  </div>
+                  <ProgressBar value={pct} tone="green" />
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 6. QUICK ACTIONS GRID */}
+      <div className="space-y-3 pt-1">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200">
+          Quick Actions & Hubs
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <ActionTile tone="gold" badge="Private" icon={<Rocket className="size-4 text-amber-300" />} label="Buy $PULSE" detail="Private sale round" onClick={() => setView('sale')} />
+          <ActionTile tone="green" badge="24.8% APY" icon={<Zap className="size-4 text-emerald-300" />} label="Stake Vault" detail="High yield pool" onClick={() => setView('stake')} />
+          <ActionTile tone="cyan" badge="3 Live" icon={<Radio className="size-4 text-cyan-300" />} label="Signals Feed" detail="Institutional deals" onClick={() => setView('signals')} />
+          <ActionTile tone="gold" badge="Level 2" icon={<ShieldCheck className="size-4 text-amber-300" />} label="Verify KYC" detail="Unlocked access" onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))} />
+        </div>
+      </div>
     </div>
+  )
+}
+
+function ActionTile({ icon, label, detail, badge, tone, onClick }: { icon: React.ReactNode; label: string; detail: string; badge: string; tone: 'gold' | 'green' | 'cyan'; onClick: () => void }) {
+  const tones = {
+    gold: 'border-amber-500/35 bg-gradient-to-br from-neutral-900/90 to-neutral-950 text-amber-200',
+    green: 'border-emerald-500/35 bg-gradient-to-br from-neutral-900/90 to-neutral-950 text-emerald-300',
+    cyan: 'border-cyan-500/35 bg-gradient-to-br from-neutral-900/90 to-neutral-950 text-cyan-200',
+  }
+  const badgeTones = {
+    gold: 'border-amber-500/40 bg-amber-500/15 text-amber-300',
+    green: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
+    cyan: 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300',
+  }
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02, y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border p-3.5 shadow-sm transition-all hover:border-amber-500/60 ${tones[tone]}`}
+    >
+      <div className="flex items-center justify-between gap-1">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/40">
+          {icon}
+        </div>
+        <span className={`rounded-md border px-2 py-0.5 text-[10px] font-mono font-bold truncate max-w-[70px] ${badgeTones[tone]}`}>
+          {badge}
+        </span>
+      </div>
+      <div className="mt-3 space-y-0.5">
+        <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors truncate">{label}</h4>
+        <p className="text-[10px] text-neutral-400 truncate">{detail}</p>
+      </div>
+    </motion.div>
   )
 }
