@@ -55,11 +55,6 @@ async function syncTier(userId: string) {
   await db.from('profiles').update({ tier: idx }).eq('id', userId)
 }
 
-// CHANGED: this used to credit cash_balance immediately (bypassing review).
-// Now it only records a PENDING deposit request. The balance is credited by
-// reviewDeposit() in admin.ts once an admin approves it — same pattern as
-// requestWithdrawal below. Function name kept as simulateDeposit so no UI
-// call sites need to change.
 export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc', txReference: string): Promise<Result> {
   try {
     const user = await requireUser()
@@ -94,10 +89,6 @@ export async function requestWithdrawal(
   try {
     const user = await requireUser()
     if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    // Defensive: guard against a mismatched caller passing undefined for
-    // any of these (this exact crash — "Cannot read properties of
-    // undefined (reading 'trim')" — happened live from a stale/mismatched
-    // client build). Never assume a string arg exists un-checked.
     if (!destinationAddress?.trim()) return { ok: false, error: 'Enter the wallet address to withdraw to' }
     const safeNetwork = network ?? ''
     const safeBroker = broker ?? ''
@@ -108,7 +99,6 @@ export async function requestWithdrawal(
     if (amount > maxWithdrawable) {
       return { ok: false, error: `You can withdraw up to 80% of your balance at a time (max $${maxWithdrawable.toFixed(2)})` }
     }
-    // Hold the funds and create a pending withdrawal for admin approval.
     await adjustAccount(user.id, { cash_balance: -amount })
     await recordTxn(user.id, {
       type: 'withdrawal',
@@ -164,9 +154,6 @@ export async function invest(amount: number, projectId: string): Promise<Result>
       kind: 'success',
     })
 
-    // Honest referral reward: points only, awarded once, on the referred
-    // user's first investment. First-investment points apply to everyone;
-    // the referrer bonus only applies if this user was actually referred.
     if (snap.holdings.length === 0) {
       const { error: pointsErr } = await db.rpc('award_points', { p_user_id: user.id, p_amount: 50, p_reason: 'First investment' })
       if (pointsErr) console.error('award_points (self) failed:', pointsErr.message)
@@ -393,12 +380,6 @@ export async function removeSavedWallet(id: string): Promise<Result> {
   }
 }
 
-// P2P transfers, moderated: exactly the same hold-then-admin-approve
-// pattern as withdrawals, for the same reason — the sender's funds are
-// deducted immediately on request (so they can't spend the same balance
-// twice while the transfer sits pending), and refunded if an admin
-// rejects it. Nothing is ever credited to the recipient until an admin
-// approves it. See admin.ts:reviewP2PTransfer for the other half.
 export async function requestTransfer(recipientIdentifier: string, amount: number): Promise<Result> {
   try {
     const user = await requireUser()
@@ -411,9 +392,6 @@ export async function requestTransfer(recipientIdentifier: string, amount: numbe
     const clean = recipientIdentifier.trim().replace(/^@/, '')
     if (!clean) return { ok: false, error: 'Enter a username or Pulse ID' }
 
-    // Look up by username first, then by Pulse Wallet ID — two separate
-    // queries on purpose (see getMyReferrals for why we don't rely on
-    // PostgREST embeds between profiles and accounts).
     let recipientId: string | null = null
     let recipientLabel = clean
     const { data: byUsername } = await db.from('profiles').select('id, username').ilike('username', clean).maybeSingle()
@@ -496,7 +474,6 @@ export async function applyForCard(): Promise<Result> {
       const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
       if (error) return { ok: false, error: error.message }
     }
-    // already applied — treat as a no-op success, not an error
     return { ok: true, snapshot: await getSnapshot(user.id) }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -515,14 +492,6 @@ export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[
     if (error) return { ok: false, error: error.message }
 
     const ids = (referredProfiles ?? []).map((p) => p.id)
-    // Fetched separately and joined in JS, on purpose: profiles and accounts
-    // have no foreign key PostgREST can resolve for an auto-embed
-    // (`accounts(wallet_id)` inline in .select() throws "Could not find a
-    // relationship between 'profiles' and 'accounts' in the schema cache").
-    // Every other query in this codebase already avoids that embed for the
-    // same reason — this is the one place that didn't, and it broke referrals
-    // for every user in production. Not touching schema/FKs to fix this;
-    // two queries + a Map merge is the same safe pattern used everywhere else.
     const walletByUserId = new Map<string, string | null>()
     if (ids.length > 0) {
       const { data: accts } = await db.from('accounts').select('user_id, wallet_id').in('user_id', ids)
@@ -577,8 +546,6 @@ export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] 
   }
 }
 
-// Bootstrap: if there are no admins yet, the first caller becomes an admin.
-// Also promotes any user whose email is on the admin allowlist.
 export async function claimAdmin(): Promise<Result> {
   try {
     const user = await requireUser()
@@ -600,11 +567,6 @@ export async function claimAdmin(): Promise<Result> {
   }
 }
 
-// Early close: investor exits a holding before the project's natural end.
-// Flat $15 penalty, rest refunded to cash. The holding row is deleted (not
-// soft-closed with a status flag) — simplest reliable approach given the
-// current schema; if a status/history trail is wanted later, that's a
-// bigger, separate change, not something to guess into an existing table.
 export async function closeInvestment(holdingId: string): Promise<Result> {
   try {
     const user = await requireUser()
@@ -662,10 +624,6 @@ export async function getProjectStatusOverrides(): Promise<
   }
 }
 
-// Real-time project funding: sums every user's real investment amount per
-// project directly from the holdings table. Used by Dashboard/Signals to
-// overlay real, current funding totals on top of the static seed numbers in
-// pulse-data.ts, so the % funded actually moves as real investments happen.
 export async function getLiveProjectFunding(): Promise<
   { ok: true; funding: Record<string, number> } | { ok: false; error: string }
 > {
