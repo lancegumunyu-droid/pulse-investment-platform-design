@@ -35,7 +35,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#050505',
+  themeColor: '#060608',
   colorScheme: 'dark',
 }
 
@@ -103,18 +103,18 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} ${spaceGrotesk.variable} dark bg-[#050505] text-foreground`}
+      className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} ${spaceGrotesk.variable} dark bg-[#060608] text-foreground`}
     >
       <body className="font-sans text-zinc-100 antialiased selection:bg-amber-500 selection:text-black min-h-screen flex flex-col relative overflow-x-hidden bg-background">
-        {/* Subtle global atmospheric ambient glow */}
+        {/* Elite Ambient Backlighting with Gold & Emerald Harmonies */}
         <div 
-          className="pointer-events-none fixed inset-0 z-0 opacity-40 mix-blend-screen"
+          className="pointer-events-none fixed inset-0 z-0 opacity-45 mix-blend-screen"
           style={{
-            background: 'radial-gradient(circle 800px at 50% -200px, rgba(245,158,11,0.08), transparent 70%)'
+            background: 'radial-gradient(circle 900px at 50% -200px, rgba(245,158,11,0.12), rgba(16,185,129,0.05) 50%, transparent 75%)'
           }}
         />
 
-        {/* Main Application Container with Smooth Motion Transition Wrapper */}
+        {/* Main Application Container */}
         <div className="relative z-10 flex flex-col min-h-screen flex-1">
           {children}
         </div>
