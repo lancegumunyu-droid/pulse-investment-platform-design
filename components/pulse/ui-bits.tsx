@@ -1,5 +1,6 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { Activity, TriangleAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -15,15 +16,20 @@ export function Glass({
   gold?: boolean
 }) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'pulse-surface rounded-3xl p-5 shadow-2xl backdrop-blur-xl',
-        gold ? 'glass-gold border border-gold/30 bg-background/95' : 'glass border border-white/10 bg-background/95',
+        'rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl transition-all',
+        gold
+          ? 'border border-amber-400/40 bg-gradient-to-br from-zinc-950/95 via-zinc-900/90 to-amber-950/20 shadow-[0_0_30px_rgba(245,158,11,0.12)]'
+          : 'border border-white/10 bg-zinc-950/85',
         className
       )}
     >
       {children}
-    </div>
+    </motion.div>
   )
 }
 
@@ -41,13 +47,13 @@ export function SectionTitle({
   return (
     <div className={cn('mb-5 flex items-start gap-3.5', className)}>
       {icon ? (
-        <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-gold/20 bg-gold-soft text-gold shadow-sm">
+        <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-400/10 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
           {icon}
         </div>
       ) : null}
       <div>
-        <h2 className="text-balance text-xl font-bold tracking-tight text-foreground">{title}</h2>
-        {subtitle ? <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{subtitle}</p> : null}
+        <h2 className="text-balance text-xl font-bold tracking-tight text-white">{title}</h2>
+        {subtitle ? <p className="mt-1 text-sm leading-relaxed text-zinc-400">{subtitle}</p> : null}
       </div>
     </div>
   )
@@ -63,16 +69,16 @@ export function Pill({
   className?: string
 }) {
   const tones = {
-    gold: 'border-gold/20 bg-gold-soft text-gold',
-    green: 'border-green/20 bg-green-soft text-green',
-    muted: 'border-white/10 bg-white/[0.04] text-muted-foreground',
-    danger: 'border-destructive/20 bg-destructive/10 text-destructive',
+    gold: 'border-amber-400/30 bg-amber-400/10 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]',
+    green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]',
+    muted: 'border-white/10 bg-white/[0.04] text-zinc-400',
+    danger: 'border-rose-500/30 bg-rose-500/10 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.1)]',
   }
 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide',
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide backdrop-blur-md',
         tones[tone],
         className
       )}
@@ -92,13 +98,17 @@ export function ProgressBar({
   className?: string
 }) {
   return (
-    <div className={cn('h-2 w-full overflow-hidden rounded-full bg-white/10 shadow-inner', className)}>
-      <div
+    <div className={cn('h-2 w-full overflow-hidden rounded-full bg-white/10 p-0.5 shadow-inner backdrop-blur-md', className)}>
+      <motion.div
+        initial={{ width: 0 }}
+        animate={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
-          'h-full rounded-full transition-all duration-700 ease-out',
-          tone === 'gold' ? 'bg-gold shadow-[0_0_10px_rgba(232,163,23,0.5)]' : 'bg-green shadow-[0_0_10px_rgba(34,197,94,0.5)]'
+          'h-full rounded-full',
+          tone === 'gold'
+            ? 'bg-gradient-to-r from-amber-500 to-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.6)]'
+            : 'bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
         )}
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
       />
     </div>
   )
@@ -108,11 +118,11 @@ export function RiskNote({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex items-start gap-3 rounded-2xl border border-gold/15 bg-gold/5 p-4 text-xs leading-relaxed text-muted-foreground shadow-sm',
+        'flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-4 text-xs leading-relaxed text-zinc-400 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl',
         className,
       )}
     >
-      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-gold" />
+      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
       <p className="text-pretty">{RISK_DISCLAIMER}</p>
     </div>
   )
@@ -131,9 +141,9 @@ export function Stat({
 }) {
   return (
     <div className={className}>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 font-sans text-lg font-bold tracking-tight text-foreground">{value}</p>
-      {sub ? <p className="mt-1 text-xs text-muted-foreground/80">{sub}</p> : null}
+      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">{label}</p>
+      <p className="mt-1 font-sans text-lg font-bold tracking-tight text-white">{value}</p>
+      {sub ? <p className="mt-1 text-xs text-zinc-400/80">{sub}</p> : null}
     </div>
   )
 }
@@ -154,13 +164,13 @@ export function Heartbeat({
         className={cn(
           'absolute inset-0 rounded-full',
           active
-            ? 'animate-heartbeat-ring-fast bg-gold/50 shadow-[0_0_15px_rgba(232,163,23,0.6)]'
-            : 'animate-heartbeat-ring-slow bg-gold/30'
+            ? 'animate-heartbeat-ring-fast bg-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.7)]'
+            : 'animate-heartbeat-ring-slow bg-amber-400/20'
         )}
       />
       <span
         className={cn(
-          'relative flex items-center justify-center rounded-full bg-gold-soft text-gold backdrop-blur-sm',
+          'relative flex items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)] backdrop-blur-md',
           active ? 'animate-heartbeat-icon-fast' : 'animate-heartbeat-icon-slow'
         )}
         style={{ width: size, height: size }}
