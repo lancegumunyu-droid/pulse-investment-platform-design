@@ -1,11 +1,10 @@
-import 'server-only'
-import { serviceClient } from './service'
-import { tierForAmount, type TierId, PROJECTS, type Project, TOKEN } from '@/lib/pulse-data'
-import type { Snapshot, SnapshotTxn } from './types'
+'use server'
 
-// Live project funding: PROJECTS in pulse-data.ts holds the seed/base amount
-// each project had before individual holdings were tracked. Actual investor
-// money since then is summed from `holdings` and added on top.
+import { serviceClient } from './service'
+import { createClient } from '@/lib/supabase/server'
+import { tierForAmount, type TierId, PROJECTS, type Project, TOKEN } from '@/lib/pulse-data'
+import type { Snapshot, SnapshotTxn, LeaderboardRow, FounderRow, MyReferralRow } from './types'
+
 export async function getLiveProjects(): Promise<Project[]> {
   const db = serviceClient()
   const { data: rows } = await db.from('holdings').select('project_id, amount')
@@ -17,6 +16,19 @@ export async function getLiveProjects(): Promise<Project[]> {
     ...p,
     funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
   }))
+}
+
+export async function getLiveProjectFunding(): Promise<{ ok: true; funding: Record<string, number> } | { ok: false; error: string }> {
+  try {
+    const projects = await getLiveProjects()
+    const funding: Record<string, number> = {}
+    for (const p of projects) {
+      funding[p.id] = p.funded
+    }
+    return { ok: true, funding }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
 }
 
 const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
@@ -258,9 +270,6 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     date: new Date(h.created_at).getTime(),
   }))
 
-  const totalInvested = mappedHoldings.reduce((s, h) => s + h.amount, 0)
-  const portfolioValue = cashBalance + totalInvested + (tokenBalance + stakedBalance) * TOKEN.salePrice
-
   const kycMap: Record<string, Snapshot['kyc']> = {
     none: 'none',
     pending: 'pending',
@@ -279,7 +288,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
       type: TXN_TYPE_MAP[t.type] ?? 'deposit',
       label: (t.meta?.label as string) ?? TXN_LABEL[t.type] ?? t.type,
       amount: Number(t.amount),
-      currency: t.currency === 'PULSE' ? 'PULSE' : 'USDT',
+      currency: t.currency === 'PULSE' ? 'PULSE' : 'USD',
       status: t.status as SnapshotTxn['status'],
       isProcessing: !!t.processing_started_at,
       date: new Date(t.created_at).getTime(),
@@ -302,6 +311,310 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     cardStatus: (cardApp?.status as Snapshot['cardStatus']) ?? 'none',
     cardRef: cardApp?.card_ref ?? null,
     savedWallets: (wallets ?? []).map((w) => ({ id: w.id, label: w.label, address: w.address })),
+  }
+}
+
+export async function fetchSnapshot(): Promise<Snapshot | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  return getSnapshot(user.id)
+}
+
+// User Action Wrappers
+export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc', txReference: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await recordTxn(user.id, { type: 'deposit', amount, currency: 'USD', reference: txReference, meta: { originalCurrency: currency } })
+    await adjustAccount(user.id, { cash_balance: amount })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function requestWithdrawal(amount: number, destinationAddress: string, network: string, broker: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await adjustAccount(user.id, { cash_balance: -amount })
+    await recordTxn(user.id, { type: 'withdrawal', amount, currency: 'USD', meta: { destinationAddress, network, broker } })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function invest(amount: number, projectId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await adjustAccount(user.id, { cash_balance: -amount, invested_balance: amount })
+    await db.from('holdings').insert({ user_id: user.id, project_id: projectId, amount })
+    await recordTxn(user.id, { type: 'investment', amount, currency: 'USD', meta: { projectId } })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function buyToken(cost: number, pulse: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await adjustAccount(user.id, { cash_balance: -cost, token_balance: pulse })
+    await recordTxn(user.id, { type: 'token_purchase', amount: pulse, currency: 'PULSE', meta: { usdCost: cost, pulseAmount: pulse } })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function sellToken(pulseAmount: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const usdValue = pulseAmount * TOKEN.salePrice
+    await adjustAccount(user.id, { token_balance: -pulseAmount, cash_balance: usdValue })
+    await recordTxn(user.id, { type: 'token_sale', amount: pulseAmount, currency: 'PULSE', meta: { usdValue } })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function stake(amount: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await adjustAccount(user.id, { token_balance: -amount, staked_balance: amount })
+    await recordTxn(user.id, { type: 'stake', amount, currency: 'PULSE' })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function unstake(amount: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await adjustAccount(user.id, { staked_balance: -amount, token_balance: amount })
+    await recordTxn(user.id, { type: 'unstake', amount, currency: 'PULSE' })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function setWallet(address: string | null) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('profiles').update({ wallet_address: address }).eq('id', user.id)
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function submitKyc(input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string; phone?: string; address?: string }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('profiles').update({ kyc_status: 'pending', full_name: input.fullName }).eq('id', user.id)
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function castVote(proposalId: string, choice: 'for' | 'against' | 'abstain') {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('votes').upsert({ user_id: user.id, proposal_id: proposalId, choice })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function claimAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('profiles').update({ role: 'admin' }).eq('id', user.id)
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function setUsername(username: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('profiles').update({ username }).eq('id', user.id)
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function applyForCard() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('card_applications').upsert({ user_id: user.id, status: 'waitlisted' })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function addSavedWallet(label: string, address: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('saved_wallets').insert({ user_id: user.id, label, address })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function removeSavedWallet(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    await db.from('saved_wallets').delete().eq('id', id).eq('user_id', user.id)
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function requestTransfer(recipientIdentifier: string, amount: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await adjustAccount(user.id, { cash_balance: -amount })
+    await recordTxn(user.id, { type: 'p2p_send', amount, currency: 'USD', meta: { recipientIdentifier } })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function closeInvestment(holdingId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    const { data: holding } = await db.from('holdings').select('*').eq('id', holdingId).eq('user_id', user.id).single()
+    if (!holding) return { ok: false as const, error: 'Holding not found' }
+    
+    const amount = Number(holding.amount)
+    await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount })
+    await db.from('holdings').delete().eq('id', holdingId)
+    await recordTxn(user.id, { type: 'close_investment', amount, currency: 'USD', meta: { holdingId } })
+
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }> {
+  try {
+    const db = serviceClient()
+    const { data } = await db.from('profiles').select('username, full_name, tier').limit(20)
+    const rows: LeaderboardRow[] = (data ?? []).map((p, i) => ({
+      rank: i + 1,
+      username: p.username ?? p.full_name ?? 'Anonymous',
+      tier: p.tier ?? 0,
+      points: 0,
+    }))
+    return { ok: true, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }> {
+  try {
+    const db = serviceClient()
+    const { data } = await db.from('profiles').select('username, full_name, founder_number').not('founder_number', 'is', null).order('founder_number', { ascending: true })
+    const rows: FounderRow[] = (data ?? []).map((p) => ({
+      founderNumber: p.founder_number,
+      name: p.username ?? p.full_name ?? 'Founder',
+    }))
+    return { ok: true, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: 'Unauthorized' }
+    const db = serviceClient()
+    const { data } = await db.from('profiles').select('username, full_name, kyc_status, created_at').eq('referred_by', user.id)
+    const rows: MyReferralRow[] = (data ?? []).map((p) => ({
+      name: p.username ?? p.full_name ?? 'Invited User',
+      status: p.kyc_status === 'verified' ? 'verified' : 'pending',
+      date: new Date(p.created_at).getTime(),
+    }))
+    return { ok: true, rows }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
   }
 }
 
