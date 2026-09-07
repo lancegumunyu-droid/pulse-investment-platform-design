@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, AlertCircle, Clock, X } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Copy, Send, ShieldCheck, AlertCircle, Clock, X, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { money, usePulse } from './store'
 import { RiskNote } from './ui-bits'
@@ -47,24 +47,32 @@ function ModalShell({
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div className="animate-rise relative z-10 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl glass no-scrollbar sm:rounded-3xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/8 bg-background/95 px-5 py-4 backdrop-blur-md">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-gold-soft text-gold">{icon}</span>
-            <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity" onClick={onClose} aria-hidden />
+      <motion.div 
+        initial={{ opacity: 0, y: 40, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.98 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-[28px] border border-amber-500/20 bg-zinc-950/95 shadow-[0_25px_60px_rgba(0,0,0,0.9)] no-scrollbar sm:rounded-3xl"
+      >
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-amber-500/15 bg-zinc-950/90 px-6 py-4 backdrop-blur-xl">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-400 border border-amber-400/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+              {icon}
+            </span>
+            <h3 className="text-base font-semibold tracking-tight text-white">{title}</h3>
           </div>
           <button
             onClick={onClose}
-            className="flex size-9 items-center justify-center rounded-full bg-white/[0.06] text-muted-foreground transition-colors hover:bg-white/[0.1] hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-full bg-white/[0.06] text-zinc-400 transition-all hover:bg-white/[0.12] hover:text-white"
             aria-label="Close"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </button>
         </div>
-        <div className="p-5 pt-4">{children}</div>
-      </div>
+        <div className="p-6">{children}</div>
+      </motion.div>
     </div>
   )
 }
@@ -121,24 +129,23 @@ function KycModal({ onClose }: { onClose: () => void }) {
   const canSubmit = form.name.trim().length >= 2 && idValid && ageValid && phoneValid && form.address.trim().length >= 5
 
   return (
-    <ModalShell title="Identity verification" icon={<ShieldCheck className="size-5" />} onClose={onClose}>
+    <ModalShell title="Identity Verification" icon={<ShieldCheck className="size-5" />} onClose={onClose}>
       {state.kyc === 'pending' || step === 2 ? (
-        <div className="flex flex-col items-center py-8 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-gold-soft text-gold">
-            <Clock className="size-7 animate-pulse" />
+        <div className="flex flex-col items-center py-10 text-center">
+          <span className="flex size-16 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-400 border border-amber-400/30 shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+            <Clock className="size-8 animate-pulse" />
           </span>
-          <p className="mt-4 font-semibold text-foreground">KYC Verification Pending</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-5 text-lg font-semibold text-white">KYC Verification Pending</p>
+          <p className="mt-2 text-sm text-zinc-400 max-w-xs leading-relaxed">
             An admin is currently reviewing your submission. You will be notified automatically once approved.
           </p>
         </div>
       ) : (
         <>
-          <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-            KYC is required to protect investors and comply with SADC financial regulations. You must be 18 or older
-            to invest with Pulse.
+          <p className="mb-5 text-sm leading-relaxed text-zinc-400">
+            KYC is required to protect investors and comply with SADC financial regulations. You must be 18 or older to invest with Pulse.
           </p>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <Field label="Full legal name">
               <input
                 className={inputCls}
@@ -153,16 +160,16 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 value={form.nationality}
                 onChange={(e) => setForm({ ...form, nationality: e.target.value })}
               >
-                <optgroup label="SADC region">
+                <optgroup label="SADC region" className="bg-zinc-950 text-white">
                   {AFRICA_SADC.map((c) => (
-                    <option key={c} value={c} className="bg-background">
+                    <option key={c} value={c} className="bg-zinc-950 text-white">
                       {c}
                     </option>
                   ))}
                 </optgroup>
-                <optgroup label="Rest of Africa">
+                <optgroup label="Rest of Africa" className="bg-zinc-950 text-white">
                   {AFRICA_REST.map((c) => (
-                    <option key={c} value={c} className="bg-background">
+                    <option key={c} value={c} className="bg-zinc-950 text-white">
                       {c}
                     </option>
                   ))}
@@ -175,16 +182,16 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 value={form.country}
                 onChange={(e) => setForm({ ...form, country: e.target.value })}
               >
-                <optgroup label="SADC region">
+                <optgroup label="SADC region" className="bg-zinc-950 text-white">
                   {AFRICA_SADC.map((c) => (
-                    <option key={c} value={c} className="bg-background">
+                    <option key={c} value={c} className="bg-zinc-950 text-white">
                       {c}
                     </option>
                   ))}
                 </optgroup>
-                <optgroup label="Rest of Africa">
+                <optgroup label="Rest of Africa" className="bg-zinc-950 text-white">
                   {AFRICA_REST.map((c) => (
-                    <option key={c} value={c} className="bg-background">
+                    <option key={c} value={c} className="bg-zinc-950 text-white">
                       {c}
                     </option>
                   ))}
@@ -199,7 +206,7 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 placeholder="ID number"
               />
               {form.idNumber && !idValid && (
-                <p className="mt-1 text-[11px] text-destructive">5–20 letters/numbers, no special characters.</p>
+                <p className="mt-1.5 text-[11px] text-red-400">5–20 letters/numbers, no special characters.</p>
               )}
             </Field>
             <Field label="Date of birth">
@@ -210,7 +217,7 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setForm({ ...form, dob: e.target.value })}
               />
               {form.dob && !ageValid && (
-                <p className="mt-1 text-[11px] text-destructive">You must be 18 or older to invest with Pulse.</p>
+                <p className="mt-1.5 text-[11px] text-red-400">You must be 18 or older to invest with Pulse.</p>
               )}
             </Field>
             <Field label="Phone number">
@@ -222,7 +229,7 @@ function KycModal({ onClose }: { onClose: () => void }) {
                 placeholder="+267 71 234 567"
               />
               {form.phone && !phoneValid && (
-                <p className="mt-1 text-[11px] text-destructive">Enter a valid phone number with country code.</p>
+                <p className="mt-1.5 text-[11px] text-red-400">Enter a valid phone number with country code.</p>
               )}
             </Field>
             <Field label="Residential address">
@@ -237,13 +244,13 @@ function KycModal({ onClose }: { onClose: () => void }) {
           <Button
             variant="default"
             size="lg"
-            className="mt-5 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
+            className="mt-6 h-12 w-full bg-amber-400 text-base font-semibold text-zinc-950 hover:bg-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all"
             disabled={!canSubmit || busy}
             onClick={submit}
           >
             Submit for verification
           </Button>
-          <p className="mt-3 text-center text-xs text-muted-foreground">A Pulse admin reviews every submission before approval.</p>
+          <p className="mt-3 text-center text-xs text-zinc-500">A Pulse admin reviews every submission before approval.</p>
         </>
       )}
     </ModalShell>
@@ -296,16 +303,16 @@ function InvestModal({ onClose }: { onClose: () => void }) {
 
   return (
     <ModalShell title={`Invest — ${project.name}`} icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
-      <div className="mb-4 rounded-2xl bg-white/[0.03] p-4">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{project.country} · {project.sector}</span>
-          <span className="font-medium text-green">{project.targetYield} target</span>
+      <div className="mb-5 rounded-2xl border border-amber-500/10 bg-white/[0.02] p-4">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-zinc-400 font-medium">{project.country} · {project.sector}</span>
+          <span className="font-semibold text-emerald-400">{project.targetYield} target</span>
         </div>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{project.summary}</p>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-300">{project.summary}</p>
       </div>
 
       {state.kyc === 'pending' && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-gold/30 bg-gold-soft p-3 text-xs text-gold">
+        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-300">
           <Clock className="size-4 shrink-0" />
           <span>Your KYC is under admin review. Larger transactions remain locked until approval.</span>
         </div>
@@ -320,31 +327,31 @@ function InvestModal({ onClose }: { onClose: () => void }) {
           onChange={(e) => setAmount(e.target.value)}
         />
       </Field>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2.5 grid grid-cols-4 gap-2">
         {[75, 150, 300, 750].map((v) => (
           <button
             key={v}
             onClick={() => setAmount(String(v))}
-            className="flex-1 rounded-xl border border-white/8 bg-white/[0.03] py-2 text-xs font-medium hover:border-gold/40"
+            className="rounded-xl border border-white/10 bg-white/[0.03] py-2 text-xs font-semibold text-zinc-300 transition-all hover:border-amber-400/50 hover:bg-amber-400/10 hover:text-amber-400"
           >
             ${v}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
+      <div className="mt-5 space-y-2.5 rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-xs">
         <Row label="Available balance" value={`$${money(state.cash)}`} />
         <Row label="Resulting tier" value={tier.name} tone="gold" />
         <Row label="Target yield range" value={tier.yieldLabel} tone="green" />
       </div>
 
       {needsKyc ? (
-        <p className="mt-3 text-xs text-gold">Investments over ${KYC_REQUIRED_ABOVE} require verified identity status.</p>
+        <p className="mt-3 text-xs text-amber-400">Investments over ${KYC_REQUIRED_ABOVE} require verified identity status.</p>
       ) : null}
 
       <Button
         size="lg"
-        className={cn('mt-4 h-12 w-full text-base font-semibold bg-gold text-primary-foreground hover:bg-gold/90')}
+        className={cn('mt-5 h-12 w-full text-base font-semibold bg-amber-400 text-zinc-950 hover:bg-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.3)]')}
         disabled={value <= 0 || busy}
         onClick={confirm}
       >
@@ -397,20 +404,20 @@ function SavedWalletsPanel({ context }: { context?: boolean }) {
   }
 
   return (
-    <div className="mb-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">
+    <div className="mb-5">
+      <div className="mb-2.5 flex items-center justify-between">
+        <p className="text-xs font-semibold text-zinc-400">
           {context ? 'Your saved wallets' : 'Choose a receiving wallet'}
         </p>
         {!adding && (
-          <button onClick={() => setAdding(true)} className="text-xs font-medium text-gold">
+          <button onClick={() => setAdding(true)} className="text-xs font-semibold text-amber-400 hover:underline">
             + Add wallet
           </button>
         )}
       </div>
 
       {state.savedWallets.length === 0 && !adding && (
-        <p className="rounded-xl bg-white/[0.03] px-3.5 py-3 text-xs text-muted-foreground">
+        <p className="rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-3 text-xs text-zinc-400 leading-relaxed">
           No wallets saved yet. {context ? 'Add one so it\'s ready when you withdraw.' : 'Add the address you want withdrawals sent to.'}
         </p>
       )}
@@ -422,18 +429,18 @@ function SavedWalletsPanel({ context }: { context?: boolean }) {
             <div
               key={w.id}
               className={cn(
-                'flex items-center gap-2 rounded-xl border px-3.5 py-2.5',
-                active ? 'border-gold/50 bg-gold-soft' : 'border-white/8 bg-white/[0.03]',
+                'flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-all',
+                active ? 'border-amber-400/50 bg-amber-400/10 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'border-white/10 bg-white/[0.02]',
               )}
             >
               <button onClick={() => useWallet(w.address)} disabled={busyId === w.address} className="min-w-0 flex-1 text-left">
-                <p className={cn('truncate text-xs font-semibold', active && 'text-gold')}>{w.label}</p>
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                <p className={cn('truncate text-xs font-semibold', active ? 'text-amber-400' : 'text-zinc-200')}>{w.label}</p>
+                <p className="truncate font-mono text-[11px] text-zinc-400">
                   {w.address.slice(0, 8)}…{w.address.slice(-6)}
                 </p>
               </button>
-              {active && <span className="shrink-0 text-[10px] font-semibold text-gold">ACTIVE</span>}
-              <button onClick={() => remove(w.id)} disabled={busyId === w.id} className="shrink-0 text-muted-foreground hover:text-destructive" aria-label="Remove wallet">
+              {active && <span className="shrink-0 rounded-md bg-amber-400/20 px-2 py-0.5 text-[9px] font-bold text-amber-400 border border-amber-400/30">ACTIVE</span>}
+              <button onClick={() => remove(w.id)} disabled={busyId === w.id} className="shrink-0 text-zinc-400 hover:text-red-400 transition-colors" aria-label="Remove wallet">
                 <X className="size-3.5" />
               </button>
             </div>
@@ -442,7 +449,7 @@ function SavedWalletsPanel({ context }: { context?: boolean }) {
       </div>
 
       {adding && (
-        <div className="mt-2 space-y-2 rounded-xl border border-white/8 bg-white/[0.03] p-3">
+        <div className="mt-3 space-y-2.5 rounded-xl border border-amber-400/20 bg-white/[0.02] p-3.5">
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
@@ -455,11 +462,11 @@ function SavedWalletsPanel({ context }: { context?: boolean }) {
             placeholder="Address (USDT TRC-20 or BTC)"
             className={inputCls}
           />
-          <div className="flex gap-2">
-            <Button size="sm" className="flex-1 bg-gold font-semibold text-primary-foreground hover:bg-gold/90" disabled={busyId === 'new'} onClick={saveNew}>
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" className="flex-1 bg-amber-400 font-semibold text-zinc-950 hover:bg-amber-300" disabled={busyId === 'new'} onClick={saveNew}>
               {busyId === 'new' ? 'Saving…' : 'Save & use'}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
+            <Button size="sm" variant="ghost" className="text-zinc-400 hover:text-white" onClick={() => setAdding(false)}>
               Cancel
             </Button>
           </div>
@@ -510,18 +517,18 @@ function DepositModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalShell title="Deposit funds" icon={<ArrowDownRight className="size-5" />} onClose={onClose}>
-      <div className="mb-4 grid grid-cols-2 gap-2">
+    <ModalShell title="Deposit Funds" icon={<ArrowDownRight className="size-5" />} onClose={onClose}>
+      <div className="mb-4 grid grid-cols-2 gap-2.5">
         {(['usdttrc20', 'btc'] as const).map((c) => (
           <button
             key={c}
             onClick={() => setCurrency(c)}
             className={cn(
-              'rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors',
-              currency === c ? 'border-gold/50 bg-gold-soft text-gold' : 'border-white/8 bg-white/[0.03] text-muted-foreground',
+              'rounded-2xl border px-4 py-3 text-xs font-semibold transition-all',
+              currency === c ? 'border-amber-400/50 bg-amber-400/10 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white',
             )}
           >
-            {c === 'btc' ? 'BTC' : 'USDT'}
+            {c === 'btc' ? 'BTC' : 'USDT (TRC-20)'}
           </button>
         ))}
       </div>
@@ -531,10 +538,10 @@ function DepositModal({ onClose }: { onClose: () => void }) {
       </Field>
 
       <div className="mt-4">
-        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Send to this address</span>
-        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
-          <span className="flex-1 truncate font-mono text-xs">{address}</span>
-          <button onClick={copyAddress} className="flex items-center gap-1 text-gold" aria-label="Copy deposit address">
+        <span className="mb-1.5 block text-xs font-semibold text-zinc-400">Send to this address</span>
+        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5">
+          <span className="flex-1 truncate font-mono text-xs text-zinc-300">{address}</span>
+          <button onClick={copyAddress} className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:underline" aria-label="Copy deposit address">
             <Copy className="size-3.5" /> Copy
           </button>
         </div>
@@ -544,25 +551,25 @@ function DepositModal({ onClose }: { onClose: () => void }) {
         <input
           type="text"
           className={inputCls}
-          placeholder="Paste the transaction hash from your wallet"
+          placeholder="Paste transaction hash from your wallet"
           value={txRef}
           onChange={(e) => setTxRef(e.target.value)}
         />
       </Field>
 
-      <div className="mt-4 space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm">
+      <div className="mt-4 space-y-2 rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-xs">
         <Row label="Pay with" value={label} />
         <Row label="Credited on approval" value={`$${money(usd)}`} tone="green" />
       </div>
 
-      <div className="mt-3 flex items-start gap-2 rounded-xl bg-white/[0.03] p-3 text-xs text-muted-foreground">
-        <AlertCircle className="mt-0.5 size-4 shrink-0 text-gold" />
-        <span>Your deposit stays pending until an admin confirms your transaction and updates your dates/balance.</span>
+      <div className="mt-3.5 flex items-start gap-2.5 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-zinc-300 leading-relaxed">
+        <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+        <span>Your deposit stays pending until an admin confirms your transaction and updates your balance.</span>
       </div>
 
       <Button
         size="lg"
-        className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
+        className="mt-5 h-12 w-full bg-amber-400 text-base font-semibold text-zinc-950 hover:bg-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
         disabled={usd <= 0 || !txRef.trim() || submitting || busy}
         onClick={submit}
       >
@@ -614,8 +621,8 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalShell title="Withdraw to wallet" icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
-      <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
+    <ModalShell title="Withdraw to Wallet" icon={<ArrowUpRight className="size-5" />} onClose={onClose}>
+      <div className="mb-5 rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-xs space-y-2.5">
         <Row label="Withdrawable balance" value={`$${money(state.cash)}`} />
         <Row
           label="KYC status"
@@ -634,7 +641,7 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
         <input
           type="text"
           className={inputCls}
-          placeholder="Paste the receiving wallet address"
+          placeholder="Paste receiving wallet address"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
         />
@@ -642,22 +649,22 @@ function WithdrawModal({ onClose }: { onClose: () => void }) {
 
       <Field label="Network" className="mt-4">
         <select className={inputCls} value={network} onChange={(e) => setNetwork(e.target.value)}>
-          <option>USDT (TRC-20)</option>
-          <option>USDT (ERC-20)</option>
-          <option>USDT (BEP-20)</option>
-          <option>BTC</option>
+          <option className="bg-zinc-950 text-white">USDT (TRC-20)</option>
+          <option className="bg-zinc-950 text-white">USDT (ERC-20)</option>
+          <option className="bg-zinc-950 text-white">USDT (BEP-20)</option>
+          <option className="bg-zinc-950 text-white">BTC</option>
         </select>
       </Field>
 
       <Button
         size="lg"
-        className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
+        className="mt-6 h-12 w-full bg-amber-400 text-base font-semibold text-zinc-950 hover:bg-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
         disabled={usd <= 0 || busy || !address.trim()}
         onClick={submit}
       >
         Request withdrawal
       </Button>
-      <p className="mt-3 text-xs text-muted-foreground">Withdrawals are reviewed, updated, and disbursed by the platform admin.</p>
+      <p className="mt-3 text-center text-xs text-zinc-500">Withdrawals are reviewed, updated, and disbursed by the platform admin.</p>
     </ModalShell>
   )
 }
@@ -702,8 +709,8 @@ function TransferModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalShell title="Send to another user" icon={<Send className="size-5" />} onClose={onClose}>
-      <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 text-sm">
+    <ModalShell title="Send to Another User" icon={<Send className="size-5" />} onClose={onClose}>
+      <div className="mb-5 rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-xs space-y-2.5">
         <Row label="Available balance" value={`$${money(state.cash)}`} />
         <Row
           label="KYC status"
@@ -719,17 +726,17 @@ function TransferModal({ onClose }: { onClose: () => void }) {
           placeholder="@username or PLS-XXXXXX"
         />
       </Field>
-      <div className="mt-3">
+      <div className="mt-4">
         <Field label="Amount (USD)">
           <input type="number" inputMode="decimal" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
         </Field>
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-4 text-xs leading-relaxed text-zinc-400">
         For safety, transfers are held and reviewed by an admin before the recipient is credited.
       </p>
       <Button
         size="lg"
-        className="mt-4 h-12 w-full bg-gold text-base font-semibold text-primary-foreground hover:bg-gold/90"
+        className="mt-6 h-12 w-full bg-amber-400 text-base font-semibold text-zinc-950 hover:bg-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
         disabled={usd <= 0 || busy || !recipient.trim()}
         onClick={submit}
       >
@@ -740,12 +747,12 @@ function TransferModal({ onClose }: { onClose: () => void }) {
 }
 
 const inputCls =
-  'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm outline-none transition-colors focus:border-gold/50 focus:ring-2 focus:ring-gold/20'
+  'w-full rounded-xl border border-white/10 bg-zinc-900/80 px-3.5 py-3 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-amber-400/60 focus:bg-zinc-900 focus:ring-2 focus:ring-amber-400/20'
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
     <label className={cn('block', className)}>
-      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="mb-1.5 block text-xs font-semibold text-zinc-400">{label}</span>
       {children}
     </label>
   )
@@ -754,13 +761,14 @@ function Field({ label, children, className }: { label: string; children: ReactN
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'green' | 'danger' }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-zinc-400 font-medium">{label}</span>
       <span
         className={cn(
-          'font-medium',
-          tone === 'gold' && 'text-gold',
-          tone === 'green' && 'text-green',
-          tone === 'danger' && 'text-destructive',
+          'font-semibold',
+          tone === 'gold' && 'text-amber-400',
+          tone === 'green' && 'text-emerald-400',
+          tone === 'danger' && 'text-red-400',
+          !tone && 'text-zinc-200'
         )}
       >
         {value}
