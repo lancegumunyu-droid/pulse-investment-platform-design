@@ -1,652 +1,312 @@
-'use server'
+import 'server-only'
+import { serviceClient } from './service'
+import { tierForAmount, type TierId, PROJECTS, type Project, TOKEN } from '@/lib/pulse-data'
+import type { Snapshot, SnapshotTxn } from './types'
 
-import { createClient } from '@/lib/supabase/server'
-import { serviceClient } from '@/lib/pulse/service'
-import { adjustAccount, ensureAccount, getSnapshot, recordTxn } from '@/lib/pulse/data-access'
-import { tierForAmount, TIERS, TOKEN } from '@/lib/pulse-data'
-import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
-
-async function requireUser() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  return user
-}
-
-type Result = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
-
-export async function validateReferralCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const clean = code.trim().replace(/^@/, '')
-  if (!clean) return { ok: false, error: 'Enter the referral code your friend shared with you' }
+// Live project funding: PROJECTS in pulse-data.ts holds the seed/base amount
+// each project had before individual holdings were tracked. Actual investor
+// money since then is summed from `holdings` and added on top.
+export async function getLiveProjects(): Promise<Project[]> {
   const db = serviceClient()
-  const { data: referrer } = await db
-    .from('profiles')
-    .select('id, kyc_status')
-    .eq('referral_code', clean)
-    .maybeSingle()
-  if (!referrer) return { ok: false, error: "We couldn't find a Pulse account with that code" }
-  if (referrer.kyc_status !== 'verified') {
-    return { ok: false, error: 'That account is not yet verified — only a verified user\'s code can be used' }
+  const { data: rows } = await db.from('holdings').select('project_id, amount')
+  const liveByProject = new Map<string, number>()
+  for (const r of rows ?? []) {
+    liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
   }
-  return { ok: true }
+  return PROJECTS.map((p) => ({
+    ...p,
+    funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
+  }))
 }
 
-async function withSnapshot(userId: string): Promise<Result> {
-  return { ok: true, snapshot: await getSnapshot(userId) }
+const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
+  deposit: 'deposit',
+  withdrawal: 'withdraw',
+  investment: 'invest',
+  stake: 'stake',
+  unstake: 'unstake',
+  token_purchase: 'sale',
+  yield: 'deposit',
+  p2p_send: 'p2p_send',
+  p2p_receive: 'p2p_receive',
 }
 
-export async function fetchSnapshot(): Promise<Snapshot | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-  return getSnapshot(user.id)
+const TXN_LABEL: Record<string, string> = {
+  deposit: 'Deposit',
+  withdrawal: 'Withdrawal to wallet',
+  investment: 'Project share purchase',
+  stake: 'Staked PULSE',
+  unstake: 'Unstaked PULSE',
+  token_purchase: 'Private sale purchase',
+  yield: 'Yield disbursement',
+  p2p_send: 'Sent to another user',
+  p2p_receive: 'Received from another user',
 }
 
-// Recompute and persist the tier based on total invested.
-async function syncTier(userId: string) {
+export interface AccountRow {
+  user_id: string
+  cash_balance: number
+  invested_balance: number
+  staked_balance: number
+  token_balance: number
+  pending_yield: number
+  updated_at?: string
+}
+
+export async function ensureAccount(userId: string): Promise<AccountRow> {
+  const db = serviceClient()
+  const { data } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
+  if (data) return data as AccountRow
+  const { data: created, error } = await db
+    .from('accounts')
+    .insert({ user_id: userId })
+    .select('*')
+    .single()
+  if (error) throw error
+  return created as AccountRow
+}
+
+export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
+  const db = serviceClient()
+  const { data: txns, error } = await db
+    .from('transactions')
+    .select('type, amount, currency, status, meta')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+
+  if (error) {
+    console.error('[calculateCashBalanceFromLedger] Query error:', error)
+    return 0
+  }
+
+  let balance = 0
+  for (const txn of txns ?? []) {
+    const amount = Number(txn.amount)
+    if (txn.currency === 'USD') {
+      switch (txn.type) {
+        case 'deposit':
+        case 'yield':
+        case 'p2p_receive':
+        case 'token_purchase':
+          balance += amount
+          break
+        case 'withdrawal':
+        case 'investment':
+        case 'p2p_send':
+          balance -= amount
+          break
+      }
+    } else if (txn.currency === 'PULSE') {
+      if (txn.type === 'token_purchase') {
+        const meta = txn.meta as Record<string, unknown> | null
+        if (meta?.usdCost) {
+          balance -= Number(meta.usdCost)
+        }
+      }
+    }
+  }
+
+  return Math.max(0, balance)
+}
+
+export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
+  const db = serviceClient()
+  const { data: txns, error } = await db
+    .from('transactions')
+    .select('type, amount, currency, status, meta')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+
+  if (error) {
+    console.error('[calculateTokenBalanceFromLedger] Query error:', error)
+    return 0
+  }
+
+  let balance = 0
+  for (const txn of txns ?? []) {
+    const amount = Number(txn.amount)
+    if (txn.currency === 'PULSE') {
+      switch (txn.type) {
+        case 'token_purchase':
+        case 'unstake':
+          balance += amount
+          break
+        case 'stake':
+          balance -= amount
+          break
+      }
+    } else if (txn.currency === 'USD') {
+      if (txn.type === 'token_purchase') {
+        const meta = txn.meta as Record<string, unknown> | null
+        if (meta?.pulseAmount) {
+          balance -= Number(meta.pulseAmount)
+        }
+      }
+    }
+  }
+
+  return Math.max(0, balance)
+}
+
+export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
+  const db = serviceClient()
+  const { data: txns, error } = await db
+    .from('transactions')
+    .select('type, amount, currency, status')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .eq('currency', 'PULSE')
+
+  if (error) {
+    console.error('[calculateStakedBalanceFromLedger] Query error:', error)
+    return 0
+  }
+
+  let balance = 0
+  for (const txn of txns ?? []) {
+    const amount = Number(txn.amount)
+    if (txn.type === 'stake') balance += amount
+    else if (txn.type === 'unstake') balance -= amount
+  }
+
+  return Math.max(0, balance)
+}
+
+export async function adjustAccount(
+  userId: string,
+  deltas: Partial<Pick<AccountRow, 'cash_balance' | 'invested_balance' | 'staked_balance' | 'token_balance' | 'pending_yield'>>,
+): Promise<AccountRow> {
   const db = serviceClient()
   const acct = await ensureAccount(userId)
-  const tier = tierForAmount(Number(acct.invested_balance))
-  const idx = TIERS.findIndex((t) => t.id === tier.id)
-  await db.from('profiles').update({ tier: idx }).eq('id', userId)
+  const next: Record<string, number> = {}
+  for (const [k, v] of Object.entries(deltas)) {
+    next[k] = Number(acct[k as keyof AccountRow] as number) + Number(v)
+    if (next[k] < -0.0001) throw new Error('Insufficient balance')
+  }
+  const { data, error } = await db
+    .from('accounts')
+    .update({ ...next, updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .select('*')
+    .single()
+  if (error) throw error
+  return data as AccountRow
 }
 
-export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc', txReference: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    if (!txReference.trim()) return { ok: false, error: 'Enter the transaction reference / TXID you sent with' }
-    const snap = await getSnapshot(user.id)
-    if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to deposit' }
-    await recordTxn(user.id, {
-      type: 'deposit',
-      amount,
-      currency: 'USD',
-      status: 'pending',
-      reference: txReference.trim(),
-      meta: {
-        label: `Manual deposit — ${currency === 'btc' ? 'BTC' : 'USDT (TRC-20)'}, awaiting admin verification`,
-        payCurrency: currency,
-        userTxRef: txReference.trim(),
-      },
+export async function recordTxn(userId: string, row: {
+  type: string
+  amount: number
+  currency?: string
+  status?: string
+  reference?: string | null
+  meta?: Record<string, unknown>
+  processedBy?: string | null
+}) {
+  const db = serviceClient()
+  const { data, error } = await db
+    .from('transactions')
+    .insert({
+      user_id: userId,
+      type: row.type,
+      amount: row.amount,
+      currency: row.currency ?? 'USD',
+      status: row.status ?? 'completed',
+      reference: row.reference ?? null,
+      meta: row.meta ?? {},
+      processed_by: row.processedBy ?? null,
     })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
+    .select('*')
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function getSnapshot(userId: string): Promise<Snapshot> {
+  const db = serviceClient()
+  const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }, { data: referrals }, { data: badgeRows }, { data: cardApp }, { data: wallets }] = await Promise.all([
+    db.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    ensureAccount(userId),
+    db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+    db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
+    db.from('points_ledger').select('amount').eq('user_id', userId),
+    db.from('profiles').select('kyc_status').eq('referred_by', userId),
+    db.from('badges').select('badge_key, earned_at').eq('user_id', userId),
+    db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle(),
+    db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
+  ])
+
+  let cashBalance = Number(acct.cash_balance)
+  if (cashBalance <= 0 || acct.cash_balance === null || isNaN(cashBalance)) {
+    cashBalance = await calculateCashBalanceFromLedger(userId)
+  }
+
+  let tokenBalance = Number(acct.token_balance)
+  if (tokenBalance <= 0 || acct.token_balance === null || isNaN(tokenBalance)) {
+    tokenBalance = await calculateTokenBalanceFromLedger(userId)
+  }
+
+  let stakedBalance = Number(acct.staked_balance)
+  if (stakedBalance <= 0 || acct.staked_balance === null || isNaN(stakedBalance)) {
+    stakedBalance = await calculateStakedBalanceFromLedger(userId)
+  }
+
+  const mappedHoldings = (holdings ?? []).map((h) => ({
+    id: h.id,
+    projectId: h.project_id,
+    tierId: (tierForAmount(Number(h.amount)).id) as TierId,
+    amount: Number(h.amount),
+    date: new Date(h.created_at).getTime(),
+  }))
+
+  const totalInvested = mappedHoldings.reduce((s, h) => s + h.amount, 0)
+  const portfolioValue = cashBalance + totalInvested + (tokenBalance + stakedBalance) * TOKEN.salePrice
+
+  const kycMap: Record<string, Snapshot['kyc']> = {
+    none: 'none',
+    pending: 'pending',
+    verified: 'verified',
+    rejected: 'rejected',
+  }
+
+  return {
+    cash: cashBalance,
+    pulse: tokenBalance,
+    staked: stakedBalance,
+    pendingYield: Number(acct.pending_yield),
+    holdings: mappedHoldings,
+    txns: (txns ?? []).map((t) => ({
+      id: t.id,
+      type: TXN_TYPE_MAP[t.type] ?? 'deposit',
+      label: (t.meta?.label as string) ?? TXN_LABEL[t.type] ?? t.type,
+      amount: Number(t.amount),
+      currency: t.currency === 'PULSE' ? 'PULSE' : 'USDT',
+      status: t.status as SnapshotTxn['status'],
+      isProcessing: !!t.processing_started_at,
+      date: new Date(t.created_at).getTime(),
+    })),
+    kyc: kycMap[profile?.kyc_status ?? 'none'] ?? 'none',
+    wallet: profile?.wallet_address ?? null,
+    referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? profile?.referral_code ?? 'PLS-XXXX',
+    fullName: profile?.full_name ?? null,
+    email: profile?.email ?? null,
+    tier: profile?.tier ?? 0,
+    isAdmin: profile?.role === 'admin',
+    points: (pointsRows ?? []).reduce((s, r) => s + Number(r.amount), 0),
+    founderNumber: profile?.founder_number ?? null,
+    walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
+    username: profile?.username ?? null,
+    referralCount: (referrals ?? []).length,
+    referralVerifiedCount: (referrals ?? []).filter((r) => r.kyc_status === 'verified').length,
+    badges: (badgeRows ?? []).map((b) => ({ key: b.badge_key, earnedAt: new Date(b.earned_at).getTime() })),
+    adminScope: (profile?.admin_scope as Snapshot['adminScope']) ?? null,
+    cardStatus: (cardApp?.status as Snapshot['cardStatus']) ?? 'none',
+    cardRef: cardApp?.card_ref ?? null,
+    savedWallets: (wallets ?? []).map((w) => ({ id: w.id, label: w.label, address: w.address })),
   }
 }
 
-export async function requestWithdrawal(
-  amount: number,
-  destinationAddress: string,
-  network: string,
-  broker: string,
-): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    if (!destinationAddress?.trim()) return { ok: false, error: 'Enter the wallet address to withdraw to' }
-    const safeNetwork = network ?? ''
-    const safeBroker = broker ?? ''
-    const snap = await getSnapshot(user.id)
-    if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to withdraw' }
-    if (amount > snap.cash) return { ok: false, error: 'Amount exceeds available balance' }
-    const maxWithdrawable = snap.cash * 0.8
-    if (amount > maxWithdrawable) {
-      return { ok: false, error: `You can withdraw up to 80% of your balance at a time (max $${maxWithdrawable.toFixed(2)})` }
-    }
-    await adjustAccount(user.id, { cash_balance: -amount })
-    await recordTxn(user.id, {
-      type: 'withdrawal',
-      amount,
-      currency: 'USD',
-      status: 'pending',
-      meta: {
-        label: 'Withdrawal to wallet — awaiting admin approval',
-        wallet: destinationAddress.trim(),
-        network: safeNetwork.trim() || 'Not specified',
-        broker: safeBroker.trim() || 'Not specified',
-      },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function invest(amount: number, projectId: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (amount > snap.cash) return { ok: false, error: 'Insufficient balance — deposit first' }
-    if (amount > 500 && snap.kyc !== 'verified') {
-      return { ok: false, error: 'Verify your identity for investments over $500' }
-    }
-    const newTotalInvested = snap.holdings.reduce((s, h) => s + h.amount, 0) + amount
-    const tier = tierForAmount(newTotalInvested)
-    const db = serviceClient()
-    await adjustAccount(user.id, { cash_balance: -amount, invested_balance: amount })
-    await db.from('holdings').insert({
-      user_id: user.id,
-      project_id: projectId,
-      amount,
-      tier: TIERS.findIndex((t) => t.id === tier.id),
-      target_yield_low: tier.yieldLow,
-      target_yield_high: tier.yieldHigh,
-    })
-    await recordTxn(user.id, {
-      type: 'investment',
-      amount,
-      currency: 'USD',
-      status: 'completed',
-      meta: { label: 'Project share purchase', projectId },
-    })
-    await syncTier(user.id)
-    await db.from('notifications').insert({
-      user_id: user.id,
-      title: 'Investment confirmed',
-      body: `Your $${amount.toFixed(2)} investment has been added to your portfolio.`,
-      kind: 'success',
-    })
-
-    if (snap.holdings.length === 0) {
-      const { error: pointsErr } = await db.rpc('award_points', { p_user_id: user.id, p_amount: 50, p_reason: 'First investment' })
-      if (pointsErr) console.error('award_points (self) failed:', pointsErr.message)
-
-      const { data: profile } = await db.from('profiles').select('referred_by').eq('id', user.id).maybeSingle()
-      if (profile?.referred_by) {
-        const { error: refErr } = await db.rpc('award_points', { p_user_id: profile.referred_by, p_amount: 200, p_reason: 'Your referral made their first investment' })
-        if (refErr) console.error('award_points (referrer) failed:', refErr.message)
-      }
-    }
-
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function buyToken(cost: number, pulse: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(cost > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (cost > snap.cash) return { ok: false, error: 'Insufficient balance — deposit first' }
-    await adjustAccount(user.id, { cash_balance: -cost, token_balance: pulse })
-    await recordTxn(user.id, {
-      type: 'token_purchase',
-      amount: pulse,
-      currency: 'PULSE',
-      status: 'completed',
-      meta: { label: `Private sale — ${Math.round(pulse).toLocaleString()} PULSE`, usdCost: cost },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function sellToken(pulseAmount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(pulseAmount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (pulseAmount > snap.pulse) return { ok: false, error: 'Not enough liquid PULSE — staked PULSE must be unstaked first' }
-    const usd = pulseAmount * TOKEN.salePrice
-    await adjustAccount(user.id, { token_balance: -pulseAmount, cash_balance: usd })
-    await recordTxn(user.id, {
-      type: 'token_purchase',
-      amount: usd,
-      currency: 'USD',
-      status: 'completed',
-      meta: { label: `Converted ${Math.round(pulseAmount).toLocaleString()} PULSE to cash`, pulseAmount },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function stake(amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (amount > snap.pulse) return { ok: false, error: 'Not enough liquid PULSE' }
-    const db = serviceClient()
-    await adjustAccount(user.id, { token_balance: -amount, staked_balance: amount })
-    await db.from('staking_positions').insert({ user_id: user.id, amount, apy: 24.8, active: true })
-    await recordTxn(user.id, {
-      type: 'stake',
-      amount,
-      currency: 'PULSE',
-      status: 'completed',
-      meta: { label: 'Staked PULSE' },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function unstake(amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!(amount > 0)) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (amount > snap.staked) return { ok: false, error: 'Not enough staked PULSE' }
-    await adjustAccount(user.id, { token_balance: amount, staked_balance: -amount })
-    await recordTxn(user.id, {
-      type: 'unstake',
-      amount,
-      currency: 'PULSE',
-      status: 'completed',
-      meta: { label: 'Unstaked PULSE' },
-    })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function setWallet(address: string | null): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    await db.from('profiles').update({ wallet_address: address }).eq('id', user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function submitKyc(input: {
-  fullName: string
-  idNumber: string
-  dateOfBirth?: string
-  nationality?: string
-  country?: string
-  phone?: string
-  address?: string
-}): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!input.fullName?.trim() || !input.idNumber?.trim()) {
-      return { ok: false, error: 'Full name and ID number are required' }
-    }
-    if (!input.phone?.trim() || !input.address?.trim()) {
-      return { ok: false, error: 'Phone number and address are required' }
-    }
-    if (!input.dateOfBirth) {
-      return { ok: false, error: 'Date of birth is required' }
-    }
-    const dob = new Date(input.dateOfBirth)
-    const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    if (age < 18) {
-      return { ok: false, error: 'You must be at least 18 years old to invest with Pulse' }
-    }
-    const db = serviceClient()
-    const idClean = input.idNumber.trim().toLowerCase()
-    const { data: existing } = await db
-      .from('kyc_submissions')
-      .select('id, user_id')
-      .ilike('id_number', idClean)
-      .neq('user_id', user.id)
-      .limit(1)
-    if (existing && existing.length > 0) {
-      return { ok: false, error: 'This ID number is already registered to another account' }
-    }
-    await db.from('kyc_submissions').insert({
-      user_id: user.id,
-      full_name: input.fullName.trim(),
-      id_number: input.idNumber.trim(),
-      date_of_birth: input.dateOfBirth || null,
-      nationality: input.nationality || null,
-      country: input.country || null,
-      phone: input.phone.trim(),
-      address: input.address.trim(),
-      status: 'pending',
-    })
-    await db.from('profiles').update({ kyc_status: 'pending' }).eq('id', user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function castVote(proposalId: string, choice: 'for' | 'against' | 'abstain'): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const snap = await getSnapshot(user.id)
-    if (snap.staked <= 0) return { ok: false, error: 'Stake PULSE to participate in governance' }
-    const db = serviceClient()
-    await db
-      .from('governance_votes')
-      .upsert({ user_id: user.id, proposal_id: proposalId, choice, weight: snap.staked }, { onConflict: 'user_id,proposal_id' })
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function setUsername(username: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const clean = username.trim()
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
-      return { ok: false, error: 'Username must be 3–20 characters: letters, numbers, underscore only' }
-    }
-    const db = serviceClient()
-    const { error } = await db.from('profiles').update({ username: clean }).eq('id', user.id)
-    if (error) {
-      if (error.code === '23505') return { ok: false, error: 'That username is already taken' }
-      return { ok: false, error: error.message }
-    }
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function addSavedWallet(label: string, address: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const cleanLabel = label.trim().slice(0, 40) || 'Wallet'
-    const cleanAddress = address.trim()
-    if (cleanAddress.length < 20) return { ok: false, error: 'That doesn\'t look like a valid address' }
-    const db = serviceClient()
-    const { error } = await db.from('saved_wallets').insert({ user_id: user.id, label: cleanLabel, address: cleanAddress })
-    if (error) return { ok: false, error: error.message }
-    return { ok: true, snapshot: await getSnapshot(user.id) }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function removeSavedWallet(id: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    const { error } = await db.from('saved_wallets').delete().eq('id', id).eq('user_id', user.id)
-    if (error) return { ok: false, error: error.message }
-    return { ok: true, snapshot: await getSnapshot(user.id) }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function requestTransfer(recipientIdentifier: string, amount: number): Promise<Result> {
-  try {
-    const user = await requireUser()
-    if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Enter a valid amount' }
-    const snap = await getSnapshot(user.id)
-    if (snap.kyc !== 'verified') return { ok: false, error: 'Identity verification is required to send funds' }
-    if (amount > snap.cash) return { ok: false, error: 'Amount exceeds your available balance' }
-
-    const db = serviceClient()
-    const clean = recipientIdentifier.trim().replace(/^@/, '')
-    if (!clean) return { ok: false, error: 'Enter a username or Pulse ID' }
-
-    let recipientId: string | null = null
-    let recipientLabel = clean
-    const { data: byUsername } = await db.from('profiles').select('id, username').ilike('username', clean).maybeSingle()
-    if (byUsername) {
-      recipientId = byUsername.id
-      recipientLabel = byUsername.username ? `@${byUsername.username}` : clean
-    } else {
-      const { data: byWallet } = await db.from('accounts').select('user_id, wallet_id').eq('wallet_id', clean).maybeSingle()
-      if (byWallet) {
-        recipientId = byWallet.user_id
-        recipientLabel = byWallet.wallet_id ?? clean
-      }
-    }
-    if (!recipientId) return { ok: false, error: 'No Pulse user found with that username or Pulse ID' }
-    if (recipientId === user.id) return { ok: false, error: "You can't send funds to yourself" }
-
-    await adjustAccount(user.id, { cash_balance: -amount })
-    await recordTxn(user.id, {
-      type: 'p2p_send',
-      amount,
-      status: 'pending',
-      meta: { label: `Sent to ${recipientLabel}`, recipientId, recipientLabel },
-    })
-    return { ok: true, snapshot: await getSnapshot(user.id) }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getMyNotifications(): Promise<
-  { ok: true; rows: { id: string; title: string; body: string; kind: string; read: boolean; createdAt: number }[] } | { ok: false; error: string }
-> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    const { data, error } = await db
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50)
-    if (error) return { ok: false, error: error.message }
-    return {
-      ok: true,
-      rows: (data ?? []).map((n) => ({
-        id: n.id,
-        title: n.title,
-        body: n.body,
-        kind: n.kind,
-        read: n.read,
-        createdAt: new Date(n.created_at).getTime(),
-      })),
-    }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function markNotificationRead(id: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    await db.from('notifications').update({ read: true }).eq('id', id).eq('user_id', user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function applyForCard(): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    const snap = await getSnapshot(user.id)
-    if (snap.kyc !== 'verified') {
-      return { ok: false, error: 'Complete identity verification (KYC) before applying for a Pulse Card' }
-    }
-    const { data: existing } = await db.from('card_applications').select('id').eq('user_id', user.id).maybeSingle()
-    if (!existing) {
-      const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
-      if (error) return { ok: false, error: error.message }
-    }
-    return { ok: true, snapshot: await getSnapshot(user.id) }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    const { data: referredProfiles, error } = await db
-      .from('profiles')
-      .select('id, username, full_name, kyc_status, created_at')
-      .eq('referred_by', user.id)
-      .order('created_at', { ascending: false })
-    if (error) return { ok: false, error: error.message }
-
-    const ids = (referredProfiles ?? []).map((p) => p.id)
-    const walletByUserId = new Map<string, string | null>()
-    if (ids.length > 0) {
-      const { data: accts } = await db.from('accounts').select('user_id, wallet_id').in('user_id', ids)
-      for (const a of accts ?? []) walletByUserId.set(a.user_id, a.wallet_id ?? null)
-    }
-
-    const rows: MyReferralRow[] = (referredProfiles ?? []).map((r) => {
-      const walletId = walletByUserId.get(r.id) ?? null
-      return {
-        walletId,
-        displayName: r.username ? `@${r.username}` : (walletId ?? 'Investor'),
-        kycStatus: r.kyc_status ?? 'none',
-        createdAt: new Date(r.created_at).getTime(),
-      }
-    })
-    return { ok: true, rows }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }> {
-  try {
-    await requireUser()
-    const db = serviceClient()
-    const { data, error } = await db.rpc('get_leaderboard')
-    if (error) return { ok: false, error: error.message }
-    const rows: LeaderboardRow[] = (data ?? []).map((r: { full_name: string; total_points: number; founder_number: number | null }) => ({
-      fullName: r.full_name,
-      totalPoints: Number(r.total_points),
-      founderNumber: r.founder_number,
-    }))
-    return { ok: true, rows }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }> {
-  try {
-    await requireUser()
-    const db = serviceClient()
-    const { data, error } = await db.rpc('get_founders_wall')
-    if (error) return { ok: false, error: error.message }
-    const rows: FounderRow[] = (data ?? []).map((r: { full_name: string; founder_number: number }) => ({
-      fullName: r.full_name,
-      founderNumber: r.founder_number,
-    }))
-    return { ok: true, rows }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function claimAdmin(): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    
-    // Check if any admin already exists
-    const { count } = await db.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin')
-    
-    // Check explicit allowlist entry
-    const { data: allow } = await db
-      .from('admin_allowlist')
-      .select('email')
-      .ilike('email', user.email ?? '')
-      .maybeSingle()
-
-    // Security Enforcement: If admins already exist, user must be on the allowlist. 
-    // If NO admins exist (bootstrap phase), enforce allowlist or environment safeguard.
-    if ((count ?? 0) > 0 && !allow) {
-      return { ok: false, error: 'An admin already exists. Ask an existing admin to add you.' }
-    }
-
-    await db.from('profiles').update({ role: 'admin' }).eq('id', user.id)
-    if (user.email) {
-      await db.from('admin_allowlist').upsert({ email: user.email }, { onConflict: 'email' })
-    }
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function closeInvestment(holdingId: string): Promise<Result> {
-  try {
-    const user = await requireUser()
-    const db = serviceClient()
-    const { data: holding, error: fetchErr } = await db
-      .from('holdings')
-      .select('id, user_id, project_id, amount')
-      .eq('id', holdingId)
-      .eq('user_id', user.id)
-      .maybeSingle()
-    if (fetchErr) return { ok: false, error: fetchErr.message }
-    if (!holding) return { ok: false, error: 'Investment not found' }
-
-    const penalty = 15
-    const refund = Math.max(0, Number(holding.amount) - penalty)
-
-    const { error: delErr } = await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
-    if (delErr) return { ok: false, error: delErr.message }
-
-    await adjustAccount(user.id, { cash_balance: refund, invested_balance: -Number(holding.amount) })
-    await recordTxn(user.id, {
-      type: 'withdrawal',
-      amount: refund,
-      currency: 'USD',
-      status: 'completed',
-      meta: { label: `Closed investment early — $${penalty} penalty applied`, projectId: holding.project_id, penalty },
-    })
-    await db.from('notifications').insert({
-      user_id: user.id,
-      title: 'Investment closed early',
-      body: `A $${penalty} early-close fee was applied. $${refund.toFixed(2)} has been returned to your cash balance.`,
-      kind: 'info',
-    })
-    await syncTier(user.id)
-    return withSnapshot(user.id)
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getProjectStatusOverrides(): Promise<
-  { ok: true; overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> } | { ok: false; error: string }
-> {
-  try {
-    const db = serviceClient()
-    const { data, error } = await db.from('project_admin_status').select('*')
-    if (error) return { ok: false, error: error.message }
-    const overrides: Record<string, { closed: boolean; deadlineOverride: string | null }> = {}
-    for (const r of data ?? []) {
-      overrides[r.project_id] = { closed: r.closed, deadlineOverride: r.deadline_override }
-    }
-    return { ok: true, overrides }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getLiveProjectFunding(): Promise<
-  { ok: true; funding: Record<string, number> } | { ok: false; error: string }
-> {
-  try {
-    const db = serviceClient()
-    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
-    if (error) return { ok: false, error: error.message }
-    const funding: Record<string, number> = {}
-    for (const r of rows ?? []) {
-      funding[r.project_id] = (funding[r.project_id] ?? 0) + Number(r.amount)
-    }
-    return { ok: true, funding }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
+export async function isUserAdmin(userId: string): Promise<boolean> {
+  const db = serviceClient()
+  const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
+  return data?.role === 'admin'
 }
