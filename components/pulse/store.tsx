@@ -267,8 +267,30 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       liveProjectFunding: () => getLiveProjectFunding(),
       closeInvestment: (holdingId) => run(() => closeInvestment(holdingId)),
       
-      notifications: async () => ({ ok: true, rows: [] }),
-      markNotificationRead: async (_id: string) => ({ ok: true }),
+      notifications: async () => {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { ok: true, rows: [] }
+
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (error) return { ok: false, error: error.message }
+        return { ok: true, rows: (data || []) as NotificationRow[] }
+      },
+      markNotificationRead: async (id: string) => {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('id', id)
+
+        if (error) return { ok: false, error: error.message }
+        return { ok: true }
+      },
     }),
     [run],
   )
