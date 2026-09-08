@@ -3,6 +3,7 @@
 import React from 'react'
 import type { Snapshot } from '@/app/actions/types'
 import { PulseProvider, usePulse } from './store'
+import { WalletView } from './WalletView'
 
 interface PulseAppProps {
   initialSnapshot: Snapshot | null
@@ -124,11 +125,21 @@ function DashboardContent() {
         >
           Invest Tiers
         </button>
+        <button
+          onClick={() => setView('wallet')}
+          className={`rounded-lg px-4 py-2 text-xs font-mono font-bold transition ${
+            view === 'wallet' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-zinc-900 text-zinc-400 hover:text-white'
+          }`}
+        >
+          Wallet
+        </button>
       </div>
 
       {/* Dynamic View Switcher */}
       {view === 'invest' ? (
         <InvestView />
+      ) : view === 'wallet' ? (
+        <WalletView />
       ) : (
         <div className="space-y-6">
           {/* Portfolio Metrics Grid */}
