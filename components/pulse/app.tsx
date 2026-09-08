@@ -3,13 +3,13 @@
 import React from 'react'
 import type { Snapshot } from '@/app/actions/types'
 import { PulseProvider, usePulse } from './store'
-import { WalletView } from './WalletView'
+import { WalletView } from './views/wallet'
 
 interface PulseAppProps {
   initialSnapshot: Snapshot | null
 }
 
-// Inline InvestView component to eliminate any file resolution errors
+// Inline InvestView component integrated cleanly with your store
 function InvestView() {
   const { state, api, toast } = usePulse()
   const [loadingId, setLoadingId] = React.useState<string | null>(null)
@@ -21,9 +21,11 @@ function InvestView() {
     if (res.ok) {
       toast({ title: 'Success', description: 'Investment successfully completed!', variant: 'success' })
     } else {
-      toast({ title: 'Investment Failed', description: res.error, variant: 'error' })
+      toast({ title: 'Investment Failed', description: res.error || 'Unknown error', variant: 'error' })
     }
   }
+
+  const cash = state?.cash || 0
 
   return (
     <div className="space-y-6">
@@ -47,7 +49,7 @@ function InvestView() {
           <div className="flex justify-between items-center pt-2 border-t border-zinc-800/80 text-xs">
             <span className="text-zinc-500">Min Investment: $500</span>
             <button
-              disabled={loadingId === 'proj-1' || state.cash < 500}
+              disabled={loadingId === 'proj-1' || cash < 500}
               onClick={() => handleInvest('proj-1', 500)}
               className="rounded-lg bg-amber-500 px-4 py-2 font-bold text-black hover:bg-amber-400 disabled:opacity-50 transition"
             >
@@ -70,7 +72,7 @@ function InvestView() {
           <div className="flex justify-between items-center pt-2 border-t border-zinc-800/80 text-xs">
             <span className="text-zinc-500">Min Investment: $1,000</span>
             <button
-              disabled={loadingId === 'proj-2' || state.cash < 1000}
+              disabled={loadingId === 'proj-2' || cash < 1000}
               onClick={() => handleInvest('proj-2', 1000)}
               className="rounded-lg bg-cyan-500 px-4 py-2 font-bold text-black hover:bg-cyan-400 disabled:opacity-50 transition"
             >
@@ -86,17 +88,20 @@ function InvestView() {
 function DashboardContent() {
   const { state, view, setView, totalInvested, currentTier, portfolioValue, signOut } = usePulse()
 
+  const safeState = state || { fullName: '', email: '', cash: 0, holdings: [], txns: [] }
+  const safeTier = currentTier || { name: 'Standard' }
+
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6 text-zinc-100 antialiased">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6 text-zinc-100 antialiased pb-32">
       {/* Top Header & Navigation Bar */}
       <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white">Pulse Investment Dashboard</h1>
-          <p className="text-xs text-zinc-400">Welcome, {state.fullName || state.email || 'Investor'}</p>
+          <p className="text-xs text-zinc-400">Welcome, {safeState.fullName || safeState.email || 'Investor'}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-mono text-xs font-bold text-amber-400">
-            {currentTier.name} Tier
+            {safeTier.name} Tier
           </span>
           <button
             onClick={() => signOut()}
@@ -146,15 +151,15 @@ function DashboardContent() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-lg">
               <p className="font-mono text-xs uppercase tracking-wider text-zinc-400">Total Portfolio Value</p>
-              <p className="mt-2 font-mono text-3xl font-black text-white">${portfolioValue.toLocaleString()}</p>
+              <p className="mt-2 font-mono text-3xl font-black text-white">${(portfolioValue || 0).toLocaleString()}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-lg">
               <p className="font-mono text-xs uppercase tracking-wider text-zinc-400">Liquid Cash</p>
-              <p className="mt-2 font-mono text-3xl font-black text-emerald-400">${state.cash.toLocaleString()}</p>
+              <p className="mt-2 font-mono text-3xl font-black text-emerald-400">${(safeState.cash || 0).toLocaleString()}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-lg">
               <p className="font-mono text-xs uppercase tracking-wider text-zinc-400">Total Invested</p>
-              <p className="mt-2 font-mono text-3xl font-black text-amber-400">${totalInvested.toLocaleString()}</p>
+              <p className="mt-2 font-mono text-3xl font-black text-amber-400">${(totalInvested || 0).toLocaleString()}</p>
             </div>
           </div>
 
@@ -162,16 +167,16 @@ function DashboardContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 space-y-4">
               <h3 className="font-bold text-lg text-white">Active Holdings</h3>
-              {state.holdings.length === 0 ? (
+              {(!safeState.holdings || safeState.holdings.length === 0) ? (
                 <p className="text-sm text-zinc-500">No active investment holdings found.</p>
               ) : (
-                state.holdings.map((h) => (
-                  <div key={h.id} className="flex justify-between items-center border-b border-zinc-800 pb-3 text-sm">
+                safeState.holdings.map((h: any) => (
+                  <div key={h.id || Math.random()} className="flex justify-between items-center border-b border-zinc-800 pb-3 text-sm">
                     <div>
-                      <p className="font-medium text-white">Project Holding</p>
+                      <p className="font-medium text-white">{h.projectName || 'Project Holding'}</p>
                       <p className="text-xs text-zinc-500">Active Investment</p>
                     </div>
-                    <p className="font-mono font-bold text-amber-400">${h.amount.toLocaleString()}</p>
+                    <p className="font-mono font-bold text-amber-400">${(h.amount || 0).toLocaleString()}</p>
                   </div>
                 ))
               )}
@@ -179,18 +184,18 @@ function DashboardContent() {
 
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 space-y-4">
               <h3 className="font-bold text-lg text-white">Transaction History</h3>
-              {state.txns.length === 0 ? (
+              {(!safeState.txns || safeState.txns.length === 0) ? (
                 <p className="text-sm text-zinc-500">No transactions recorded yet.</p>
               ) : (
-                state.txns.map((tx) => (
-                  <div key={tx.id} className="flex justify-between items-center border-b border-zinc-800 pb-3 text-sm">
+                safeState.txns.map((tx: any) => (
+                  <div key={tx.id || Math.random()} className="flex justify-between items-center border-b border-zinc-800 pb-3 text-sm">
                     <div>
-                      <p className="font-medium text-white">{tx.label}</p>
-                      <p className="text-xs text-zinc-500">{new Date(tx.date).toLocaleDateString()}</p>
+                      <p className="font-medium text-white">{tx.label || tx.type || 'Transaction'}</p>
+                      <p className="text-xs text-zinc-500">{tx.date ? new Date(tx.date).toLocaleDateString() : 'Recent'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono font-bold text-white">${tx.amount.toLocaleString()}</p>
-                      <span className="text-[10px] uppercase font-mono text-emerald-400">{tx.status}</span>
+                      <p className="font-mono font-bold text-white">${(tx.amount || 0).toLocaleString()}</p>
+                      <span className="text-[10px] uppercase font-mono text-emerald-400">{tx.status || 'completed'}</span>
                     </div>
                   </div>
                 ))
@@ -216,7 +221,7 @@ export function PulseApp({ initialSnapshot }: PulseAppProps) {
   }
 
   return (
-    <PulseProvider initial={initialSnapshot}>
+    <PulseProvider initialSnapshot={initialSnapshot}>
       <DashboardContent />
     </PulseProvider>
   )
