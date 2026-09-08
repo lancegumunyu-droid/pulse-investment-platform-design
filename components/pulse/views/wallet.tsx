@@ -25,10 +25,8 @@ const DEPOSIT_OPTIONS = [
 const CARD_STATUS_META: Record<string, { label: string; className: string }> = {
   none: { label: 'Not applied', className: 'border-zinc-700 bg-zinc-800/60 text-zinc-400' },
   waitlisted: { label: 'Waitlisted', className: 'border-amber-500/30 bg-amber-500/10 text-amber-400' },
-  pending: { label: 'Pending', className: 'border-amber-500/30 bg-amber-500/10 text-amber-400' },
-  approved: { label: 'Active', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' },
-  active: { label: 'Active', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' },
-  rejected: { label: 'Declined', className: 'border-red-500/30 bg-red-500/10 text-red-400' },
+  approved: { label: 'Approved', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' },
+  free_card_earned: { label: 'Free card earned', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' },
 }
 
 const TXN_STATUS_META: Record<string, string> = {
@@ -71,7 +69,7 @@ export function WalletView() {
 
   async function handleConnectWallet() {
     if (!addressDraft.trim()) return
-    await runAction(() => api.setWallet(addressDraft.trim()), 'Withdrawal wallet connected.')
+    await runAction(() => api.connectWallet(addressDraft.trim()), 'Withdrawal wallet connected.')
     setAddressDraft('')
   }
 
@@ -122,7 +120,7 @@ export function WalletView() {
             <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-black/40 px-3 py-2">
               <span className="truncate font-mono text-xs text-zinc-300">{state.wallet}</span>
               <button
-                onClick={() => runAction(() => api.setWallet(null), 'Withdrawal wallet disconnected.')}
+                onClick={() => runAction(() => api.disconnectWallet(), 'Withdrawal wallet disconnected.')}
                 disabled={busy}
                 className="ml-3 shrink-0 text-[11px] font-bold text-amber-400 hover:text-amber-300 disabled:opacity-50"
               >
@@ -270,16 +268,16 @@ export function WalletView() {
 
       {modal && (
         <Modal onClose={() => !busy && setModal(null)}>
-          {modal === 'deposit' && <DepositForm busy={busy} onSubmit={(amt, cur, ref) => runAction(() => api.submitDeposit(amt, cur, ref), 'Deposit submitted for approval.')} />}
+          {modal === 'deposit' && <DepositForm busy={busy} onSubmit={(amt, cur, ref) => runAction(() => api.deposit(amt, cur, ref), 'Deposit submitted for approval.')} />}
           {modal === 'withdraw' && (
             <WithdrawForm
               busy={busy}
               maxAmount={state.cash * 0.8}
               hasWallet={!!state.wallet}
-              onSubmit={(amt) => runAction(() => api.requestWithdrawal(amt, state.wallet ?? '', 'TRC20', 'internal'), 'Withdrawal requested.')}
+              onSubmit={(amt) => runAction(() => api.withdraw(amt, state.wallet ?? '', 'TRC20', 'internal'), 'Withdrawal requested.')}
             />
           )}
-          {modal === 'send' && <SendForm busy={busy} onSubmit={(recipient, amt) => runAction(() => api.sendToUser(recipient, amt), 'Funds sent.')} />}
+          {modal === 'send' && <SendForm busy={busy} onSubmit={(recipient, amt) => runAction(() => api.transfer(recipient, amt), 'Funds sent.')} />}
           {modal === 'sell' && (
             <SellForm busy={busy} maxAmount={state.pulse} onSubmit={(amt) => runAction(() => api.sellToken(amt), 'PULSE sold for cash.')} />
           )}
