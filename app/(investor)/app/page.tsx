@@ -57,5 +57,6 @@ export default async function AppPage() {
     savedWallets: [],
   }
 
-  return <PulseApp initial={safeInitial} />
+  // Correctly passing initialSnapshot here:
+  return <PulseApp initialSnapshot={safeInitial} />
 }
