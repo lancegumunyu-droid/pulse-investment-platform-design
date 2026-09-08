@@ -83,6 +83,7 @@ export function WalletView() {
         </div>
       </div>
 
+      <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start space-y-6 md:space-y-0">
       {/* Cash wallet */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
         <div>
@@ -150,6 +151,7 @@ export function WalletView() {
           </>
         )}
       </div>
+      </div>
 
       {/* Pulse wallet */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
@@ -178,6 +180,7 @@ export function WalletView() {
         </button>
       </div>
 
+      <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start space-y-6 md:space-y-0">
       {/* Pulse Card */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -252,6 +255,7 @@ export function WalletView() {
             ))
           )}
         </div>
+      </div>
       </div>
 
       {/* Risk warning */}
