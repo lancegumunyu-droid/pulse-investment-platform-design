@@ -1,545 +1,442 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
-import { 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Send, 
-  RefreshCw, 
-  Coins, 
+import React from 'react'
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Send as SendIcon,
+  Link2,
   Zap,
-  CheckCircle2,
-  Wallet,
-  Clock,
-  ShieldCheck,
-  Sparkles
+  Folder,
+  ShieldAlert,
+  X,
+  Loader2,
+  CreditCard,
 } from 'lucide-react'
-import { usePulse } from '../store'
-import { RiskNote } from '../ui-bits'
-import { Button } from '@/components/ui/button'
+import { usePulse } from './store'
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.02 },
-  },
+// TODO: replace with the real values from lib/pulse-data (TOKEN.stakeApy, deposit addresses).
+const STAKE_APY = 24.8
+const DEPOSIT_OPTIONS = [
+  { id: 'btc' as const, label: 'BTC — Luno', network: 'Bitcoin', address: 'REPLACE_WITH_LUNO_BTC_ADDRESS' },
+  { id: 'usdttrc20' as const, label: 'USDT — TRC20 (Binance)', network: 'TRON (TRC-20)', address: 'REPLACE_WITH_BINANCE_USDT_TRC20_ADDRESS' },
+]
+
+const CARD_STATUS_META: Record<string, { label: string; className: string }> = {
+  none: { label: 'Not applied', className: 'border-zinc-700 bg-zinc-800/60 text-zinc-400' },
+  waitlisted: { label: 'Waitlisted', className: 'border-amber-500/30 bg-amber-500/10 text-amber-400' },
+  pending: { label: 'Pending', className: 'border-amber-500/30 bg-amber-500/10 text-amber-400' },
+  approved: { label: 'Active', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' },
+  active: { label: 'Active', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' },
+  rejected: { label: 'Declined', className: 'border-red-500/30 bg-red-500/10 text-red-400' },
 }
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 320, damping: 26 },
-  },
+const TXN_STATUS_META: Record<string, string> = {
+  completed: 'text-emerald-400',
+  pending: 'text-amber-400',
+  processing: 'text-amber-400',
+  failed: 'text-red-400',
+  rejected: 'text-red-400',
 }
 
-function DynamicMetallicCard({
-  cardholderName,
-  cardNumber,
-  cvv,
-  memberSince,
-}: {
-  cardholderName: string
-  cardNumber: string
-  cvv: string
-  memberSince: string
-}) {
-  const [isFlipped, setIsFlipped] = useState(false)
-  const [mousePos, setMousePos] = useState({ x: 170, y: 95 })
-  const [isHovered, setIsHovered] = useState(false)
+function usd(n: number) {
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
+type ModalKind = 'deposit' | 'withdraw' | 'send' | 'sell' | null
 
-  const mouseXSpring = useSpring(x, { stiffness: 400, damping: 30 })
-  const mouseYSpring = useSpring(y, { stiffness: 400, damping: 30 })
+export function WalletView() {
+  const { state, api, toast } = usePulse()
+  const [modal, setModal] = React.useState<ModalKind>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [addressDraft, setAddressDraft] = React.useState('')
 
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['12deg', '-12deg'])
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-12deg', '12deg'])
+  const cardMeta = CARD_STATUS_META[state.cardStatus ?? 'none'] ?? CARD_STATUS_META.none
+  const recentTxns = state.txns.slice(0, 6)
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
-    setMousePos({ x: mouseX, y: mouseY })
-    x.set(mouseX / rect.width - 0.5)
-    y.set(mouseY / rect.height - 0.5)
+  async function runAction<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>, successMsg: string) {
+    setBusy(true)
+    try {
+      const res = await fn()
+      if (res.ok) {
+        toast({ title: 'Success', description: successMsg, variant: 'success' })
+        setModal(null)
+      } else {
+        toast({ title: 'Failed', description: res.error ?? 'Something went wrong', variant: 'error' })
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleConnectWallet() {
+    if (!addressDraft.trim()) return
+    await runAction(() => api.setWallet(addressDraft.trim()), 'Withdrawal wallet connected.')
+    setAddressDraft('')
   }
 
   return (
-    <div className="w-full flex flex-col items-center space-y-2 py-1">
-      <div
-        style={{ perspective: 1500 }}
-        className="w-full max-w-[340px] aspect-[1.586/1] cursor-pointer select-none"
-        onClick={() => setIsFlipped(!isFlipped)}
-        onPointerMove={handlePointerMove}
-        onPointerEnter={() => setIsHovered(true)}
-        onPointerLeave={() => { setIsHovered(false); x.set(0); y.set(0); }}
-      >
-        <motion.div
-          animate={{ rotateY: isFlipped ? 180 : 0 }}
-          transition={{ duration: 0.6, type: 'spring', stiffness: 280, damping: 22 }}
-          style={{
-            rotateX: isHovered && !isFlipped ? rotateX : 0,
-            rotateY: isHovered && !isFlipped ? rotateY : 0,
-            transformStyle: 'preserve-3d',
-          }}
-          className="relative w-full h-full rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_35px_rgba(245,166,35,0.25)] group"
-        >
-          {/* Front Face */}
-          <div
-            className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/60 p-4 flex flex-col justify-between backface-hidden shadow-2xl"
-            style={{
-              backfaceVisibility: 'hidden',
-              background: `
-                radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 240, 180, 0.5), transparent 75%),
-                linear-gradient(135deg, #fceca4 0%, #d4af37 38%, #b38711 72%, #7c5405 100%)
-              `,
-            }}
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-4">
+        <Folder className="h-5 w-5 text-amber-400" />
+        <div>
+          <h2 className="text-xl font-black text-white">Wallet &amp; Activity</h2>
+          <p className="text-xs text-zinc-400">Real-time ledger tracking for deposits, withdrawals, and payouts.</p>
+        </div>
+      </div>
+
+      {/* Cash wallet */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+        <div>
+          <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">Cash wallet</p>
+          <p className="mt-1 font-mono text-3xl font-black text-white">{usd(state.cash)}</p>
+          <p className="text-xs text-zinc-500">Available to invest, withdraw, or send</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setModal('deposit')}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 px-3 py-2.5 text-xs font-bold text-black transition hover:from-amber-300 hover:to-amber-400"
           >
-            <motion.div 
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none"
+            <ArrowDownToLine className="h-3.5 w-3.5" /> Deposit
+          </button>
+          <button
+            onClick={() => setModal('withdraw')}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
+          >
+            <ArrowUpFromLine className="h-3.5 w-3.5" /> Withdraw
+          </button>
+          <button
+            onClick={() => setModal('send')}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
+          >
+            <SendIcon className="h-3.5 w-3.5" /> Send
+          </button>
+        </div>
+      </div>
+
+      {/* Withdrawal wallet connect */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 space-y-3">
+        {state.wallet ? (
+          <>
+            <p className="text-sm font-bold text-white">Withdrawal wallet connected</p>
+            <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-black/40 px-3 py-2">
+              <span className="truncate font-mono text-xs text-zinc-300">{state.wallet}</span>
+              <button
+                onClick={() => runAction(() => api.setWallet(null), 'Withdrawal wallet disconnected.')}
+                disabled={busy}
+                className="ml-3 shrink-0 text-[11px] font-bold text-amber-400 hover:text-amber-300 disabled:opacity-50"
+              >
+                Change
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-bold text-white">No withdrawal wallet connected</p>
+            <p className="text-xs text-zinc-500">
+              Add or manage the address you want withdrawals sent to — USDT (TRC-20) or BTC.
+            </p>
+            <input
+              value={addressDraft}
+              onChange={(e) => setAddressDraft(e.target.value)}
+              placeholder="Paste your receiving address"
+              className="w-full rounded-lg border border-zinc-800 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none"
             />
-            <div className="absolute inset-0 border border-white/40 rounded-2xl pointer-events-none" />
-            
-            <div className="flex items-center justify-between relative z-10">
-              <div className="space-y-0.5">
-                <h3 className="font-black text-black tracking-widest text-xs font-mono drop-shadow-sm flex items-center gap-1">
-                  PULSE <Sparkles className="size-3 text-amber-900" />
-                </h3>
-                <div className="w-8 h-5.5 rounded bg-gradient-to-br from-amber-200 to-amber-600 border border-amber-900/40 flex items-center justify-center shadow-inner">
-                  <div className="w-full h-full border border-amber-950/30 bg-amber-300/40 rounded-sm" />
+            <button
+              onClick={handleConnectWallet}
+              disabled={busy || !addressDraft.trim()}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs font-bold text-amber-400 transition hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />} Connect wallet
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Pulse wallet */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+            <Zap className="h-3.5 w-3.5" /> Pulse wallet
+          </p>
+          <span className="font-mono text-lg font-black text-white">{state.pulse.toLocaleString()}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-zinc-800 bg-black/40 p-3">
+            <p className="text-[10px] font-mono uppercase text-zinc-500">Liquid — usable now</p>
+            <p className="mt-1 font-mono text-lg font-bold text-white">{state.pulse.toLocaleString()}</p>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-black/40 p-3">
+            <p className="text-[10px] font-mono uppercase text-zinc-500">Staked — {STAKE_APY}% APY</p>
+            <p className="mt-1 font-mono text-lg font-bold text-amber-400">{state.staked.toLocaleString()}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setModal('sell')}
+          disabled={state.pulse <= 0}
+          className="w-full rounded-lg border border-zinc-700 px-3 py-2.5 text-xs font-bold text-amber-400 transition hover:bg-zinc-800 disabled:opacity-40"
+        >
+          Sell PULSE for cash
+        </button>
+      </div>
+
+      {/* Pulse Card */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-sm font-bold text-white">
+            <CreditCard className="h-4 w-4 text-amber-400" /> Pulse Card
+          </p>
+          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${cardMeta.className}`}>
+            {cardMeta.label}
+          </span>
+        </div>
+
+        <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-600 p-5 shadow-lg shadow-amber-500/10">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+          <div className="flex items-start justify-between">
+            <p className="text-lg font-black tracking-tight text-black">PULSE</p>
+            <div className="h-6 w-8 rounded bg-black/20" />
+          </div>
+          <p className="mt-8 font-mono text-sm tracking-[0.3em] text-black/80">•••• •••• •••• ••••</p>
+          <div className="mt-4 flex items-end justify-between">
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-black/60">
+                {state.tier ? `Valued member · Tier ${state.tier}` : 'Valued member'}
+              </p>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-black/60">Linked to Pulse wallet</p>
+            </div>
+            <p className="text-sm font-black italic text-black">VISA</p>
+          </div>
+        </div>
+
+        {state.cardStatus === 'none' ? (
+          <button
+            onClick={() => runAction(() => api.applyForCard(), 'Card application submitted.')}
+            disabled={busy}
+            className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs font-bold text-amber-400 transition hover:bg-amber-500/20 disabled:opacity-50"
+          >
+            Apply for Pulse Card
+          </button>
+        ) : (
+          <p className="text-center text-[11px] text-zinc-500">
+            Your Pulse Card details dynamically sync with your account profile status and issuance parameters.
+          </p>
+        )}
+      </div>
+
+      {/* Live activity feed */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400">Live activity feed</p>
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live sync active
+          </span>
+        </div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 divide-y divide-zinc-800">
+          {recentTxns.length === 0 ? (
+            <p className="p-6 text-center text-sm text-zinc-500">No transaction activity recorded for this user account yet.</p>
+          ) : (
+            recentTxns.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between p-4 text-sm">
+                <div>
+                  <p className="font-medium text-white">{tx.label}</p>
+                  <p className="text-xs text-zinc-500">{new Date(tx.date).toLocaleDateString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono font-bold text-white">
+                    {tx.currency === 'PULSE' ? tx.amount.toLocaleString() : usd(tx.amount)}
+                  </p>
+                  <span className={`text-[10px] uppercase font-mono ${TXN_STATUS_META[tx.status] ?? 'text-zinc-500'}`}>
+                    {tx.status}
+                  </span>
                 </div>
               </div>
-              <div className="text-black font-black text-xs font-mono opacity-90 animate-pulse">⚡</div>
-            </div>
+            ))
+          )}
+        </div>
+      </div>
 
-            <div className="font-mono font-extrabold text-black/90 text-sm tracking-[0.2em] drop-shadow-sm">{cardNumber}</div>
+      {/* Risk warning */}
+      <div className="flex gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+        <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+        <p className="text-[11px] leading-relaxed text-zinc-400">
+          Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all
+          investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully
+          consider your investment objectives, level of experience, and risk appetite. The possibility exists that you
+          could sustain a loss of some or all of your initial investment and therefore you should not invest money
+          that you cannot afford to lose.
+        </p>
+      </div>
 
-            <div className="flex items-end justify-between relative z-10 pt-1 border-t border-black/15">
-              <div className="space-y-0.5">
-                <div className="text-[7.5px] font-bold text-black/80 uppercase tracking-wider">{cardholderName} • {memberSince}</div>
-                <div className="font-black text-black text-[9px] uppercase tracking-wide">SECURE RWA ASSET LINKED</div>
-              </div>
-              <div className="font-black italic text-black text-base tracking-tighter">VISA</div>
-            </div>
-          </div>
+      {modal && (
+        <Modal onClose={() => !busy && setModal(null)}>
+          {modal === 'deposit' && <DepositForm busy={busy} onSubmit={(amt, cur, ref) => runAction(() => api.submitDeposit(amt, cur, ref), 'Deposit submitted for approval.')} />}
+          {modal === 'withdraw' && (
+            <WithdrawForm
+              busy={busy}
+              maxAmount={state.cash * 0.8}
+              hasWallet={!!state.wallet}
+              onSubmit={(amt) => runAction(() => api.requestWithdrawal(amt, state.wallet ?? '', 'TRC20', 'internal'), 'Withdrawal requested.')}
+            />
+          )}
+          {modal === 'send' && <SendForm busy={busy} onSubmit={(recipient, amt) => runAction(() => api.sendToUser(recipient, amt), 'Funds sent.')} />}
+          {modal === 'sell' && (
+            <SellForm busy={busy} maxAmount={state.pulse} onSubmit={(amt) => runAction(() => api.sellToken(amt), 'PULSE sold for cash.')} />
+          )}
+        </Modal>
+      )}
+    </div>
+  )
+}
 
-          {/* Back Face */}
-          <div
-            className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-300/60 flex flex-col justify-between py-3 backface-hidden shadow-2xl"
-            style={{
-              backfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)',
-              background: `
-                radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 240, 180, 0.5), transparent 75%),
-                linear-gradient(135deg, #d4af37 0%, #aa7c11 52%, #543702 100%)
-              `,
-            }}
-          >
-            <div className="absolute inset-0 border border-white/40 rounded-2xl pointer-events-none" />
-            <div className="w-full h-7 bg-[#120e06] mt-1 shadow-inner opacity-90" />
-            <div className="px-4 space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-6 bg-amber-100/95 rounded px-2 flex items-center text-black font-serif italic text-[11px] shadow-inner">{cardholderName}</div>
-                <div className="h-6 px-2.5 rounded bg-amber-950 text-amber-300 font-mono text-[10px] flex items-center border border-amber-500/50 shadow-inner">CVV {cvv}</div>
-              </div>
-            </div>
-            <div className="px-4 flex items-end justify-between text-[7.5px] text-black/90 font-mono">
-              <span className="font-semibold">Africa Heritage Foundation Trust</span>
-              <span className="font-black">ENCRYPTED RWA</span>
-            </div>
-          </div>
-        </motion.div>
+function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl"
+      >
+        <div className="mb-4 flex justify-end">
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   )
 }
 
-export function WalletView({ userData }: { userData?: any }) {
-  const openModal = usePulse((state) => state.openModal)
-  const storeCashBalance = usePulse((state) => state.vaultCash)
-  const storePulseLiquid = usePulse((state) => state.pulseLiquid)
-  const storePulseStaked = usePulse((state) => state.pulseStaked)
-  const sellPulseStore = usePulse((state) => state.sellPulse)
-  
-  const safeData = userData || {}
-
-  const [activities, setActivities] = useState<any[]>(safeData.activities || [])
-  const [receivingAddress, setReceivingAddress] = useState(safeData.withdrawalAddress || '')
-  const [showSellDrawer, setShowSellDrawer] = useState(false)
-  
-  const initialLiquid = storePulseLiquid ?? safeData?.pulseWallet?.liquid ?? safeData?.pulse_liquid ?? 5000
-  const [sellAmount, setSellAmount] = useState(initialLiquid.toString())
-  const [isSelling, setIsSelling] = useState(false)
-  const [sellSuccess, setSellSuccess] = useState(false)
-
-  useEffect(() => {
-    if (userData) {
-      if (userData.activities) setActivities(userData.activities)
-      if (userData.withdrawalAddress !== undefined) setReceivingAddress(userData.withdrawalAddress)
-    }
-  }, [userData])
-
-  // Clean and robust parsing for cash balances from store or fallback props
-  const rawCash = storeCashBalance ?? safeData.cashBalance ?? safeData.cash_balance ?? 14850.00
-  const numericCash = typeof rawCash === 'number' 
-    ? rawCash 
-    : parseFloat(String(rawCash).replace(/[^0-9.-]+/g, '')) || 0
-
-  const pulseLiquid = storePulseLiquid ?? safeData.pulseWallet?.liquid ?? safeData.pulse_liquid ?? '5,000'
-  const pulseStaked = storePulseStaked ?? safeData.pulseWallet?.staked ?? safeData.pulse_staked ?? '15,000'
-  
-  const numericLiquid = Number(String(pulseLiquid).replace(/,/g, '')) || 0
-  const numericStaked = Number(String(pulseStaked).replace(/,/g, '')) || 0
-  const totalPulse = (numericLiquid + numericStaked).toLocaleString()
-  
-  const cardData = safeData.cardInfo || safeData.card_info || {
-    name: safeData.name ? safeData.name.toUpperCase() : 'LANCE GUMUNYU',
-    number: safeData.card_number || '4892 •••• •••• 8219',
-    cvv: safeData.cvv || '492',
-    memberSince: safeData.memberSince || '2025',
-    status: safeData.card_status || 'Active & Verified'
-  }
-
-  const handleConfirmSale = () => {
-    setIsSelling(true)
-    setTimeout(() => {
-      setIsSelling(false)
-      setSellSuccess(true)
-      const numericSellAmt = parseFloat(String(sellAmount).replace(/,/g, '')) || 0
-      
-      if (sellPulseStore && typeof sellPulseStore === 'function') {
-        sellPulseStore(numericSellAmt)
-      }
-
-      const newActivity = {
-        id: Date.now(),
-        title: `PULSE Liquidated to Cash (${numericSellAmt.toLocaleString()} tokens)`,
-        date: new Date().toLocaleDateString('en-GB'),
-        status: 'completed',
-        amount: `+$${(numericSellAmt * 0.08).toFixed(2)}`,
-        type: 'income'
-      }
-      setActivities(prev => [newActivity, ...prev])
-      setTimeout(() => {
-        setSellSuccess(false)
-        setShowSellDrawer(false)
-      }, 1800)
-    }, 1500)
-  }
+function DepositForm({ busy, onSubmit }: { busy: boolean; onSubmit: (amount: number, currency: 'btc' | 'usdttrc20', reference: string) => void }) {
+  const [option, setOption] = React.useState(DEPOSIT_OPTIONS[0])
+  const [amount, setAmount] = React.useState('')
+  const [reference, setReference] = React.useState('')
 
   return (
-    <motion.div 
-      variants={containerVariants} 
-      initial="hidden" 
-      animate="visible" 
-      className="space-y-4 max-w-md mx-auto pb-36 pt-1 px-2.5 text-zinc-100 font-sans"
-    >
-      <motion.div variants={itemVariants} className="space-y-1 px-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <motion.div 
-              whileHover={{ rotate: 15, scale: 1.12 }}
-              className="p-2 rounded-2xl bg-amber-500/20 text-amber-400 shadow-[0_0_20px_rgba(245,166,35,0.35)] border border-amber-500/30"
-            >
-              <Wallet className="size-4" />
-            </motion.div>
-            <h2 className="text-lg font-black tracking-tight text-white">Wallet & Ledger</h2>
-          </div>
-          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1.5 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> Secure Node Synced
-          </span>
-        </div>
-        <p className="text-[11px] text-zinc-400 pl-8">Real-time asset tracking for cash vaults, RWA tokens, and payouts.</p>
-      </motion.div>
-
-      {/* Cash Wallet Card */}
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.01, boxShadow: '0 20px 40px rgba(245,166,35,0.18)' }}
-        className="relative rounded-3xl border border-amber-500/40 p-5 bg-[#0f1117] bg-gradient-to-b from-[#161410] to-[#0a0c10] shadow-[0_12px_35px_rgba(0,0,0,0.7)] space-y-4 transition-all overflow-hidden"
-      >
-        <div className="absolute -right-12 -top-12 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex items-center justify-between relative z-10">
-          <div>
-            <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-extrabold flex items-center gap-1">
-              <ShieldCheck className="size-3 text-amber-400" /> CASH VAULT BALANCE
-            </span>
-            <h3 className="text-3xl font-black text-white font-mono tracking-tight mt-1 drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]">
-              ${numericCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </h3>
-            <p className="text-[10px] text-zinc-400 mt-0.5">Available for instant deployment or payout</p>
-          </div>
-          <div className="p-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-[0_0_20px_rgba(245,166,35,0.25)]">
-            <Coins className="size-5" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2.5 pt-1 relative z-10">
-          <motion.div whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={() => openModal('deposit')}
-              className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-black font-extrabold text-xs rounded-xl shadow-[0_0_20px_rgba(245,166,35,0.4)] h-10 flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <ArrowDownLeft className="size-4 stroke-[2.5]" />
-              <span>Deposit</span>
-            </Button>
-          </motion.div>
-
-          <motion.div whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={() => openModal('withdraw')}
-              variant="outline"
-              className="w-full bg-white/5 border border-white/15 hover:bg-white/10 hover:border-amber-500/50 text-white font-bold text-xs rounded-xl h-10 flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <ArrowUpRight className="size-4 stroke-[2.5] text-amber-400" />
-              <span>Withdraw</span>
-            </Button>
-          </motion.div>
-
-          <motion.div whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={() => openModal('send')}
-              variant="outline"
-              className="w-full bg-white/5 border border-white/15 hover:bg-white/10 hover:border-amber-500/50 text-white font-bold text-xs rounded-xl h-10 flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Send className="size-4 text-amber-400" />
-              <span>Send</span>
-            </Button>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      {/* Withdrawal Address Connection Card */}
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.005 }}
-        className="rounded-3xl border border-white/10 hover:border-amber-500/30 p-4 bg-[#0f1117] space-y-3 transition-all shadow-md"
-      >
-        <div>
-          <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-amber-400" />
-            {receivingAddress ? 'Connected Withdrawal Address' : 'No Withdrawal Wallet Connected'}
-          </h4>
-          <p className="text-[10px] text-zinc-400 mt-0.5">Configure your receiving address for fast USDT (TRC-20) or BTC payouts.</p>
-        </div>
-        <input
-          type="text"
-          placeholder="Paste TRC-20 or BTC receiving address"
-          value={receivingAddress}
-          onChange={(e) => setReceivingAddress(e.target.value)}
-          className="w-full bg-black/70 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white outline-none focus:border-amber-500/60 transition-colors"
-        />
-        <motion.div whileTap={{ scale: 0.98 }}>
-          <Button className="w-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 font-bold text-xs rounded-xl h-9.5 flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(245,166,35,0.15)]">
-            <RefreshCw className="size-3.5" />
-            <span>{receivingAddress ? 'Update payout address' : 'Connect payout wallet'}</span>
-          </Button>
-        </motion.div>
-      </motion.div>
-
-      {/* Pulse Wallet Breakdown & Liquidation */}
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.005 }}
-        className="rounded-3xl border border-white/10 hover:border-amber-500/30 p-4 bg-[#0f1117] space-y-3.5 transition-all shadow-md"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="size-7 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 text-xs font-bold font-mono shadow-[0_0_12px_rgba(245,166,35,0.25)] border border-amber-500/30">⚡</div>
-            <span className="text-xs font-black text-white uppercase tracking-wider">PULSE Protocol Balance</span>
-          </div>
-          <span className="text-base font-black font-mono text-amber-400">{totalPulse}</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-2xl bg-black/50 border border-white/10 p-3 space-y-1">
-            <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-wider block">LIQUID — USABLE NOW</span>
-            <span className="text-sm font-black font-mono text-white">
-              {typeof pulseLiquid === 'number' ? pulseLiquid.toLocaleString() : pulseLiquid}
-            </span>
-          </div>
-          <div className="rounded-2xl bg-black/50 border border-amber-500/25 p-3 space-y-1 bg-gradient-to-br from-amber-500/10 to-transparent">
-            <span className="text-[9px] font-mono text-amber-400 uppercase tracking-wider block">STAKED — 24.8% APY</span>
-            <span className="text-sm font-black font-mono text-amber-300">
-              {typeof pulseStaked === 'number' ? pulseStaked.toLocaleString() : pulseStaked}
-            </span>
-          </div>
-        </div>
-
-        {!showSellDrawer ? (
-          <motion.div whileTap={{ scale: 0.98 }}>
-            <Button
-              onClick={() => setShowSellDrawer(true)}
-              variant="outline"
-              className="w-full bg-white/5 border border-white/10 hover:bg-amber-500/15 hover:border-amber-500/50 text-amber-400 font-bold text-xs rounded-xl h-10 flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
-            >
-              <Zap className="size-3.5 animate-pulse text-amber-400" />
-              <span>Liquidate PULSE for instant cash</span>
-            </Button>
-          </motion.div>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-3 pt-2.5 border-t border-white/10"
+    <div className="space-y-4">
+      <h3 className="text-lg font-black text-white">Deposit funds</h3>
+      <div className="flex gap-2">
+        {DEPOSIT_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => setOption(opt)}
+            className={`flex-1 rounded-lg border px-3 py-2 text-xs font-bold transition ${
+              option.id === opt.id ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-zinc-800 text-zinc-400'
+            }`}
           >
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-zinc-400 font-mono">Conversion rate: $0.08 / token</span>
-              <button 
-                onClick={() => setShowSellDrawer(false)}
-                className="text-amber-400 hover:underline font-bold text-[10px]"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <div className="relative">
-              <input
-                type="text"
-                value={sellAmount}
-                onChange={(e) => setSellAmount(e.target.value)}
-                className="w-full bg-black/90 border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-xs font-mono text-amber-300 outline-none focus:border-amber-400 shadow-inner"
-              />
-              <span className="absolute right-3 top-2.5 text-[10px] font-mono text-zinc-500 uppercase">Tokens</span>
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] font-mono bg-black/30 p-2.5 rounded-xl border border-white/5">
-              <span className="text-zinc-400">Estimated Cash Payout</span>
-              <span className="text-emerald-400 font-black">
-                ${(parseFloat(String(sellAmount).replace(/,/g, '')) * 0.08 || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-
-            <motion.div whileTap={{ scale: 0.98 }}>
-              <Button
-                onClick={handleConfirmSale}
-                disabled={isSelling}
-                className="w-full bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs rounded-xl h-10 flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)]"
-              >
-                {isSelling ? <RefreshCw className="size-4 animate-spin" /> : sellSuccess ? <CheckCircle2 className="size-4 text-black" /> : <Zap className="size-4" />}
-                <span>{isSelling ? 'Processing Liquidation...' : sellSuccess ? 'Liquidation Confirmed!' : 'Confirm liquidation'}</span>
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </motion.div>
-
-      {/* Pulse Card 3D Display Section */}
-      <motion.div 
-        variants={itemVariants} 
-        whileHover={{ scale: 1.005 }}
-        className="rounded-3xl border border-amber-500/40 p-4 bg-[#0f1117] space-y-3.5 transition-all shadow-[0_0_30px_rgba(245,166,35,0.12)] relative overflow-hidden"
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <div className="rounded-lg border border-zinc-800 bg-black/40 p-3">
+        <p className="text-[10px] uppercase text-zinc-500">Send {option.network} to</p>
+        <p className="mt-1 break-all font-mono text-xs text-white">{option.address}</p>
+      </div>
+      <input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Amount sent (USD)"
+        className="w-full rounded-lg border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none"
+      />
+      <input
+        value={reference}
+        onChange={(e) => setReference(e.target.value)}
+        placeholder="Transaction ID / reference"
+        className="w-full rounded-lg border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none"
+      />
+      <button
+        disabled={busy || !amount || Number(amount) <= 0 || !reference.trim()}
+        onClick={() => onSubmit(Number(amount), option.id, reference.trim())}
+        className="w-full rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 px-3 py-2.5 text-sm font-bold text-black disabled:opacity-50"
       >
-        <div className="absolute right-0 top-0 w-44 h-44 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 shadow-[0_0_12px_rgba(245,166,35,0.25)] border border-amber-500/30">
-              <Coins className="size-3.5" />
-            </div>
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Pulse Metallic Card</span>
-          </div>
-          <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-black px-2.5 py-1 rounded-full border border-emerald-500/40 uppercase tracking-widest shadow-[0_0_10px_rgba(16,185,129,0.25)]">
-            {cardData.status}
-          </span>
-        </div>
+        {busy ? 'Submitting…' : 'Submit deposit'}
+      </button>
+      <p className="text-[10px] text-zinc-500">Deposits are credited after admin verification of the transaction reference.</p>
+    </div>
+  )
+}
 
-        <DynamicMetallicCard
-          cardholderName={cardData.name}
-          cardNumber={cardData.number}
-          cvv={cardData.cvv}
-          memberSince={cardData.memberSince}
-        />
+function WithdrawForm({ busy, maxAmount, hasWallet, onSubmit }: { busy: boolean; maxAmount: number; hasWallet: boolean; onSubmit: (amount: number) => void }) {
+  const [amount, setAmount] = React.useState('')
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-black text-white">Withdraw funds</h3>
+      {!hasWallet ? (
+        <p className="text-sm text-amber-400">Connect a withdrawal wallet before requesting a withdrawal.</p>
+      ) : (
+        <>
+          <p className="text-xs text-zinc-500">Max withdrawal: {usd(maxAmount)} (80% of cash balance)</p>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="Amount (USD)"
+            className="w-full rounded-lg border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none"
+          />
+          <button
+            disabled={busy || !amount || Number(amount) <= 0 || Number(amount) > maxAmount}
+            onClick={() => onSubmit(Number(amount))}
+            className="w-full rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 px-3 py-2.5 text-sm font-bold text-black disabled:opacity-50"
+          >
+            {busy ? 'Submitting…' : 'Request withdrawal'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
 
-        <p className="text-[10px] text-zinc-400 text-center leading-normal px-2 relative z-10">
-          Click or hover over the card to view the encrypted CVV security pane and experience dynamic metallic light refractions.
-        </p>
-      </motion.div>
+function SendForm({ busy, onSubmit }: { busy: boolean; onSubmit: (recipient: string, amount: number) => void }) {
+  const [recipient, setRecipient] = React.useState('')
+  const [amount, setAmount] = React.useState('')
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-black text-white">Send to another user</h3>
+      <input
+        value={recipient}
+        onChange={(e) => setRecipient(e.target.value)}
+        placeholder="Recipient username or wallet ID"
+        className="w-full rounded-lg border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none"
+      />
+      <input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Amount (USD)"
+        className="w-full rounded-lg border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none"
+      />
+      <button
+        disabled={busy || !recipient.trim() || !amount || Number(amount) <= 0}
+        onClick={() => onSubmit(recipient.trim(), Number(amount))}
+        className="w-full rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 px-3 py-2.5 text-sm font-bold text-black disabled:opacity-50"
+      >
+        {busy ? 'Sending…' : 'Send funds'}
+      </button>
+    </div>
+  )
+}
 
-      {/* Live Activity Feed */}
-      <motion.div variants={itemVariants} className="space-y-3 pt-2">
-        <div className="flex items-center justify-between px-1">
-          <h4 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Live Activity Feed</h4>
-          <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 shadow-sm">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> Ledger Synced
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          {activities.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-2xl border border-white/10 p-6 text-center bg-[#0f1117]"
-            >
-              <p className="text-xs text-zinc-400">No transaction activity recorded for this user account yet.</p>
-            </motion.div>
-          ) : (
-            activities.map((item: any, idx: number) => {
-              const isPositive = item.amount?.startsWith('+')
-              const isPending = item.status === 'pending'
-
-              return (
-                <motion.div 
-                  key={item.id || idx}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.04 }}
-                  whileHover={{ scale: 1.01, borderColor: 'rgba(245,166,35,0.45)' }} 
-                  className="rounded-2xl border border-white/10 p-3.5 bg-[#0f1117] flex items-center justify-between transition-colors shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`size-8.5 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                      isPending 
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                        : isPositive 
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    }`}>
-                      {isPending ? (
-                        <Clock className="size-4 animate-spin" />
-                      ) : isPositive ? (
-                        <ArrowDownLeft className="size-4" />
-                      ) : (
-                        <ArrowUpRight className="size-4" />
-                      )}
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-white tracking-tight">{item.title}</h5>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono text-zinc-400">{item.date}</span>
-                        <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">
-                          {item.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <span className={`text-xs font-mono font-black block ${
-                      isPending ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-zinc-200'
-                    }`}>
-                      {item.amount}
-                    </span>
-                    <span className="text-[9px] font-mono text-zinc-500 uppercase">{item.type || 'tx'}</span>
-                  </div>
-                </motion.div>
-              )
-            })
-          )}
-        </div>
-      </motion.div>
-
-      <motion.div variants={itemVariants} className="pt-2">
-        <RiskNote />
-      </motion.div>
-    </motion.div>
+function SellForm({ busy, maxAmount, onSubmit }: { busy: boolean; maxAmount: number; onSubmit: (amount: number) => void }) {
+  const [amount, setAmount] = React.useState('')
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-black text-white">Sell PULSE</h3>
+      <p className="text-xs text-zinc-500">Available: {maxAmount.toLocaleString()} PULSE</p>
+      <input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="PULSE amount"
+        className="w-full rounded-lg border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:border-amber-500/50 focus:outline-none"
+      />
+      <button
+        disabled={busy || !amount || Number(amount) <= 0 || Number(amount) > maxAmount}
+        onClick={() => onSubmit(Number(amount))}
+        className="w-full rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 px-3 py-2.5 text-sm font-bold text-black disabled:opacity-50"
+      >
+        {busy ? 'Selling…' : 'Confirm sale'}
+      </button>
+    </div>
   )
 }
