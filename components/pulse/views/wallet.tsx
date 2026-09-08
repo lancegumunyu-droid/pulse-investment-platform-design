@@ -13,7 +13,7 @@ import {
   Loader2,
   CreditCard,
 } from 'lucide-react'
-import { usePulse } from './store'
+import { usePulse } from '../store'
 
 // TODO: replace with the real values from lib/pulse-data (TOKEN.stakeApy, deposit addresses).
 const STAKE_APY = 24.8
