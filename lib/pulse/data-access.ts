@@ -1,21 +1,35 @@
-import 'server-only'
+'server-only'
+
 import { serviceClient } from './service'
 import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-data'
 import type { Snapshot, SnapshotTxn } from './types'
 
 export async function getLiveProjects(): Promise<Project[]> {
-  const db = serviceClient()
-  const { data: rows, error } = await db.from('holdings').select('project_id, amount').eq('status', 'active')
-  if (error) throw error
+  try {
+    const db = serviceClient()
+    const { data: rows, error } = await db
+      .from('holdings')
+      .select('project_id, amount')
+      .eq('status', 'active')
 
-  const liveByProject = new Map<string, number>()
-  for (const r of rows ?? []) {
-    liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
+    if (error) {
+      console.warn('[Data Access] Failed to fetch live holdings for projects:', error.message)
+      return PROJECTS
+    }
+
+    const liveByProject = new Map<string, number>()
+    for (const r of rows ?? []) {
+      liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
+    }
+
+    return PROJECTS.map((p) => ({
+      ...p,
+      funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
+    }))
+  } catch (err) {
+    console.warn('[Data Access] getLiveProjects fallback to static list:', err)
+    return PROJECTS
   }
-  return PROJECTS.map((p) => ({
-    ...p,
-    funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
-  }))
 }
 
 const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
@@ -71,7 +85,9 @@ export interface AccountRow {
 export async function ensureAccount(userId: string): Promise<AccountRow> {
   const db = serviceClient()
   const { data, error } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
-  if (error) throw error
+  if (error && error.code !== 'PGRST116') {
+    console.error('[Data Access] ensureAccount error:', error)
+  }
   if (data) return data as AccountRow
 
   const { data: created, error: createError } = await db
@@ -79,125 +95,149 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
     .insert({ user_id: userId })
     .select('*')
     .single()
-  if (createError) throw createError
+
+  if (createError) {
+    console.error('[Data Access] ensureAccount createError:', createError)
+    return {
+      user_id: userId,
+      cash_balance: 0,
+      invested_balance: 0,
+      staked_balance: 0,
+      token_balance: 0,
+      pending_yield: 0,
+    }
+  }
+
   return created as AccountRow
 }
 
 export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
-  const db = serviceClient()
-  const { data: txns, error } = await db
-    .from('transactions')
-    .select('type, amount, currency, status, meta')
-    .eq('user_id', userId)
+  try {
+    const db = serviceClient()
+    const { data: txns, error } = await db
+      .from('transactions')
+      .select('type, amount, currency, status, meta')
+      .eq('user_id', userId)
 
-  if (error) throw error
+    if (error) return 0
 
-  let balance = 0
-  for (const txn of txns ?? []) {
-    const status = (txn.status || '').toLowerCase()
-    if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
+    let balance = 0
+    for (const txn of txns ?? []) {
+      const status = (txn.status || '').toLowerCase()
+      if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
 
-    const amount = Number(txn.amount) || 0
-    const currency = (txn.currency || 'USD').toUpperCase()
-    const type = (txn.type || '').toLowerCase()
+      const amount = Number(txn.amount) || 0
+      const currency = (txn.currency || 'USD').toUpperCase()
+      const type = (txn.type || '').toLowerCase()
 
-    if (currency === 'USD' || currency === 'USDT' || currency === 'USDC') {
-      switch (type) {
-        case 'deposit':
-        case 'topup':
-        case 'credit':
-        case 'yield':
-        case 'payout':
-        case 'project_payout':
-        case 'p2p_receive':
-        case 'refund':
-          balance += amount
-          break
-        case 'withdrawal':
-        case 'withdraw':
-        case 'investment':
-        case 'invest':
-        case 'buy':
-        case 'p2p_send':
-          balance -= amount
-          break
-      }
-    } else if (currency === 'PULSE' || currency === 'PLS') {
-      if (type === 'token_purchase' || type === 'sale') {
-        const meta = txn.meta as Record<string, unknown> | null
-        const usdCost = Number(meta?.usdCost) || 0
-        const hasDirectUsdTxn = (txns ?? []).some((t) => {
-          const tType = (t.type || '').toLowerCase()
-          const tCurr = (t.currency || '').toUpperCase()
-          const tStatus = (t.status || '').toLowerCase()
-          return (
-            (tType === 'token_purchase' || tType === 'sale') &&
-            (tCurr === 'USD' || tCurr === 'USDT' || tCurr === 'USDC') &&
-            !['failed', 'rejected', 'cancelled'].includes(tStatus)
-          )
-        })
-        if (usdCost > 0 && !hasDirectUsdTxn) {
-          balance -= usdCost
+      if (currency === 'USD' || currency === 'USDT' || currency === 'USDC') {
+        switch (type) {
+          case 'deposit':
+          case 'topup':
+          case 'credit':
+          case 'yield':
+          case 'payout':
+          case 'project_payout':
+          case 'p2p_receive':
+          case 'refund':
+            balance += amount
+            break
+          case 'withdrawal':
+          case 'withdraw':
+          case 'investment':
+          case 'invest':
+          case 'buy':
+          case 'p2p_send':
+            balance -= amount
+            break
+        }
+      } else if (currency === 'PULSE' || currency === 'PLS') {
+        if (type === 'token_purchase' || type === 'sale') {
+          const meta = txn.meta as Record<string, unknown> | null
+          const usdCost = Number(meta?.usdCost) || 0
+          const hasDirectUsdTxn = (txns ?? []).some((t) => {
+            const tType = (t.type || '').toLowerCase()
+            const tCurr = (t.currency || '').toUpperCase()
+            const tStatus = (t.status || '').toLowerCase()
+            return (
+              (tType === 'token_purchase' || tType === 'sale') &&
+              (tCurr === 'USD' || tCurr === 'USDT' || tCurr === 'USDC') &&
+              !['failed', 'rejected', 'cancelled'].includes(tStatus)
+            )
+          })
+          if (usdCost > 0 && !hasDirectUsdTxn) {
+            balance -= usdCost
+          }
         }
       }
     }
+    return Math.max(0, balance)
+  } catch {
+    return 0
   }
-  return Math.max(0, balance)
 }
 
 export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
-  const db = serviceClient()
-  const { data: txns, error } = await db
-    .from('transactions')
-    .select('type, amount, currency, status')
-    .eq('user_id', userId)
+  try {
+    const db = serviceClient()
+    const { data: txns, error } = await db
+      .from('transactions')
+      .select('type, amount, currency, status')
+      .eq('user_id', userId)
 
-  if (error) throw error
+    if (error) return 0
 
-  let balance = 0
-  for (const txn of txns ?? []) {
-    const status = (txn.status || '').toLowerCase()
-    if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
+    let balance = 0
+    for (const txn of txns ?? []) {
+      const status = (txn.status || '').toLowerCase()
+      if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
 
-    const amount = Number(txn.amount) || 0
-    const currency = (txn.currency || '').toUpperCase()
-    const type = (txn.type || '').toLowerCase()
+      const amount = Number(txn.amount) || 0
+      const currency = (txn.currency || '').toUpperCase()
+      const type = (txn.type || '').toLowerCase()
 
-    if (currency === 'PULSE' || currency === 'PLS') {
-      if (['token_purchase', 'sale', 'unstake', 'p2p_receive'].includes(type)) {
-        balance += amount
-      } else if (['stake', 'p2p_send'].includes(type)) {
-        balance -= amount
+      if (currency === 'PULSE' || currency === 'PLS') {
+        if (['token_purchase', 'sale', 'unstake', 'p2p_receive'].includes(type)) {
+          balance += amount
+        } else if (['stake', 'p2p_send'].includes(type)) {
+          balance -= amount
+        }
       }
     }
+    return Math.max(0, balance)
+  } catch {
+    return 0
   }
-  return Math.max(0, balance)
 }
 
 export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
-  const db = serviceClient()
-  const { data: txns, error } = await db
-    .from('transactions')
-    .select('type, amount, currency, status')
-    .eq('user_id', userId)
+  try {
+    const db = serviceClient()
+    const { data: txns, error } = await db
+      .from('transactions')
+      .select('type, amount, currency, status')
+      .eq('user_id', userId)
 
-  if (error) throw error
+    if (error) return 0
 
-  let balance = 0
-  for (const txn of txns ?? []) {
-    const status = (txn.status || '').toLowerCase()
-    if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
+    let balance = 0
+    for (const txn of txns ?? []) {
+      const status = (txn.status || '').toLowerCase()
+      if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
 
-    const amount = Number(txn.amount) || 0
-    const currency = (txn.currency || '').toUpperCase()
-    const type = (txn.type || '').toLowerCase()
+      const amount = Number(txn.amount) || 0
+      const currency = (txn.currency || '').toUpperCase()
+      const type = (txn.type || '').toLowerCase()
 
-    if (currency === 'PULSE' || currency === 'PLS') {
-      if (type === 'stake') balance += amount
-      else if (type === 'unstake') balance -= amount
+      if (currency === 'PULSE' || currency === 'PLS') {
+        if (type === 'stake') balance += amount
+        else if (type === 'unstake') balance -= amount
+      }
     }
+    return Math.max(0, balance)
+  } catch {
+    return 0
   }
-  return Math.max(0, balance)
 }
 
 export async function adjustAccount(
@@ -288,31 +328,41 @@ export async function disburseProjectPayoutFromFloat(params: {
 
 export async function getSnapshot(userId: string, userEmail?: string): Promise<Snapshot> {
   const db = serviceClient()
+
+  const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> => {
+    try {
+      const res = await promise
+      return res.data
+    } catch {
+      return null
+    }
+  }
+
   const [
-    { data: profile },
+    profile,
     acct,
-    { data: holdings },
-    { data: txns },
-    { data: pointsRows },
-    { data: referrals },
-    { data: badgeRows },
-    { data: cardApp },
-    { data: wallets },
+    holdings,
+    txns,
+    pointsRows,
+    referrals,
+    badgeRows,
+    cardApp,
+    wallets,
   ] = await Promise.all([
-    db.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    safeQuery(db.from('profiles').select('*').eq('id', userId).maybeSingle()),
     ensureAccount(userId),
-    db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-    db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
-    db.from('points_ledger').select('amount').eq('user_id', userId),
-    db.from('profiles').select('kyc_status').eq('referred_by', userId),
-    db.from('badges').select('badge_key, earned_at').eq('user_id', userId),
-    db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle(),
-    db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
+    safeQuery(db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
+    safeQuery(db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50)),
+    safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
+    safeQuery(db.from('profiles').select('kyc_status').eq('referred_by', userId)),
+    safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId)),
+    safeQuery(db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle()),
+    safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true })),
   ])
 
-  const email = (profile?.email || userEmail || '').toLowerCase()
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin' || email === 'lancegumunyu@gmail.com'
-  const rawKyc = profile?.kyc_status ?? 'none'
+  const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
+  const isAdmin = (profile as { role?: string })?.role === 'admin' || (profile as { role?: string })?.role === 'super_admin' || email === 'lancegumunyu@gmail.com'
+  const rawKyc = (profile as { kyc_status?: string })?.kyc_status ?? 'none'
 
   const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
     calculateCashBalanceFromLedger(userId),
@@ -333,12 +383,12 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     cashBalance > 0 ||
     tokenBalance > 0 ||
     stakedBalance > 0 ||
-    (holdings ?? []).length > 0 ||
-    (txns ?? []).length > 0
+    ((holdings as unknown[]) ?? []).length > 0 ||
+    ((txns as unknown[]) ?? []).length > 0
 
-  const isVerified = isAdmin || rawKyc === 'verified' || profile?.admin_approved === true || hasExistingData
+  const isVerified = isAdmin || rawKyc === 'verified' || (profile as { admin_approved?: boolean })?.admin_approved === true || hasExistingData
 
-  let activeHoldings = (holdings ?? []).map((h) => ({
+  let activeHoldings = ((holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []).map((h) => ({
     id: h.id,
     projectId: h.project_id,
     tierId: tierForAmount(Number(h.amount)).id as TierId,
@@ -354,7 +404,6 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     activeHoldings = []
   }
 
-  // Force returned KYC status to 'verified' if isVerified is true to clear yellow top bar banner
   const finalKycStatus: Snapshot['kyc'] = isVerified ? 'verified' : (rawKyc as Snapshot['kyc'])
 
   return {
@@ -363,7 +412,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     staked: stakedBalance,
     pendingYield: pendingYield,
     holdings: activeHoldings,
-    txns: (txns ?? []).map((t) => {
+    txns: ((txns as Array<{ id: string; type: string; currency: string; meta?: Record<string, unknown>; amount: number; status: string; processing_started_at?: string; created_at: string }>) ?? []).map((t) => {
       const rawType = (t.type || '').toLowerCase()
       const rawCurrency = (t.currency || '').toUpperCase()
       return {
@@ -378,28 +427,32 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
       }
     }),
     kyc: finalKycStatus,
-    wallet: profile?.wallet_address ?? null,
-    referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? profile?.referral_code ?? 'PLS-XXXX',
-    fullName: profile?.full_name ?? null,
+    wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
+    referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? (profile as { referral_code?: string })?.referral_code ?? 'PLS-XXXX',
+    fullName: (profile as { full_name?: string })?.full_name ?? null,
     email: email || null,
-    tier: profile?.tier ?? 1,
+    tier: (profile as { tier?: number })?.tier ?? 1,
     isAdmin: isAdmin,
-    points: (pointsRows ?? []).reduce((s, r) => s + Number(r.amount), 0),
-    founderNumber: profile?.founder_number ?? null,
+    points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
+    founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
     walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
-    username: profile?.username ?? null,
-    referralCount: (referrals ?? []).length,
-    referralVerifiedCount: (referrals ?? []).filter((r) => r.kyc_status === 'verified').length,
-    badges: (badgeRows ?? []).map((b) => ({ key: b.badge_key, earnedAt: new Date(b.earned_at).getTime() })),
-    adminScope: (profile?.admin_scope as Snapshot['adminScope']) ?? null,
-    cardStatus: (cardApp?.status as Snapshot['cardStatus']) ?? 'none',
-    cardRef: cardApp?.card_ref ?? null,
-    savedWallets: (wallets ?? []).map((w) => ({ id: w.id, label: w.label, address: w.address })),
+    username: (profile as { username?: string })?.username ?? null,
+    referralCount: ((referrals as unknown[]) ?? []).length,
+    referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter((r) => r.kyc_status === 'verified').length,
+    badges: ((badgeRows as Array<{ badge_key: string; earned_at: string }>) ?? []).map((b) => ({ key: b.badge_key, earnedAt: new Date(b.earned_at).getTime() })),
+    adminScope: ((profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope) ?? null,
+    cardStatus: ((cardApp as { status?: Snapshot['cardStatus'] })?.status) ?? 'none',
+    cardRef: (cardApp as { card_ref?: string })?.card_ref ?? null,
+    savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({ id: w.id, label: w.label, address: w.address })),
   }
 }
 
 export async function isUserAdmin(userId: string): Promise<boolean> {
-  const db = serviceClient()
-  const { data } = await db.from('profiles').select('role, email').eq('id', userId).maybeSingle()
-  return data?.role === 'admin' || data?.role === 'super_admin' || data?.email?.toLowerCase() === 'lancegumunyu@gmail.com'
+  try {
+    const db = serviceClient()
+    const { data } = await db.from('profiles').select('role, email').eq('id', userId).maybeSingle()
+    return data?.role === 'admin' || data?.role === 'super_admin' || data?.email?.toLowerCase() === 'lancegumunyu@gmail.com'
+  } catch {
+    return false
+  }
 }
