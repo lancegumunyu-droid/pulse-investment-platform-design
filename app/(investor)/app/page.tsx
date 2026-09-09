@@ -2,16 +2,13 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSnapshot } from '@/lib/pulse/data-access'
 import { PulseApp } from '@/components/pulse/app'
-import { ShieldAlert, RefreshCcw } from 'lucide-react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AppPage() {
   const supabase = await createClient()
 
-  // Use getUser() to securely validate the session from cookies
+  // 1. Securely validate session from server cookies
   const {
     data: { user },
     error: authError,
@@ -21,7 +18,7 @@ export default async function AppPage() {
     redirect('/auth/login')
   }
 
-  // Safely fetch snapshot data
+  // 2. Fetch live snapshot data for the authenticated user
   let initial = null
   try {
     initial = await getSnapshot(user.id)
@@ -29,7 +26,7 @@ export default async function AppPage() {
     console.error('[Pulse App Page] Failed to fetch user snapshot:', err)
   }
 
-  // Fallback safe state if profile row doesn't exist yet in database
+  // 3. Fallback safe state if profile/account row doesn't exist yet
   const safeInitial = initial || {
     cash: 0,
     pulse: 0,
@@ -43,7 +40,7 @@ export default async function AppPage() {
     fullName: user.user_metadata?.full_name || null,
     email: user.email || null,
     tier: 1,
-    isAdmin: false,
+    isAdmin: user.email?.toLowerCase() === 'lancegumunyu@gmail.com',
     points: 0,
     founderNumber: null,
     walletId: null,
@@ -57,6 +54,6 @@ export default async function AppPage() {
     savedWallets: [],
   }
 
-  // Correctly passing initialSnapshot here:
-  return <PulseApp initialSnapshot={safeInitial} />
+  // Pass both `initial` and `initialSnapshot` to fix prop mismatch issues
+  return <PulseApp initial={safeInitial} initialSnapshot={safeInitial} />
 }
