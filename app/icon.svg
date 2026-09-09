@@ -1,25 +1,133 @@
-<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; max-width: 100%; display: block;">
   <defs>
-    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#141416"/>
-      <stop offset="100%" stop-color="#08080a"/>
+    <!-- Ultra Deep Radial Core Gradient -->
+    <radialGradient id="pulseCoreBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2a1f0c" stop-opacity="0.98"/>
+      <stop offset="65%" stop-color="#120e08" stop-opacity="0.99"/>
+      <stop offset="100%" stop-color="#050507" stop-opacity="1"/>
     </radialGradient>
-    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#fbbf24"/>
-      <stop offset="50%" stop-color="#f59e0b"/>
-      <stop offset="100%" stop-color="#d97706"/>
+
+    <!-- Precision Dual-Toned Gold Border Gradient -->
+    <linearGradient id="goldBorderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="35%" stop-color="#f59e0b"/>
+      <stop offset="70%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#451a03"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#f59e0b" flood-opacity="0.35"/>
+
+    <!-- Laser Pulse Heartbeat Gradient -->
+    <linearGradient id="laserPulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="45%" stop-color="#f59e0b"/>
+      <stop offset="80%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+
+    <!-- Multi-Stage High-Glow Filter -->
+    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.2" result="blur1"/>
+      <feGaussianBlur stdDeviation="3.2" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Outer Breathing Aura -->
+    <filter id="outerAura" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#f59e0b" flood-opacity="0.5"/>
     </filter>
   </defs>
-  <circle cx="32" cy="32" r="30" fill="url(#bgGrad)" stroke="#f59e0b" stroke-width="2.2" stroke-opacity="0.9"/>
-  <circle cx="32" cy="32" r="26" fill="none" stroke="#ffffff" stroke-width="0.75" stroke-opacity="0.08"/>
+
+  <style>
+    <![CDATA[
+      @keyframes pulseFlow {
+        0% {
+          stroke-dashoffset: 140;
+          opacity: 0.85;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          stroke-dashoffset: 0;
+          opacity: 0.85;
+        }
+      }
+
+      @keyframes ringBreathe {
+        0%, 100% {
+          stroke-opacity: 0.85;
+          filter: drop-shadow(0 0 1px rgba(245, 158, 11, 0.4));
+        }
+        50% {
+          stroke-opacity: 1;
+          filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.9));
+        }
+      }
+
+      @keyframes beaconPulse {
+        0%, 100% {
+          transform: scale(1);
+          opacity: 0.8;
+        }
+        50% {
+          transform: scale(1.35);
+          opacity: 1;
+        }
+      }
+
+      .animated-pulse-line {
+        stroke-dasharray: 140;
+        stroke-dashoffset: 140;
+        animation: pulseFlow 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+
+      .animated-border-ring {
+        animation: ringBreathe 3s ease-in-out infinite;
+      }
+
+      .peak-node {
+        transform-origin: 24px 20px;
+        animation: beaconPulse 1.8s ease-in-out infinite;
+      }
+    ]]>
+  </style>
+
+  <!-- Background Base Container -->
+  <circle cx="32" cy="32" r="28.5" fill="url(#pulseCoreBg)"/>
+
+  <!-- Radar Alignment Rings (HUD Depth Elements) -->
+  <circle cx="32" cy="32" r="24.5" fill="none" stroke="#ffffff" stroke-width="0.5" stroke-opacity="0.08"/>
+  <circle cx="32" cy="32" r="18.5" fill="none" stroke="#f59e0b" stroke-width="0.5" stroke-dasharray="2 3" stroke-opacity="0.18"/>
+
+  <!-- Precision Gold Border Outer Ring -->
+  <circle cx="32" cy="32" r="28.5" fill="none" stroke="url(#goldBorderGrad)" stroke-width="1.8" filter="url(#outerAura)" className="animated-border-ring"/>
+  <circle cx="32" cy="32" r="27.3" fill="none" stroke="#ffffff" stroke-width="0.4" stroke-opacity="0.25"/>
+
+  <!-- Under-Glow Neon Path (Ambient Shadow Light) -->
   <path d="M12 32h8l4-12 8 24 6-16 3 4h11"
         fill="none" 
-        stroke="url(#pulseGrad)" 
-        stroke-width="3.6"
+        stroke="#f59e0b" 
+        stroke-width="5"
         stroke-linecap="round" 
         stroke-linejoin="round"
-        filter="url(#glow)"/>
+        stroke-opacity="0.32"
+        filter="url(#neonGlow)"/>
+
+  <!-- Foreground Dynamic Pulse Path -->
+  <path d="M12 32h8l4-12 8 24 6-16 3 4h11"
+        fill="none" 
+        stroke="url(#laserPulseGrad)" 
+        stroke-width="3.2"
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        filter="url(#neonGlow)"
+        className="animated-pulse-line"/>
+
+  <!-- Strategic Peak Node Beacons -->
+  <circle cx="24" cy="20" r="1.8" fill="#fef08a" className="peak-node" filter="url(#neonGlow)"/>
+  <circle cx="32" cy="44" r="1.4" fill="#f59e0b" opacity="0.9"/>
+  <circle cx="38" cy="28" r="1.4" fill="#34d399" opacity="0.95"/>
 </svg>
