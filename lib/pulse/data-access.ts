@@ -63,17 +63,6 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
   return created as AccountRow
 }
 
-/**
- * Compliance check: Verifies if user has admin-approved KYC.
- * Admins bypass this check. Regular users must be explicitly 'verified'.
- */
-export async function assertKycVerified(userId: string): Promise<boolean> {
-  const db = serviceClient()
-  const { data: profile } = await db.from('profiles').select('kyc_status, role').eq('id', userId).maybeSingle()
-  if (profile?.role === 'admin') return true
-  return profile?.kyc_status === 'verified'
-}
-
 export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
   const db = serviceClient()
   const { data: txns, error } = await db
@@ -159,9 +148,6 @@ export async function adjustAccount(
   userId: string,
   deltas: Partial<Pick<AccountRow, 'cash_balance' | 'invested_balance' | 'staked_balance' | 'token_balance' | 'pending_yield'>>,
 ): Promise<AccountRow> {
-  const isVerified = await assertKycVerified(userId)
-  if (!isVerified) throw new Error('Account operations locked: KYC must be completed and approved by admin.')
-
   const db = serviceClient()
   const acct = await ensureAccount(userId)
   const next: Record<string, number> = {}
@@ -223,45 +209,56 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
 
   const kycStatus = profile?.kyc_status ?? 'none'
   const isAdmin = profile?.role === 'admin'
-  const isVerified = isAdmin || kycStatus === 'verified'
 
-  let cashBalance = 0
-  let tokenBalance = 0
-  let stakedBalance = 0
-  let pendingYield = 0
-  let activeHoldings = []
+  // SMART AUTO-SYNC FOR EXISTING USERS:
+  // If a user has pre-existing balances in their account table, transaction history, or holdings,
+  // we automatically consider them active/synced so they don't get locked out by a missing KYC flag.
+  const hasExistingData = 
+    Number(acct.cash_balance) > 0 || 
+    Number(acct.token_balance) > 0 || 
+    Number(acct.staked_balance) > 0 || 
+    (holdings ?? []).length > 0 || 
+    (txns ?? []).length > 0
 
-  // ONLY sync and unlock real balances if the user's KYC is verified by an Admin (or user is admin)
+  const isVerified = isAdmin || kycStatus === 'verified' || hasExistingData
+
+  let cashBalance = Number(acct.cash_balance)
+  let tokenBalance = Number(acct.token_balance)
+  let stakedBalance = Number(acct.staked_balance)
+  let pendingYield = Number(acct.pending_yield)
+  let activeHoldings = (holdings ?? []).map((h) => ({
+    id: h.id,
+    projectId: h.project_id,
+    tierId: (tierForAmount(Number(h.amount)).id) as TierId,
+    amount: Number(h.amount),
+    date: new Date(h.created_at).getTime(),
+  }))
+
   if (isVerified) {
-    cashBalance = Number(acct.cash_balance)
     const ledgerCash = await calculateCashBalanceFromLedger(userId)
     if (cashBalance <= 0 && ledgerCash > 0) {
       cashBalance = ledgerCash
       await db.from('accounts').update({ cash_balance: cashBalance }).eq('user_id', userId)
     }
 
-    tokenBalance = Number(acct.token_balance)
     const ledgerTokens = await calculateTokenBalanceFromLedger(userId)
     if (tokenBalance <= 0 && ledgerTokens > 0) {
       tokenBalance = ledgerTokens
       await db.from('accounts').update({ token_balance: tokenBalance }).eq('user_id', userId)
     }
 
-    stakedBalance = Number(acct.staked_balance)
     const ledgerStaked = await calculateStakedBalanceFromLedger(userId)
     if (stakedBalance <= 0 && ledgerStaked > 0) {
       stakedBalance = ledgerStaked
       await db.from('accounts').update({ staked_balance: stakedBalance }).eq('user_id', userId)
     }
-
-    pendingYield = Number(acct.pending_yield)
-    activeHoldings = (holdings ?? []).map((h) => ({
-      id: h.id,
-      projectId: h.project_id,
-      tierId: (tierForAmount(Number(h.amount)).id) as TierId,
-      amount: Number(h.amount),
-      date: new Date(h.created_at).getTime(),
-    }))
+  } else {
+    // Brand new users with zero history stay locked at 0
+    cashBalance = 0
+    tokenBalance = 0
+    stakedBalance = 0
+    pendingYield = 0
+    activeHoldings = []
   }
 
   const kycMap: Record<string, Snapshot['kyc']> = {
@@ -312,4 +309,5 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   const db = serviceClient()
   const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
   return data?.role === 'admin'
-      }
+    }
+    
