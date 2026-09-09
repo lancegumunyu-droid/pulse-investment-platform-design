@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  ArrowDownRight, ArrowUpRight, TrendingUp, DollarSign, Clock, 
-  ShieldAlert, RefreshCw, X, CheckCircle2, ChevronRight, Lock, AlertTriangle, Layers
+  ArrowDownRight, ArrowUpRight, TrendingUp, Clock, 
+  RefreshCw, X, CheckCircle2, ChevronRight, Lock, AlertTriangle, Layers
 } from 'lucide-react'
+import { supabase } from '@/lib/supabaseClient'
 import { money, usePulse } from '../store'
 import { Button } from '@/components/ui/button'
 
@@ -35,65 +36,40 @@ export function DashboardView() {
   const currentTier = usePulse((s) => s.currentTier)
   const portfolioValue = usePulse((s) => s.portfolioValue)
 
-  // System Settings
-  const [pulsePrice, setPulsePrice] = useState(0.08)
-  const [minDeposit, setMinDeposit] = useState(10.00)
-  const [minWithdrawal, setMinWithdrawal] = useState(20.00)
-
-  // Data
   const [portfolios, setPortfolios] = useState<PortfolioItem[]>([])
   const [transactions, setTransactions] = useState<TransactionItem[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Interaction State
   const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioItem | null>(null)
-  const [activeModal, setActiveModal] = useState<'detail' | 'deposit' | 'withdraw' | 'sell' | null>(null)
+  const [activeModal, setActiveModal] = useState<'detail' | null>(null)
 
-  // Action Inputs
-  const [depositAmount, setDepositAmount] = useState('')
-  const [depositTxHash, setDepositTxHash] = useState('')
-  const [withdrawAmount, setWithdrawAmount] = useState('')
-  const [withdrawAddress, setWithdrawAddress] = useState('')
-  const [sellTokenAmount, setSellTokenAmount] = useState('')
-
-  // Action Feedback
   const [statusError, setStatusError] = useState<string | null>(null)
   const [statusSuccess, setStatusSuccess] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Load Synced Dashboard Data
   const loadDashboardData = async () => {
-    const supabase = (window as any).supabase
-    if (!supabase) return
-
     setLoading(true)
     try {
-      // 1. Admin Dynamic Settings
-      const { data: settings } = await supabase.from('admin_settings').select('*')
-      if (settings) {
-        settings.forEach((s: any) => {
-          if (s.key === 'pulse_price_usdt') setPulsePrice(parseFloat(s.value))
-          if (s.key === 'min_deposit_usdt') setMinDeposit(parseFloat(s.value))
-          if (s.key === 'min_withdrawal_usdt') setMinWithdrawal(parseFloat(s.value))
-        })
-      }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
 
-      // 2. Fetch User Portfolios (Active and Closed)
       const { data: invList } = await supabase
         .from('user_investments')
         .select('*')
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
       if (invList) setPortfolios(invList)
 
-      // 3. Fetch Transaction History
       const { data: txList } = await supabase
         .from('transactions')
         .select('*')
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(10)
       if (txList) setTransactions(txList)
+
     } catch (e) {
-      console.error('Error fetching terminal data:', e)
+      console.error('Error syncing terminal data:', e)
     } finally {
       setLoading(false)
     }
@@ -109,14 +85,8 @@ export function DashboardView() {
     setStatusError(null)
     setStatusSuccess(null)
     setIsSubmitting(false)
-    setDepositAmount('')
-    setDepositTxHash('')
-    setWithdrawAmount('')
-    setWithdrawAddress('')
-    setSellTokenAmount('')
   }
 
-  // 1. Move Yield Action inside Portfolio Detail View
   const handleMoveYield = async () => {
     if (!selectedPortfolio) return
     setIsSubmitting(true)
@@ -124,7 +94,6 @@ export function DashboardView() {
     setStatusSuccess(null)
 
     try {
-      const supabase = (window as any).supabase
       const { data, error } = await supabase.rpc('move_investment_yield_to_cash', {
         p_investment_id: selectedPortfolio.id
       })
@@ -133,8 +102,6 @@ export function DashboardView() {
 
       setStatusSuccess(`Moved +$${money(selectedPortfolio.accrued_yield)} USDT yield directly to cash!`)
       await loadDashboardData()
-      
-      // Update selected portfolio view state locally
       setSelectedPortfolio((prev) => prev ? { ...prev, accrued_yield: 0 } : null)
     } catch (err: any) {
       setStatusError(err.message || 'Yield transfer failed.')
@@ -143,7 +110,6 @@ export function DashboardView() {
     }
   }
 
-  // 2. Early Liquidation Action inside Portfolio Detail View
   const handleLiquidateEarly = async () => {
     if (!selectedPortfolio) return
     setIsSubmitting(true)
@@ -151,7 +117,6 @@ export function DashboardView() {
     setStatusSuccess(null)
 
     try {
-      const supabase = (window as any).supabase
       const { data, error } = await supabase.rpc('liquidate_investment_early', {
         p_investment_id: selectedPortfolio.id
       })
@@ -160,8 +125,6 @@ export function DashboardView() {
 
       setStatusSuccess(`Project closed! Net refund of $${money(data.net_refund)} credited to liquid balance.`)
       await loadDashboardData()
-
-      // Update selected portfolio view state locally to CLOSED
       setSelectedPortfolio((prev) => prev ? { ...prev, status: 'liquidated', accrued_yield: 0 } : null)
     } catch (err: any) {
       setStatusError(err.message || 'Liquidation failed.')
@@ -170,11 +133,9 @@ export function DashboardView() {
     }
   }
 
-  const calculatedReturn = Math.max(0, (parseFloat(sellTokenAmount) || 0) * pulsePrice)
-
   return (
     <div className="mx-auto w-full max-w-lg space-y-5 pb-28 text-neutral-100 antialiased px-3">
-      {/* TERMINAL HEADER */}
+      {/* HEADER */}
       <div className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900/90 p-3.5 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="size-2.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -201,26 +162,10 @@ export function DashboardView() {
             <h1 className="text-4xl font-black text-white">${money(portfolioValue)} <span className="text-sm font-bold text-neutral-400">USDT</span></h1>
             <p className="text-xs text-neutral-400 mt-1">Liquid Cash Balance: <strong className="text-emerald-400 font-bold">${money(state.cash)} USDT</strong></p>
           </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <Button 
-              className="h-11 rounded-xl bg-amber-500 font-black text-neutral-950 hover:bg-amber-400"
-              onClick={() => setActiveModal('deposit')}
-            >
-              <ArrowDownRight className="size-4 stroke-[3]" /> Deposit
-            </Button>
-            <Button 
-              variant="outline"
-              className="h-11 rounded-xl border-neutral-800 bg-neutral-900 font-bold text-white hover:bg-neutral-800"
-              onClick={() => setActiveModal('withdraw')}
-            >
-              <ArrowUpRight className="size-4 stroke-[2.5]" /> Withdraw
-            </Button>
-          </div>
         </div>
       </div>
 
-      {/* ACTIVE & CLOSED PORTFOLIOS (CLICKABLE) */}
+      {/* ACTIVE & CLOSED PORTFOLIOS */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-wider text-neutral-300 flex items-center gap-2">
@@ -247,7 +192,6 @@ export function DashboardView() {
                       : 'border-neutral-800 bg-neutral-900 hover:border-amber-500/50 hover:shadow-lg'
                   }`}
                 >
-                  {/* Image Header */}
                   <div className="h-28 w-full relative bg-neutral-950 overflow-hidden">
                     <img 
                       src={item.image_url || 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80'} 
@@ -255,7 +199,6 @@ export function DashboardView() {
                       className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${isClosed ? 'grayscale brightness-50' : 'brightness-90'}`}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent" />
-                    
                     <div className="absolute top-3 right-3">
                       {isClosed ? (
                         <span className="rounded-md bg-rose-500/20 px-2.5 py-1 text-[10px] font-black uppercase text-rose-300 border border-rose-500/40 backdrop-blur-md">
@@ -293,7 +236,7 @@ export function DashboardView() {
         )}
       </div>
 
-      {/* TRANSACTIONS & PAYOUTS LEDGER */}
+      {/* TRANSACTIONS LEDGER */}
       <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-extrabold uppercase tracking-wider text-neutral-300 flex items-center gap-2">
@@ -308,28 +251,20 @@ export function DashboardView() {
           <div className="text-center py-4 text-xs text-neutral-500">No transaction logs recorded yet.</div>
         ) : (
           <div className="space-y-2">
-            {transactions.slice(0, 5).map((tx) => (
+            {transactions.map((tx) => (
               <div key={tx.id} className="flex items-center justify-between rounded-xl bg-neutral-900 p-3 border border-neutral-800">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="font-extrabold text-white text-xs uppercase">{tx.type.replace('_', ' ')}</span>
-                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${
-                      tx.status === 'completed' || tx.status === 'approved' 
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : tx.status === 'pending'
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                    }`}>
+                    <span className="rounded px-1.5 py-0.5 text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       {tx.status}
                     </span>
                   </div>
                   <p className="text-[10px] text-neutral-400">{new Date(tx.created_at).toLocaleString()}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`text-xs font-black ${
-                    tx.type === 'deposit' || tx.type === 'yield_transfer' || tx.type === 'liquidation' ? 'text-emerald-400' : 'text-amber-300'
-                  }`}>
-                    {tx.type === 'deposit' || tx.type === 'yield_transfer' || tx.type === 'liquidation' ? '+' : '-'}${money(tx.amount)}
+                  <span className="text-xs font-black text-emerald-400">
+                    +${money(tx.amount)}
                   </span>
                 </div>
               </div>
@@ -338,7 +273,7 @@ export function DashboardView() {
         )}
       </div>
 
-      {/* PORTFOLIO ACCESS MODAL (ACCESS PROJECT & MOVE FUNDS) */}
+      {/* PORTFOLIO ACCESS MODAL */}
       <AnimatePresence>
         {activeModal === 'detail' && selectedPortfolio && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
@@ -347,7 +282,6 @@ export function DashboardView() {
                 <X className="size-5" />
               </button>
 
-              {/* Cover Banner */}
               <div className="h-36 -mx-6 -mt-6 relative bg-neutral-900">
                 <img 
                   src={selectedPortfolio.image_url || 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80'} 
@@ -361,7 +295,6 @@ export function DashboardView() {
                 </div>
               </div>
 
-              {/* Status Badge */}
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">Project Status</span>
                 {selectedPortfolio.status === 'active' ? (
@@ -375,7 +308,6 @@ export function DashboardView() {
                 )}
               </div>
 
-              {/* Metric Breakdown */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-neutral-900 p-3.5 border border-neutral-800 space-y-1">
                   <span className="text-[10px] text-neutral-400 font-bold block uppercase">Staked Principal</span>
@@ -389,7 +321,6 @@ export function DashboardView() {
                 </div>
               </div>
 
-              {/* Action Controls inside Portfolio */}
               {selectedPortfolio.status === 'active' ? (
                 <div className="space-y-3 pt-2">
                   <div className="rounded-2xl bg-neutral-900/60 p-4 border border-neutral-800 space-y-3">
