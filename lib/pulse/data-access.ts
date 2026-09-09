@@ -3,11 +3,6 @@ import { serviceClient } from './service'
 import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-data'
 import type { Snapshot, SnapshotTxn } from './types'
 
-// Live project funding: PROJECTS in pulse-data.ts holds the seed/base amount
-// each project had before individual holdings were tracked. Actual investor
-// money since then is summed from `holdings` and added on top, so the
-// progress bar on the homepage reflects real user investment instead of a
-// number that only ever changes when someone edits the source file.
 export async function getLiveProjects(): Promise<Project[]> {
   const db = serviceClient()
   const { data: rows } = await db.from('holdings').select('project_id, amount')
@@ -69,32 +64,35 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
 }
 
 /**
- * Calculates cash balance from transaction ledger.
- * Aggregates: deposits + yields + p2p_receive + token sales - withdrawals - investments - p2p_send - token purchases
- * Includes cross-currency meta parsing for token purchases.
+ * Compliance check: Verifies if user has admin-approved KYC.
+ * Admins bypass this check. Regular users must be explicitly 'verified'.
  */
+export async function assertKycVerified(userId: string): Promise<boolean> {
+  const db = serviceClient()
+  const { data: profile } = await db.from('profiles').select('kyc_status, role').eq('id', userId).maybeSingle()
+  if (profile?.role === 'admin') return true
+  return profile?.kyc_status === 'verified'
+}
+
 export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
   const db = serviceClient()
   const { data: txns, error } = await db
     .from('transactions')
     .select('type, amount, currency, status, meta')
     .eq('user_id', userId)
-    .eq('status', 'completed')
 
-  if (error) {
-    console.error('[calculateCashBalanceFromLedger] Query error:', error)
-    return 0
-  }
+  if (error) return 0
 
   let balance = 0
   for (const txn of txns ?? []) {
-    const amount = Number(txn.amount)
-    if (txn.currency === 'USD') {
+    if (txn.status === 'failed' || txn.status === 'rejected') continue
+    const amount = Number(txn.amount) || 0
+    if (txn.currency === 'USD' || !txn.currency) {
       switch (txn.type) {
         case 'deposit':
         case 'yield':
         case 'p2p_receive':
-        case 'token_purchase': // Selling PULSE gives USD
+        case 'token_purchase':
           balance += amount
           break
         case 'withdrawal':
@@ -106,92 +104,64 @@ export async function calculateCashBalanceFromLedger(userId: string): Promise<nu
     } else if (txn.currency === 'PULSE') {
       if (txn.type === 'token_purchase') {
         const meta = txn.meta as Record<string, unknown> | null
-        if (meta?.usdCost) { // Buying PULSE deducts USD cost
-          balance -= Number(meta.usdCost)
-        }
+        if (meta?.usdCost) balance -= Number(meta.usdCost) || 0
       }
     }
   }
-
   return Math.max(0, balance)
 }
 
-/**
- * Calculates token (PULSE) balance from transaction ledger.
- * Aggregates: token_purchases + unstakes - stakes - token_sales
- * Includes cross-currency meta parsing for token sales.
- */
 export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
   const db = serviceClient()
   const { data: txns, error } = await db
     .from('transactions')
     .select('type, amount, currency, status, meta')
     .eq('user_id', userId)
-    .eq('status', 'completed')
 
-  if (error) {
-    console.error('[calculateTokenBalanceFromLedger] Query error:', error)
-    return 0
-  }
+  if (error) return 0
 
   let balance = 0
   for (const txn of txns ?? []) {
-    const amount = Number(txn.amount)
+    if (txn.status === 'failed' || txn.status === 'rejected') continue
+    const amount = Number(txn.amount) || 0
     if (txn.currency === 'PULSE') {
-      switch (txn.type) {
-        case 'token_purchase':
-        case 'unstake':
-          balance += amount
-          break
-        case 'stake':
-          balance -= amount
-          break
-      }
-    } else if (txn.currency === 'USD') {
-      if (txn.type === 'token_purchase') {
-        const meta = txn.meta as Record<string, unknown> | null
-        if (meta?.pulseAmount) { // Selling PULSE for USD deducts PULSE
-          balance -= Number(meta.pulseAmount)
-        }
+      if (txn.type === 'token_purchase' || txn.type === 'unstake' || txn.type === 'p2p_receive') {
+        balance += amount
+      } else if (txn.type === 'stake' || txn.type === 'p2p_send') {
+        balance -= amount
       }
     }
   }
-
   return Math.max(0, balance)
 }
 
-/**
- * Calculates staked balance from transaction ledger.
- */
 export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
   const db = serviceClient()
   const { data: txns, error } = await db
     .from('transactions')
     .select('type, amount, currency, status')
     .eq('user_id', userId)
-    .eq('status', 'completed')
     .eq('currency', 'PULSE')
 
-  if (error) {
-    console.error('[calculateStakedBalanceFromLedger] Query error:', error)
-    return 0
-  }
+  if (error) return 0
 
   let balance = 0
   for (const txn of txns ?? []) {
-    const amount = Number(txn.amount)
+    if (txn.status === 'failed' || txn.status === 'rejected') continue
+    const amount = Number(txn.amount) || 0
     if (txn.type === 'stake') balance += amount
     else if (txn.type === 'unstake') balance -= amount
   }
-
   return Math.max(0, balance)
 }
 
-// Read-modify-write balance adjustment. Deltas are added to current values.
 export async function adjustAccount(
   userId: string,
   deltas: Partial<Pick<AccountRow, 'cash_balance' | 'invested_balance' | 'staked_balance' | 'token_balance' | 'pending_yield'>>,
 ): Promise<AccountRow> {
+  const isVerified = await assertKycVerified(userId)
+  if (!isVerified) throw new Error('Account operations locked: KYC must be completed and approved by admin.')
+
   const db = serviceClient()
   const acct = await ensureAccount(userId)
   const next: Record<string, number> = {}
@@ -251,22 +221,47 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
   ])
 
-  // ROBUST FIX: Catch missing or 0 cash balances with cross-currency DB ledger math
-  let cashBalance = Number(acct.cash_balance)
-  if (cashBalance <= 0 || acct.cash_balance === null || isNaN(cashBalance)) {
-    cashBalance = await calculateCashBalanceFromLedger(userId)
-  }
+  const kycStatus = profile?.kyc_status ?? 'none'
+  const isAdmin = profile?.role === 'admin'
+  const isVerified = isAdmin || kycStatus === 'verified'
 
-  // ROBUST FIX: Catch missing or 0 token balances with cross-currency DB ledger math
-  let tokenBalance = Number(acct.token_balance)
-  if (tokenBalance <= 0 || acct.token_balance === null || isNaN(tokenBalance)) {
-    tokenBalance = await calculateTokenBalanceFromLedger(userId)
-  }
+  let cashBalance = 0
+  let tokenBalance = 0
+  let stakedBalance = 0
+  let pendingYield = 0
+  let activeHoldings = []
 
-  // ROBUST FIX: Catch missing or 0 staked balances via ledger
-  let stakedBalance = Number(acct.staked_balance)
-  if (stakedBalance <= 0 || acct.staked_balance === null || isNaN(stakedBalance)) {
-    stakedBalance = await calculateStakedBalanceFromLedger(userId)
+  // ONLY sync and unlock real balances if the user's KYC is verified by an Admin (or user is admin)
+  if (isVerified) {
+    cashBalance = Number(acct.cash_balance)
+    const ledgerCash = await calculateCashBalanceFromLedger(userId)
+    if (cashBalance <= 0 && ledgerCash > 0) {
+      cashBalance = ledgerCash
+      await db.from('accounts').update({ cash_balance: cashBalance }).eq('user_id', userId)
+    }
+
+    tokenBalance = Number(acct.token_balance)
+    const ledgerTokens = await calculateTokenBalanceFromLedger(userId)
+    if (tokenBalance <= 0 && ledgerTokens > 0) {
+      tokenBalance = ledgerTokens
+      await db.from('accounts').update({ token_balance: tokenBalance }).eq('user_id', userId)
+    }
+
+    stakedBalance = Number(acct.staked_balance)
+    const ledgerStaked = await calculateStakedBalanceFromLedger(userId)
+    if (stakedBalance <= 0 && ledgerStaked > 0) {
+      stakedBalance = ledgerStaked
+      await db.from('accounts').update({ staked_balance: stakedBalance }).eq('user_id', userId)
+    }
+
+    pendingYield = Number(acct.pending_yield)
+    activeHoldings = (holdings ?? []).map((h) => ({
+      id: h.id,
+      projectId: h.project_id,
+      tierId: (tierForAmount(Number(h.amount)).id) as TierId,
+      amount: Number(h.amount),
+      date: new Date(h.created_at).getTime(),
+    }))
   }
 
   const kycMap: Record<string, Snapshot['kyc']> = {
@@ -280,14 +275,8 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     cash: cashBalance,
     pulse: tokenBalance,
     staked: stakedBalance,
-    pendingYield: Number(acct.pending_yield),
-    holdings: (holdings ?? []).map((h) => ({
-      id: h.id,
-      projectId: h.project_id,
-      tierId: (tierForAmount(Number(h.amount)).id) as TierId,
-      amount: Number(h.amount),
-      date: new Date(h.created_at).getTime(),
-    })),
+    pendingYield: pendingYield,
+    holdings: activeHoldings,
     txns: (txns ?? []).map((t) => ({
       id: t.id,
       type: TXN_TYPE_MAP[t.type] ?? 'deposit',
@@ -298,13 +287,13 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
       isProcessing: !!t.processing_started_at,
       date: new Date(t.created_at).getTime(),
     })),
-    kyc: kycMap[profile?.kyc_status ?? 'none'] ?? 'none',
+    kyc: kycMap[kycStatus] ?? 'none',
     wallet: profile?.wallet_address ?? null,
     referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? profile?.referral_code ?? 'PLS-XXXX',
     fullName: profile?.full_name ?? null,
     email: profile?.email ?? null,
     tier: profile?.tier ?? 0,
-    isAdmin: profile?.role === 'admin',
+    isAdmin: isAdmin,
     points: (pointsRows ?? []).reduce((s, r) => s + Number(r.amount), 0),
     founderNumber: profile?.founder_number ?? null,
     walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
@@ -323,4 +312,4 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   const db = serviceClient()
   const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
   return data?.role === 'admin'
-}
+      }
