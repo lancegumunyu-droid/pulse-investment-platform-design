@@ -18,15 +18,17 @@ export default async function AppPage() {
     redirect('/auth/login')
   }
 
-  // 2. Fetch live snapshot data for the authenticated user
+  // 2. Fetch live snapshot data passing user ID and verified auth email
   let initial = null
   try {
-    initial = await getSnapshot(user.id)
+    initial = await getSnapshot(user.id, user.email)
   } catch (err) {
     console.error('[Pulse App Page] Failed to fetch user snapshot:', err)
   }
 
-  // 3. Fallback safe state if profile/account row doesn't exist yet
+  const isAdminUser = user.email?.toLowerCase() === 'lancegumunyu@gmail.com'
+
+  // 3. Fallback safe state if database query returns null
   const safeInitial = initial || {
     cash: 0,
     pulse: 0,
@@ -34,13 +36,13 @@ export default async function AppPage() {
     pendingYield: 0,
     holdings: [],
     txns: [],
-    kyc: 'none',
+    kyc: isAdminUser ? 'verified' : 'none',
     wallet: null,
     referralCode: 'PULSE-' + user.id.slice(0, 6).toUpperCase(),
     fullName: user.user_metadata?.full_name || null,
     email: user.email || null,
     tier: 1,
-    isAdmin: user.email?.toLowerCase() === 'lancegumunyu@gmail.com',
+    isAdmin: isAdminUser,
     points: 0,
     founderNumber: null,
     walletId: null,
@@ -54,6 +56,6 @@ export default async function AppPage() {
     savedWallets: [],
   }
 
-  // Pass both `initial` and `initialSnapshot` to fix prop mismatch issues
+  // Pass both `initial` and `initialSnapshot` to prevent prop naming mismatches
   return <PulseApp initial={safeInitial} initialSnapshot={safeInitial} />
 }
