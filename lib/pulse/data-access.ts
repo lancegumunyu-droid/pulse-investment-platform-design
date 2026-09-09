@@ -286,7 +286,7 @@ export async function disburseProjectPayoutFromFloat(params: {
   return txn
 }
 
-export async function getSnapshot(userId: string): Promise<Snapshot> {
+export async function getSnapshot(userId: string, userEmail?: string): Promise<Snapshot> {
   const db = serviceClient()
   const [
     { data: profile },
@@ -310,24 +310,33 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
   ])
 
-  const email = (profile?.email ?? '').toLowerCase()
+  const email = (profile?.email || userEmail || '').toLowerCase()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin' || email === 'lancegumunyu@gmail.com'
   const rawKyc = profile?.kyc_status ?? 'none'
-  const kycStatus = isAdmin ? 'verified' : rawKyc
 
-  const hasExistingData =
-    Number(acct.cash_balance) > 0 ||
-    Number(acct.token_balance) > 0 ||
-    Number(acct.staked_balance) > 0 ||
-    (holdings ?? []).length > 0 ||
-    (txns ?? []).length > 0
-
-  const isVerified = isAdmin || kycStatus === 'verified' || profile?.admin_approved === true || hasExistingData
+  const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
+    calculateCashBalanceFromLedger(userId),
+    calculateTokenBalanceFromLedger(userId),
+    calculateStakedBalanceFromLedger(userId),
+  ])
 
   let cashBalance = Number(acct.cash_balance ?? 0)
   let tokenBalance = Number(acct.token_balance ?? 0)
   let stakedBalance = Number(acct.staked_balance ?? 0)
   let pendingYield = Number(acct.pending_yield ?? 0)
+
+  if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
+  if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
+  if (stakedBalance <= 0 && ledgerStaked > 0) stakedBalance = ledgerStaked
+
+  const hasExistingData =
+    cashBalance > 0 ||
+    tokenBalance > 0 ||
+    stakedBalance > 0 ||
+    (holdings ?? []).length > 0 ||
+    (txns ?? []).length > 0
+
+  const isVerified = isAdmin || rawKyc === 'verified' || profile?.admin_approved === true || hasExistingData
 
   let activeHoldings = (holdings ?? []).map((h) => ({
     id: h.id,
@@ -337,16 +346,6 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     date: new Date(h.created_at).getTime(),
   }))
 
-  const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
-    calculateCashBalanceFromLedger(userId),
-    calculateTokenBalanceFromLedger(userId),
-    calculateStakedBalanceFromLedger(userId),
-  ])
-
-  if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
-  if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
-  if (stakedBalance <= 0 && ledgerStaked > 0) stakedBalance = ledgerStaked
-
   if (!isVerified) {
     cashBalance = 0
     tokenBalance = 0
@@ -355,12 +354,8 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     activeHoldings = []
   }
 
-  const kycMap: Record<string, Snapshot['kyc']> = {
-    none: 'none',
-    pending: 'pending',
-    verified: 'verified',
-    rejected: 'rejected',
-  }
+  // Force returned KYC status to 'verified' if isVerified is true to clear yellow top bar banner
+  const finalKycStatus: Snapshot['kyc'] = isVerified ? 'verified' : (rawKyc as Snapshot['kyc'])
 
   return {
     cash: cashBalance,
@@ -382,12 +377,12 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
         date: new Date(t.created_at).getTime(),
       }
     }),
-    kyc: kycMap[kycStatus] ?? (isAdmin ? 'verified' : 'none'),
+    kyc: finalKycStatus,
     wallet: profile?.wallet_address ?? null,
     referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? profile?.referral_code ?? 'PLS-XXXX',
     fullName: profile?.full_name ?? null,
-    email: profile?.email ?? null,
-    tier: profile?.tier ?? 0,
+    email: email || null,
+    tier: profile?.tier ?? 1,
     isAdmin: isAdmin,
     points: (pointsRows ?? []).reduce((s, r) => s + Number(r.amount), 0),
     founderNumber: profile?.founder_number ?? null,
