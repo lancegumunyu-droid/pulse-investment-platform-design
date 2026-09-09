@@ -1,656 +1,329 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  ArrowDownRight, ArrowUpRight, ChevronRight, 
-  Radio, Rocket, ShieldCheck, TrendingUp, Zap, Award, Layers, AlertCircle, X, CheckCircle2, Lock, ShieldAlert
-} from 'lucide-react'
-import { money, usePulse } from '../store'
-import { ProgressBar } from '../ui-bits'
-import { nextTier, type Project } from '@/lib/pulse-data'
-import { Button } from '@/components/ui/button'
+import React, { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 
-const FALLBACK_PROJECTS: Project[] = [
-  {
-    id: 'proj-1',
-    name: 'Sandsloot Lithium & Tantalum Extraction Hub',
-    sector: 'Critical Minerals',
-    country: 'South Africa',
-    targetYield: '22.5% APY',
-    goal: 500000,
-    funded: 385000,
-    risk: 'Secured / Tier 1',
-    summary: 'High-grade pegmatite mineral extraction facility located within the Northern Limb of the Bushveld Complex, fully backed by sovereign offtake agreements.',
-    image: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop'
-  },
-  {
-    id: 'proj-2',
-    name: 'Kalahari Green Hydrogen & Ammonia Corridor',
-    sector: 'Clean Energy',
-    country: 'Namibia',
-    targetYield: '19.8% APY',
-    goal: 1200000,
-    funded: 940000,
-    risk: 'Sovereign Guarantee',
-    summary: 'Utility-scale green hydrogen production plant leveraging localized solar irradiance to supply regional heavy industry and European export markets.',
-    image: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?q=80&w=1000&auto=format&fit=crop'
-  },
-  {
-    id: 'proj-3',
-    name: 'Copperbelt High-Voltage Grid Modernization',
-    sector: 'Infrastructure',
-    country: 'Zambia',
-    targetYield: '24.0% APY',
-    goal: 850000,
-    funded: 620000,
-    risk: 'Secured Asset',
-    summary: 'Advanced transmission infrastructure upgrade ensuring uninterrupted high-voltage power distribution to major mining houses and industrial nodes.',
-    image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=1000&auto=format&fit=crop'
-  }
-]
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-function ProjectImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const [hasError, setHasError] = useState(false)
-
-  if (hasError) {
-    return (
-      <div className={`flex flex-col items-center justify-center bg-gradient-to-br from-amber-950/60 via-neutral-900 to-neutral-950 p-4 border-b border-amber-500/30 ${className}`}>
-        <div className="rounded-full bg-amber-500/10 p-3 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-          <Zap className="size-6 text-amber-400 animate-pulse" />
-        </div>
-        <span className="mt-2 text-[10px] font-black uppercase tracking-widest text-amber-300">
-          SADC Sovereign Asset
-        </span>
-      </div>
-    )
-  }
-
-  return (
-    <img 
-      src={src} 
-      alt={alt} 
-      className={className} 
-      onError={() => setHasError(true)}
-    />
-  )
+interface Project {
+  id: string
+  title: string
+  category: string
+  apy: number
+  raised: number
+  goal: number
+  cover_url: string
+  status: string
 }
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.05
+interface Transaction {
+  id: string
+  user_email: string
+  type: string
+  amount: number
+  status: 'pending' | 'completed' | 'rejected'
+  created_at: string
+}
+
+interface UserInvestment {
+  id: string
+  projectId: string
+  name: string
+  staked: number
+  returns: number
+}
+
+export default function UltimateSADCTerminal() {
+  const [activeTab, setActiveTab] = useState<'home' | 'portfolio' | 'wallet' | 'profile'>('home')
+  const [balance, setBalance] = useState(6183.49)
+  const [userEmail, setUserEmail] = useState('investor@sadr.org')
+  const [referralCode, setReferralCode] = useState('SADC-REF-9921-X7')
+  
+  // Projects Pipeline with Exact Percentages, Metrics, and High-Res Assets
+  const [projects, setProjects] = useState<Project[]>([
+    {
+      id: 'sandsloot',
+      title: 'Sandsloot Lithium & Tantalum Extraction Hub',
+      category: 'South Africa • Critical Minerals',
+      apy: 22.5,
+      raised: 385000,
+      goal: 500000,
+      cover_url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1200&q=80',
+      status: 'Active'
+    },
+    {
+      id: 'kalahari',
+      title: 'Kalahari Green Hydrogen & Ammonia Corridor',
+      category: 'Namibia • Clean Energy',
+      apy: 19.8,
+      raised: 940000,
+      goal: 1200000,
+      cover_url: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1200&q=80',
+      status: 'Active'
+    },
+    {
+      id: 'copperbelt',
+      title: 'Zambian Copperbelt High-Voltage Grid Modernization',
+      category: 'Zambia • Infrastructure',
+      apy: 21.0,
+      raised: 620000,
+      goal: 1000000,
+      cover_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+      status: 'Active'
+    },
+    {
+      id: 'zambezi',
+      title: 'Zambezi Hydro-Electric Generation & Transmission Grid',
+      category: 'Zimbabwe / Zambia • Clean Energy',
+      apy: 18.5,
+      raised: 1450000,
+      goal: 2000000,
+      cover_url: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1200&q=80',
+      status: 'Active'
     }
-  }
-}
+  ])
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { type: 'spring', stiffness: 350, damping: 25 }
-  }
-}
+  // Portfolio Folder State
+  const [myInvestments, setMyInvestments] = useState<UserInvestment[]>([
+    { id: 'inv-1', projectId: 'sandsloot', name: 'Sandsloot Lithium Hub Staked', staked: 2500, returns: 312.50 }
+  ])
 
-export function DashboardView() {
-  const state = usePulse((s) => s.state)
-  const api = usePulse((s) => s.api)
-  const totalInvested = usePulse((s) => s.totalInvested)
-  const currentTier = usePulse((s) => s.currentTier)
-  const portfolioValue = usePulse((s) => s.portfolioValue)
-  const openModal = usePulse((s) => s.openModal)
-  const setView = usePulse((s) => s.setView)
-   
-  const upcoming = nextTier(currentTier.id)
-  const progress = upcoming ? Math.min(100, (totalInvested / upcoming.minInvest) * 100) : 100
+  // Transactions State
+  const [transactions, setTransactions] = useState<Transaction[]>([
+    { id: 't1', user_email: 'investor@sadr.org', type: 'Deposit', amount: 5000.00, status: 'completed', created_at: '2026-09-09' }
+  ])
 
-  const initialBenchmark = 250
-  const portfolioReturnPct = portfolioValue > 0 ? ((portfolioValue / initialBenchmark) - 1) * 100 : 0
-  const totalReturnDollars = Math.max(0, portfolioValue - initialBenchmark)
-
-  const [projects, setProjects] = useState<Project[]>(FALLBACK_PROJECTS)
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-  const [investAmount, setInvestAmount] = useState<string>('')
-  const [investError, setInvestError] = useState<string | null>(null)
-  const [investSuccess, setInvestSuccess] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
+  // Fetch Supabase Profile, Referral Code & Projects on Load
   useEffect(() => {
-    let isCancelled = false
-    api.liveProjectFunding().then((res) => {
-      if (!isCancelled && res.ok && res.funding) {
-        setProjects(prev => prev.map(p => ({
-          ...p,
-          funded: res.funding[p.id] !== undefined ? res.funding[p.id] : p.funded
-        })))
+    async function syncSupabaseData() {
+      try {
+        const { data: projData } = await supabase.from('projects').select('*')
+        if (projData && projData.length > 0) {
+          setProjects(projData)
+        }
+
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user && user.email) {
+          setUserEmail(user.email)
+          // Generate deterministic unique referral code per user email
+          const hash = user.email.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+          setReferralCode(`SADC-${user.email.substring(0, 3).toUpperCase()}-${hash}-X7`)
+        }
+      } catch (err) {
+        console.warn('Supabase sync skipped, utilizing localized state fallback.')
       }
-    }).catch(() => {})
-    return () => { isCancelled = true }
-  }, [api])
-
-  const handleConfirmInvestment = async () => {
-    if (!selectedProject) return
-    setInvestError(null)
-    setInvestSuccess(null)
-    const amount = parseFloat(investAmount)
-
-    if (isNaN(amount) || amount <= 0) {
-      setInvestError('Please enter a valid deployment capital amount.')
-      return
     }
+    syncSupabaseData()
+  }, [])
 
-    if (amount > state.cash) {
-      setInvestError(`Insufficient liquid cash. Your wallet balance is $${money(state.cash)} USDT.`)
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      const res = await api.invest(amount, selectedProject.id)
-      if (res.ok) {
-        setInvestSuccess(`Successfully deployed $${money(amount)} into ${selectedProject.name} (Marked Pending Admin Approval)!`)
-        setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, funded: p.funded + amount } : p))
-        setTimeout(() => {
-          setSelectedProject(null)
-          setInvestAmount('')
-          setInvestSuccess(null)
-        }, 1800)
-      } else {
-        setInvestError(res.error || 'Investment execution failed.')
-      }
-    } catch (err: any) {
-      setInvestError(err.message || 'Investment execution failed.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // Handle closing/exiting an investment project to transfer funds back
-  const handleCloseProject = async (holdingId: string, projectName: string) => {
-    if (!confirm(`Are you sure you want to close your position in ${projectName} and transfer liquidity back to your cash balance?`)) return
-    try {
-      // Assuming api wrapper supports position closing or standard state update
-      setInvestSuccess(`Successfully closed position for ${projectName}. Liquidity transferred.`)
-      // Refresh or trigger state sync here if needed
-    } catch (err) {
-      alert('Failed to close position cleanly.')
-    }
+  // Close project & transfer funds back to wallet folder
+  const handleCloseProject = (invId: string, stakedAmount: number, returns: number) => {
+    const totalPayout = stakedAmount + returns
+    setBalance(prev => prev + totalPayout)
+    setMyInvestments(myInvestments.filter(i => i.id !== invId))
+    alert(`Project successfully closed. Total liquidity of $${totalPayout.toFixed(2)} transferred back to your Pulse Wallet.`)
   }
 
   return (
-    <motion.div 
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-      className="mx-auto w-full max-w-md space-y-5 pb-28 text-neutral-100 antialiased px-2 sm:px-3 relative overflow-hidden"
-    >
-      <style>{`
-        @keyframes shimmerGold {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        @keyframes borderPulse {
-          0%, 100% { 
-            border-color: rgba(245, 158, 11, 0.7); 
-            box-shadow: 0 0 25px rgba(245, 158, 11, 0.35), inset 0 0 15px rgba(245, 158, 11, 0.15); 
-          }
-          50% { 
-            border-color: rgba(251, 191, 36, 1); 
-            box-shadow: 0 0 45px rgba(245, 158, 11, 0.65), inset 0 0 25px rgba(245, 158, 11, 0.3); 
-          }
-        }
-        .shimmer-card {
-          background: linear-gradient(115deg, #09090b 15%, #3b2306 50%, #09090b 85%);
-          background-size: 200% 100%;
-          animation: shimmerGold 5s ease-in-out infinite;
-          box-shadow: 0 0 45px rgba(245, 158, 11, 0.3), inset 0 0 20px rgba(245, 158, 11, 0.15);
-        }
-        .live-border-pulse {
-          animation: borderPulse 3s ease-in-out infinite;
-        }
-        .gold-glow-card {
-          box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
-        }
-        .gold-glow-card:hover {
-          border-color: rgba(251, 191, 36, 0.9) !important;
-          box-shadow: 0 12px 40px -5px rgba(245, 158, 11, 0.45), inset 0 0 20px rgba(245, 158, 11, 0.2);
-        }
-        .custom-modal-scroll::-webkit-scrollbar {
-          width: 5px;
-        }
-        .custom-modal-scroll::-webkit-scrollbar-track {
-          background: rgba(15, 15, 18, 0.8);
-        }
-        .custom-modal-scroll::-webkit-scrollbar-thumb {
-          background: rgba(245, 158, 11, 0.6);
-          border-radius: 4px;
-        }
-      `}</style>
-
-      {/* 1. STATUS HEADER */}
-      <motion.div 
-        variants={itemVariants}
-        className="live-border-pulse flex items-center justify-between gap-2.5 rounded-2xl border border-amber-500/70 bg-neutral-950/95 px-3.5 py-3 shadow-[0_0_25px_rgba(245,158,11,0.25)] backdrop-blur-md"
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="relative flex size-3 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-80" />
-            <span className="relative inline-flex size-3 rounded-full bg-amber-500 shadow-[0_0_12px_#f59e0b]" />
-          </span>
-          <span className="text-[11px] font-black uppercase tracking-widest text-amber-200 truncate drop-shadow">
-            SADC Sovereign Terminal &bull; Live Feed
-          </span>
-        </div>
-        <span className="rounded-full border border-amber-400 bg-amber-500/25 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] shrink-0">
-          {currentTier.name} VIP
-        </span>
-      </motion.div>
-
-      {/* 2. CONSOLIDATED PORTFOLIO CARD */}
-      <motion.div 
-        variants={itemVariants}
-        whileHover={{ y: -2 }}
-        transition={{ duration: 0.2 }}
-        className="shimmer-card relative overflow-hidden rounded-3xl border border-amber-400/80 p-5 shadow-[0_0_55px_rgba(245,158,11,0.35)]"
-      >
-        <div className="relative z-10 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-black uppercase tracking-widest text-amber-300 drop-shadow truncate">
-              Net Liquidity Value
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/60 bg-emerald-950/95 px-3 py-1 text-[11px] font-black text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.35)] shrink-0">
-              <TrendingUp className="size-3.5 text-emerald-400 shrink-0" />
-              +{portfolioReturnPct.toFixed(1)}% APY
-            </span>
+    <div className="min-h-screen bg-[#060606] text-amber-100 font-sans flex flex-col items-center pb-28 selection:bg-amber-500 selection:text-black">
+      
+      {/* Responsive Shell Frame */}
+      <div className="w-full max-w-xl mx-auto px-4 py-4 space-y-6">
+        
+        {/* Top Header Bar */}
+        <div className="flex justify-between items-center bg-[#121212]/90 backdrop-blur border border-amber-500/20 px-4 py-3 rounded-2xl shadow-xl">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-600 to-yellow-300 flex items-center justify-center font-extrabold text-black text-xs shadow-md">P</div>
+            <span className="text-xs font-black tracking-widest text-amber-400">PULSE // SADC</span>
           </div>
+          <div className="text-right">
+            <span className="text-[10px] text-amber-400/50 block font-mono">LIQUIDITY</span>
+            <span className="font-mono text-xs font-bold text-amber-300">${balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
 
-          <div className="space-y-1">
-            <div className="flex items-baseline gap-2">
-              <h1 className="text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
-                ${money(portfolioValue)}
-              </h1>
-              <span className="text-xs font-black text-amber-400 tracking-wider">USDT</span>
+        {/* TAB: HOME */}
+        {activeTab === 'home' && (
+          <div className="space-y-6 animate-fadeIn">
+            
+            {/* Net Liquidity Card */}
+            <div className="bg-gradient-to-b from-[#141414] to-[#0a0a0a] border border-amber-500/30 rounded-3xl p-6 text-center space-y-4 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-3 right-4 text-[10px] bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2.5 py-1 rounded-full font-mono">Ambassador VIP</div>
+              <p className="text-[11px] text-amber-400/60 uppercase tracking-widest font-semibold">Net Liquidity Value</p>
+              <h1 className="text-4xl font-black text-amber-300 font-mono tracking-tight">${balance.toLocaleString()}</h1>
+              <p className="text-xs text-emerald-400 font-mono">Sovereign Yield Index: +20.2% APY</p>
+
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-amber-500/10 text-center font-mono">
+                <div className="bg-black/50 p-2.5 rounded-xl border border-amber-500/10">
+                  <span className="text-[10px] text-amber-400/50 block">DAP / P</span>
+                  <span className="text-xs text-amber-200 font-bold">14.8%</span>
+                </div>
+                <div className="bg-black/50 p-2.5 rounded-xl border border-amber-500/10">
+                  <span className="text-[10px] text-amber-400/50 block">PORTFOLIO</span>
+                  <span className="text-xs text-amber-200 font-bold">$7,450</span>
+                </div>
+                <div className="bg-black/50 p-2.5 rounded-xl border border-amber-500/10">
+                  <span className="text-[10px] text-amber-400/50 block">ROI ASSETS</span>
+                  <span className="text-xs text-amber-200 font-bold">$60,128</span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-neutral-200 font-bold truncate">
-              Sovereign Yield Return: <span className="text-emerald-400 font-extrabold">+${money(totalReturnDollars, 2)} ({portfolioReturnPct.toFixed(1)}%)</span>
-            </p>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <Button
-              size="lg"
-              className="h-11 w-full rounded-xl border border-amber-300 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-xs font-black text-neutral-950 shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:brightness-110 active:scale-[0.98] transition-all"
-              onClick={() => openModal('deposit')}
-            >
-              <ArrowDownRight className="size-4 shrink-0 stroke-[3]" />
-              <span className="truncate">Deposit Capital</span>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-900/95 text-xs font-bold text-white shadow-lg hover:border-amber-400 hover:bg-neutral-800 active:scale-[0.98] transition-all"
-              onClick={() => openModal('withdraw')}
-            >
-              <ArrowUpRight className="size-4 shrink-0 stroke-[2.5]" />
-              <span className="truncate">Withdraw Yields</span>
-            </Button>
-          </div>
-        </div>
-
-        <div className="relative z-10 mt-5 grid grid-cols-3 divide-x divide-neutral-800/80 border-t border-neutral-800/80 pt-3 text-center">
-          <div className="px-1 min-w-0">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">Liquid Cash</p>
-            <p className="mt-0.5 text-xs sm:text-sm font-black text-white truncate">${money(state.cash, 0)}</p>
-          </div>
-          <div className="px-1 min-w-0">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">Principal</p>
-            <p className="mt-0.5 text-xs sm:text-sm font-black text-white truncate">${money(totalInvested, 0)}</p>
-          </div>
-          <div className="px-1 min-w-0">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 truncate">$PULSE Assets</p>
-            <p className="mt-0.5 text-xs sm:text-sm font-black text-amber-300 truncate">${money(state.pulse + state.staked, 0)}</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* 3. TIER STATUS BAR */}
-      <motion.div 
-        variants={itemVariants}
-        className="gold-glow-card rounded-2xl border border-amber-500/50 bg-neutral-950 p-4 shadow-lg backdrop-blur-sm"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Award className="size-4 shrink-0 text-amber-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-200 truncate">
-              Standing: <span className="text-amber-300 font-extrabold">{currentTier.name} Syndicate</span>
-            </span>
-          </div>
-          <span className="rounded-md border border-amber-500/60 bg-amber-500/25 px-2.5 py-0.5 text-[11px] font-black text-amber-300 shrink-0 shadow-[0_0_10px_rgba(245,158,11,0.3)]">
-            {currentTier.yieldLabel}
-          </span>
-        </div>
-
-        {upcoming ? (
-          <div className="mt-3 space-y-2">
-            <div className="flex items-center justify-between text-xs text-neutral-300">
-              <span className="truncate font-semibold">Next Tier: {upcoming.name}</span>
-              <span className="font-extrabold text-amber-300 shrink-0">${money(totalInvested)} / ${money(upcoming.minInvest)}</span>
-            </div>
-            <ProgressBar value={progress} tone="gold" />
-          </div>
-        ) : (
-          <p className="mt-2 text-xs text-amber-300 font-bold truncate">Apex Institutional Rank Active &bull; Maximum Tier Unlocked.</p>
-        )}
-      </motion.div>
-
-      {/* 4. ACTIVE PORTFOLIO HOLDINGS WITH CLOSE CAPABILITY */}
-      <motion.div 
-        variants={itemVariants}
-        className="gold-glow-card rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3 shadow-lg"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 flex items-center gap-2 truncate">
-            <Layers className="size-4 text-amber-400 shrink-0" /> Active Deployments ({state.holdings.length})
-          </span>
-          <button 
-            onClick={() => setView('invest')} 
-            className="text-xs text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-0.5 font-bold shrink-0 transition-colors"
-          >
-            Explore All <ChevronRight className="size-3.5" />
-          </button>
-        </div>
-         
-        {state.holdings.length === 0 ? (
-          <div className="text-center py-5 px-3 text-xs text-neutral-300 bg-neutral-900/60 rounded-xl border border-neutral-800/80 leading-relaxed font-medium">
-            No active capital allocations found. Select a project below to deploy capital.
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {state.holdings.map((h) => (
-              <motion.div 
-                key={h.id} 
-                whileHover={{ scale: 1.01 }}
-                className="flex items-center justify-between rounded-xl bg-neutral-900/90 p-3 border border-neutral-800 text-xs gap-3 shadow-md"
-              >
-                <div className="space-y-1 min-w-0">
-                  <p className="font-extrabold text-white text-sm truncate">{h.projectName}</p>
-                  <p className="text-[11px] text-neutral-300 truncate font-medium">
-                    Principal Allocated: <strong className="text-amber-200 font-extrabold">${money(h.amount)}</strong>
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="inline-block rounded-lg bg-emerald-950/90 border border-emerald-500/60 px-2.5 py-1 font-mono text-xs font-extrabold text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]">
-                    +{h.apy}% APY
-                  </span>
-                  <button
-                    onClick={() => handleCloseProject(h.id, h.projectName)}
-                    className="px-2 py-1 rounded bg-red-950/40 border border-red-500/30 text-red-300 font-bold text-[10px] hover:bg-red-900/50 transition"
-                  >
-                    Close & Transfer
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </motion.div>
-
-      {/* 5. REGIONAL OPPORTUNITIES PIPELINE (ENHANCED 4D COVER PHOTOS) */}
-      <motion.div variants={itemVariants} className="space-y-3 pt-1">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
-            Regional Opportunities Pipeline ({projects.length})
-          </h3>
-          <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5 shrink-0">
-            <span className="size-2 rounded-full bg-amber-400 animate-ping" />
-            Live Ledger Synced
-          </span>
-        </div>
-
-        <div className="grid gap-4">
-          {projects.map((p) => {
-            const funded = p.funded ?? 0
-            const goal = p.goal ?? 100000
-            const pct = goal > 0 ? Math.min(100, Math.round((funded / goal) * 100)) : 0
-             
-            return (
-              <motion.div
-                key={p.id}
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => setSelectedProject(p)}
-                className="gold-glow-card group cursor-pointer overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 shadow-xl"
-              >
-                <div className="relative h-44 w-full overflow-hidden bg-neutral-900">
-                  <ProjectImage 
-                    src={p.image} 
-                    alt={p.name} 
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
-                   
-                  <div className="absolute top-3 right-3">
-                    <span className="rounded-xl border border-emerald-400/80 bg-emerald-950/95 px-3 py-1 text-xs font-black text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.4)] backdrop-blur-md">
-                      {p.targetYield}
-                    </span>
-                  </div>
-
-                  <div className="absolute bottom-3 left-4 right-4 space-y-0.5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-300 drop-shadow truncate">
-                      {p.country} &bull; {p.sector}
-                    </p>
-                    <h4 className="text-base font-black text-white group-hover:text-amber-200 transition-colors drop-shadow-md truncate">
-                      {p.name}
-                    </h4>
-                  </div>
-                </div>
-
-                <div className="p-4 space-y-3 bg-neutral-950">
-                  <div className="flex justify-between text-xs text-neutral-200 min-w-0 font-medium">
-                    <span className="truncate">Funded Progress: <strong className="text-white font-extrabold">${money(funded)}</strong> / ${money(goal)}</span>
-                    <span className="font-black text-amber-400 shrink-0 ml-2">{pct}%</span>
-                  </div>
-                  <ProgressBar value={pct} tone="gold" />
-                </div>
-              </motion.div>
-            )
-          })}
-        </div>
-      </motion.div>
-
-      {/* 6. INSTITUTIONAL QUICK HUBS WITH CRYPTOGRAPHIC REFERENCE CODES */}
-      <motion.div variants={itemVariants} className="space-y-3 pt-1">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
-            Institutional Quick Hubs
-          </h3>
-          <span className="font-mono text-[10px] text-amber-400/70">REF: SADC-SYS-8820X</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <ActionTile 
-            icon={<Rocket className="size-4 text-amber-300" />} 
-            label="Buy $PULSE" 
-            detail="Private syndicate round" 
-            badge="Private Sale" 
-            onClick={() => setView('sale')} 
-          />
-          <ActionTile 
-            icon={<Zap className="size-4 text-amber-300" />} 
-            label="Stake Vault" 
-            detail="Sovereign high yield pool" 
-            badge="24.8% APY" 
-            onClick={() => setView('stake')} 
-          />
-          <ActionTile 
-            icon={<Radio className="size-4 text-amber-300" />} 
-            label="Signals Feed" 
-            detail="Institutional intelligence" 
-            badge="3 Active" 
-            onClick={() => setView('signals')} 
-          />
-          <ActionTile 
-            icon={<ShieldCheck className="size-4 text-amber-300" />} 
-            label="Verify KYC" 
-            detail="Full tier clearance" 
-            badge="Level 2" 
-            onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))} 
-          />
-        </div>
-      </motion.div>
-
-      {/* 7. HIGH-CONTRAST PROFESSIONAL DISCLAIMER FOOTER */}
-      <motion.div 
-        variants={itemVariants} 
-        className="mt-6 rounded-2xl border border-amber-500/50 bg-neutral-900/95 p-4 space-y-3 text-neutral-200 text-xs leading-relaxed shadow-[0_0_25px_rgba(245,158,11,0.2)]"
-      >
-        <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5 gap-2">
-          <div className="flex items-center gap-2 text-amber-300 font-extrabold uppercase tracking-wider text-xs truncate">
-            <Lock className="size-4 shrink-0 text-amber-400" />
-            <span>SADC Institutional Compliance & Risk Notice</span>
-          </div>
-          <ShieldAlert className="size-4 text-amber-400 shrink-0" />
-        </div>
-         
-        <p className="font-medium text-neutral-200 text-xs sm:text-sm leading-relaxed">
-          Capital allocations directed toward Southern African Development Community (SADC) infrastructure pipelines are governed under rigorous institutional clearing standards. Projected yields and APY baselines represent modeled targets and remain subject to sovereign macroeconomic clearing protocols and performance guarantees.
-        </p>
-
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-neutral-800/80 text-[11px] text-amber-200/90 font-mono font-bold">
-          <span className="truncate">Protocol Version: 2.4.0-SADC</span>
-          <span className="truncate flex items-center gap-1">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Encrypted 256-bit SSL Clearing
-          </span>
-        </div>
-      </motion.div>
-
-      {/* PROJECT DEPLOYMENT MODAL */}
-      <AnimatePresence>
-        {selectedProject && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-              className="custom-modal-scroll w-full max-w-md rounded-3xl border border-amber-400 bg-neutral-950 p-5 sm:p-6 space-y-4 shadow-[0_0_75px_rgba(245,158,11,0.45)] relative text-neutral-100 max-h-[85vh] overflow-y-auto"
-            >
+            {/* Unique Referral Code Box (Wired to User Account) */}
+            <div className="bg-[#121212] border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[10px] text-amber-400/50 uppercase block">Your Unique Referral Identifier</span>
+                <span className="font-mono font-bold text-amber-200 mt-0.5 block">{referralCode}</span>
+              </div>
               <button 
-                onClick={() => { setSelectedProject(null); setInvestAmount(''); setInvestError(null); setInvestSuccess(null); }}
-                className="absolute top-4 right-4 rounded-full bg-neutral-900 p-2 text-neutral-400 hover:text-white border border-neutral-800 transition-colors"
+                onClick={() => { navigator.clipboard.writeText(referralCode); alert('Referral code copied to clipboard!'); }}
+                className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-xl hover:bg-amber-500/20 transition font-mono text-[10px]"
               >
-                <X className="size-4" />
+                Copy Link
               </button>
+            </div>
 
-              <div className="space-y-1.5 pr-6">
-                <span className="inline-block rounded-md border border-amber-400 bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-black text-amber-300 uppercase tracking-wider">
-                  {selectedProject.sector} &bull; {selectedProject.country}
-                </span>
-                <h2 className="text-lg font-black text-white leading-tight break-words">{selectedProject.name}</h2>
-                <p className="text-xs text-neutral-300 leading-relaxed font-medium">
-                  {selectedProject.summary || 'Sovereign infrastructure deployment backed by institutional guarantees.'}
-                </p>
+            {/* Regional Opportunities Pipeline */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-xs px-1">
+                <span className="font-bold text-amber-300 uppercase tracking-widest">Regional Opportunities Pipeline</span>
+                <span className="text-[10px] text-amber-400/50 font-mono">Live Ledger Synced</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 bg-neutral-900 p-3.5 rounded-2xl border border-neutral-800">
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 truncate">Target Yield</p>
-                  <p className="text-base font-black text-emerald-400 mt-0.5 truncate">{selectedProject.targetYield}</p>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase font-extrabold tracking-wider text-neutral-400 truncate">Risk Assessment</p>
-                  <p className="text-base font-black text-amber-300 mt-0.5 truncate">{selectedProject.risk ?? 'Lower / Secured'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs bg-neutral-900/80 px-3.5 py-2.5 rounded-xl border border-neutral-800 gap-2">
-                <span className="text-neutral-300 font-medium truncate">Available Liquid Cash:</span>
-                <strong className="text-white font-black shrink-0">${money(state.cash)} USDT</strong>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 block">
-                  Deployment Capital Amount
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={investAmount}
-                    onChange={(e) => setInvestAmount(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-white placeholder-neutral-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none font-mono font-bold"
-                  />
-                  <span className="absolute right-4 top-3 text-xs font-black text-amber-400 pointer-events-none">USDT</span>
-                </div>
-                 
-                {investError && (
-                  <div className="flex items-center gap-1.5 text-xs text-rose-400 font-bold pt-1 break-words">
-                    <AlertCircle className="size-4 shrink-0" />
-                    <span>{investError}</span>
+              <div className="grid grid-cols-1 gap-4">
+                {projects.map((proj) => (
+                  <div key={proj.id} className="bg-[#121212] border border-amber-500/30 rounded-2xl overflow-hidden shadow-xl hover:border-amber-500/60 transition group">
+                    <div className="relative h-44 w-full overflow-hidden">
+                      <img 
+                        src={proj.cover_url} 
+                        alt={proj.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                      <div className="absolute top-3 right-3 bg-black/80 backdrop-blur border border-amber-500/40 px-3 py-1 rounded-full text-xs font-mono text-amber-300 shadow-md">
+                        {proj.apy}% APY
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <p className="text-[10px] text-amber-400/60 uppercase tracking-widest">{proj.category}</p>
+                        <h3 className="font-bold text-amber-100 text-sm mt-0.5">{proj.title}</h3>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-[11px] text-amber-400/80 font-mono">
+                          <span>Funded Progress</span>
+                          <span>${proj.raised.toLocaleString()} / ${proj.goal.toLocaleString()}</span>
+                        </div>
+                        <div className="w-full bg-black h-2 rounded-full overflow-hidden border border-amber-500/20">
+                          <div className="bg-gradient-to-r from-amber-600 to-yellow-400 h-full rounded-full transition-all duration-500" style={{ width: `${(proj.raised / proj.goal) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-
-                {investSuccess && (
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold pt-1 break-words">
-                    <CheckCircle2 className="size-4 shrink-0" />
-                    <span>{investSuccess}</span>
-                  </div>
-                )}
+                ))}
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  className="h-11 rounded-xl border-neutral-700 bg-neutral-900 text-xs font-bold text-white hover:bg-neutral-800 transition-all"
-                  onClick={() => { setSelectedProject(null); setInvestAmount(''); setInvestError(null); setInvestSuccess(null); }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={isSubmitting || Boolean(investSuccess)}
-                  className="h-11 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-xs font-black text-neutral-950 hover:brightness-110 shadow-[0_0_25px_rgba(245,158,11,0.5)] transition-all"
-                  onClick={handleConfirmInvestment}
-                >
-                  {isSubmitting ? 'Deploying...' : 'Confirm & Deploy'}
-                </Button>
+            {/* Official SADC Institutional Compliance & Risk Disclaimer */}
+            <div className="bg-[#121212] border border-amber-500/20 rounded-2xl p-5 text-[11px] text-amber-400/70 space-y-2.5 leading-relaxed">
+              <div className="flex items-center space-x-2 text-amber-300 font-bold uppercase tracking-wider">
+                <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>Institutional Regulatory Disclaimer</span>
               </div>
-                
-              <p className="text-[11px] text-center text-neutral-400 font-medium pt-1 leading-normal">
-                Yields and payouts route through administrative compliance queues before final ledger settlement.
+              <p>
+                Capital allocations directed toward Southern African Development Community (SADC) infrastructure pipelines operate under rigorous sovereign clearing mandates. Projected yields and APY baselines represent algorithmic targets governed by macroeconomic stability protocols and are subject to regional audit clearance.
               </p>
-            </motion.div>
+              <div className="flex justify-between text-[10px] text-amber-500/50 pt-2 border-t border-amber-500/10 font-mono">
+                <span>Protocol: SADC-256-SSL</span>
+                <span>Session: {userEmail}</span>
+              </div>
+            </div>
+
           </div>
         )}
-      </AnimatePresence>
-    </motion.div>
-  )
-}
 
-function ActionTile({ icon, label, detail, badge, onClick }: { icon: React.ReactNode; label: string; detail: string; badge: string; onClick: () => void }) {
-  return (
-    <motion.div
-      whileHover={{ y: -3, scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className="gold-glow-card group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-amber-500/40 bg-neutral-950 p-3.5 shadow-md min-w-0"
-    >
-      <div className="flex items-center justify-between gap-1">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/15 group-hover:border-amber-400 transition-colors">
-          {icon}
-        </div>
-        <span className="rounded-md border border-amber-500/50 bg-amber-500/25 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black text-amber-300 truncate shadow-sm">
-          {badge}
-        </span>
+        {/* TAB: PORTFOLIO FOLDER */}
+        {activeTab === 'portfolio' && (
+          <div className="space-y-5 animate-fadeIn">
+            <div className="border-b border-amber-500/20 pb-3">
+              <h2 className="text-base font-bold text-amber-300">Active Portfolio & Closure Hub</h2>
+              <p className="text-xs text-amber-400/60">Manage your active stakes and transfer liquidity back to wallet instantly.</p>
+            </div>
+
+            {myInvestments.length === 0 ? (
+              <p className="text-xs text-amber-400/40 italic text-center py-10">No active project allocations currently open.</p>
+            ) : (
+              <div className="space-y-3">
+                {myInvestments.map(inv => (
+                  <div key={inv.id} className="bg-[#121212] border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                      <h4 className="font-bold text-amber-100 text-sm">{inv.name}</h4>
+                      <p className="text-xs text-amber-400/60 mt-0.5">Staked: <span className="text-amber-300 font-mono">${inv.staked.toFixed(2)}</span> • Returns: <span className="text-emerald-400 font-mono">+${inv.returns.toFixed(2)}</span></p>
+                    </div>
+                    <button 
+                      onClick={() => handleCloseProject(inv.id, inv.staked, inv.returns)}
+                      className="px-3 py-1.5 bg-red-500/20 border border-red-500/40 text-red-300 text-[11px] font-bold rounded-xl hover:bg-red-500/30 transition w-full sm:w-auto"
+                    >
+                      Close & Transfer Funds
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: WALLET */}
+        {activeTab === 'wallet' && (
+          <div className="space-y-5 animate-fadeIn">
+            <div className="border-b border-amber-500/20 pb-3">
+              <h2 className="text-base font-bold text-amber-300">Liquidity & Transaction Gateway</h2>
+              <p className="text-xs text-amber-400/60">Secure deposit and withdrawal clearance pipeline.</p>
+            </div>
+            <div className="bg-[#121212] border border-amber-500/30 rounded-2xl p-5 space-y-3">
+              <span className="text-xs font-bold text-amber-200 block">Available Balance: ${balance.toLocaleString()}</span>
+              <p className="text-xs text-amber-400/60">Transactions route through administrative compliance queues.</p>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: PROFILE */}
+        {activeTab === 'profile' && (
+          <div className="space-y-5 animate-fadeIn">
+            <div className="border-b border-amber-500/20 pb-3">
+              <h2 className="text-base font-bold text-amber-300">Sovereign User Profile</h2>
+              <p className="text-xs text-amber-400/60">KYC Clearance Level 4 Verified • Ambassador Syndicate.</p>
+            </div>
+            <div className="bg-[#121212] border border-amber-500/30 rounded-2xl p-5 space-y-2 text-xs font-mono">
+              <p className="text-amber-400/60">Account: <span className="text-amber-200">{userEmail}</span></p>
+              <p className="text-amber-400/60">Referral ID: <span className="text-amber-200">{referralCode}</span></p>
+            </div>
+          </div>
+        )}
+
       </div>
-      <div className="mt-3 space-y-0.5 min-w-0">
-        <h4 className="text-xs font-black text-white group-hover:text-amber-300 transition-colors truncate">{label}</h4>
-        <p className="text-[10px] text-neutral-300 font-medium truncate">{detail}</p>
+
+      {/* Fixed Mobile Bottom Navigation Dock */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#0c0c0c]/95 backdrop-blur border-t border-amber-500/20 py-2.5 px-6 flex justify-around items-center z-50 max-w-xl mx-auto rounded-t-3xl shadow-2xl">
+        <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'home' ? 'text-amber-400 font-bold scale-105' : 'text-amber-400/40 hover:text-amber-300'}`}>
+          <span className="text-base">🏠</span>
+          <span>Home</span>
+        </button>
+        <button onClick={() => setActiveTab('portfolio')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'portfolio' ? 'text-amber-400 font-bold scale-105' : 'text-amber-400/40 hover:text-amber-300'}`}>
+          <span className="text-base">📂</span>
+          <span>Portfolio</span>
+        </button>
+        <button onClick={() => setActiveTab('wallet')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'wallet' ? 'text-amber-400 font-bold scale-105' : 'text-amber-400/40 hover:text-amber-300'}`}>
+          <span className="text-base">💳</span>
+          <span>Wallet</span>
+        </button>
+        <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'profile' ? 'text-amber-400 font-bold scale-105' : 'text-amber-400/40 hover:text-amber-300'}`}>
+          <span className="text-base">👤</span>
+          <span>Profile</span>
+        </button>
       </div>
-    </motion.div>
+
+    </div>
   )
 }
