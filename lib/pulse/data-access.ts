@@ -5,7 +5,9 @@ import type { Snapshot, SnapshotTxn } from './types'
 
 export async function getLiveProjects(): Promise<Project[]> {
   const db = serviceClient()
-  const { data: rows } = await db.from('holdings').select('project_id, amount')
+  const { data: rows, error } = await db.from('holdings').select('project_id, amount').eq('status', 'active')
+  if (error) throw error
+
   const liveByProject = new Map<string, number>()
   for (const r of rows ?? []) {
     liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
@@ -18,24 +20,40 @@ export async function getLiveProjects(): Promise<Project[]> {
 
 const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
   deposit: 'deposit',
+  topup: 'deposit',
+  credit: 'deposit',
   withdrawal: 'withdraw',
+  withdraw: 'withdraw',
   investment: 'invest',
+  invest: 'invest',
+  buy: 'invest',
   stake: 'stake',
   unstake: 'unstake',
   token_purchase: 'sale',
+  sale: 'sale',
   yield: 'deposit',
+  payout: 'deposit',
+  project_payout: 'deposit',
   p2p_send: 'p2p_send',
   p2p_receive: 'p2p_receive',
 }
 
 const TXN_LABEL: Record<string, string> = {
   deposit: 'Deposit',
+  topup: 'Deposit',
+  credit: 'Deposit',
   withdrawal: 'Withdrawal to wallet',
+  withdraw: 'Withdrawal to wallet',
   investment: 'Project share purchase',
+  invest: 'Project share purchase',
+  buy: 'Project share purchase',
   stake: 'Staked PULSE',
   unstake: 'Unstaked PULSE',
   token_purchase: 'Private sale purchase',
+  sale: 'Private sale purchase',
   yield: 'Yield disbursement',
+  payout: 'Project payout from float',
+  project_payout: 'Project payout from float',
   p2p_send: 'Sent to another user',
   p2p_receive: 'Received from another user',
 }
@@ -52,14 +70,16 @@ export interface AccountRow {
 
 export async function ensureAccount(userId: string): Promise<AccountRow> {
   const db = serviceClient()
-  const { data } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
+  const { data, error } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
+  if (error) throw error
   if (data) return data as AccountRow
-  const { data: created, error } = await db
+
+  const { data: created, error: createError } = await db
     .from('accounts')
     .insert({ user_id: userId })
     .select('*')
     .single()
-  if (error) throw error
+  if (createError) throw createError
   return created as AccountRow
 }
 
@@ -70,30 +90,57 @@ export async function calculateCashBalanceFromLedger(userId: string): Promise<nu
     .select('type, amount, currency, status, meta')
     .eq('user_id', userId)
 
-  if (error) return 0
+  if (error) throw error
 
   let balance = 0
   for (const txn of txns ?? []) {
-    if (txn.status === 'failed' || txn.status === 'rejected') continue
+    const status = (txn.status || '').toLowerCase()
+    if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
+
     const amount = Number(txn.amount) || 0
-    if (txn.currency === 'USD' || !txn.currency) {
-      switch (txn.type) {
+    const currency = (txn.currency || 'USD').toUpperCase()
+    const type = (txn.type || '').toLowerCase()
+
+    if (currency === 'USD' || currency === 'USDT' || currency === 'USDC') {
+      switch (type) {
         case 'deposit':
+        case 'topup':
+        case 'credit':
         case 'yield':
+        case 'payout':
+        case 'project_payout':
         case 'p2p_receive':
-        case 'token_purchase':
+        case 'refund':
           balance += amount
           break
         case 'withdrawal':
+        case 'withdraw':
         case 'investment':
+        case 'invest':
+        case 'buy':
+        case 'token_purchase':
+        case 'sale':
         case 'p2p_send':
           balance -= amount
           break
       }
-    } else if (txn.currency === 'PULSE') {
-      if (txn.type === 'token_purchase') {
+    } else if (currency === 'PULSE' || currency === 'PLS') {
+      if (type === 'token_purchase' || type === 'sale') {
         const meta = txn.meta as Record<string, unknown> | null
-        if (meta?.usdCost) balance -= Number(meta.usdCost) || 0
+        const usdCost = Number(meta?.usdCost) || 0
+        const hasDirectUsdTxn = (txns ?? []).some((t) => {
+          const tType = (t.type || '').toLowerCase()
+          const tCurr = (t.currency || '').toUpperCase()
+          const tStatus = (t.status || '').toLowerCase()
+          return (
+            (tType === 'token_purchase' || tType === 'sale') &&
+            (tCurr === 'USD' || tCurr === 'USDT' || tCurr === 'USDC') &&
+            !['failed', 'rejected', 'cancelled'].includes(tStatus)
+          )
+        })
+        if (usdCost > 0 && !hasDirectUsdTxn) {
+          balance -= usdCost
+        }
       }
     }
   }
@@ -104,19 +151,24 @@ export async function calculateTokenBalanceFromLedger(userId: string): Promise<n
   const db = serviceClient()
   const { data: txns, error } = await db
     .from('transactions')
-    .select('type, amount, currency, status, meta')
+    .select('type, amount, currency, status')
     .eq('user_id', userId)
 
-  if (error) return 0
+  if (error) throw error
 
   let balance = 0
   for (const txn of txns ?? []) {
-    if (txn.status === 'failed' || txn.status === 'rejected') continue
+    const status = (txn.status || '').toLowerCase()
+    if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
+
     const amount = Number(txn.amount) || 0
-    if (txn.currency === 'PULSE') {
-      if (txn.type === 'token_purchase' || txn.type === 'unstake' || txn.type === 'p2p_receive') {
+    const currency = (txn.currency || '').toUpperCase()
+    const type = (txn.type || '').toLowerCase()
+
+    if (currency === 'PULSE' || currency === 'PLS') {
+      if (['token_purchase', 'sale', 'unstake', 'p2p_receive'].includes(type)) {
         balance += amount
-      } else if (txn.type === 'stake' || txn.type === 'p2p_send') {
+      } else if (['stake', 'p2p_send'].includes(type)) {
         balance -= amount
       }
     }
@@ -130,16 +182,22 @@ export async function calculateStakedBalanceFromLedger(userId: string): Promise<
     .from('transactions')
     .select('type, amount, currency, status')
     .eq('user_id', userId)
-    .eq('currency', 'PULSE')
 
-  if (error) return 0
+  if (error) throw error
 
   let balance = 0
   for (const txn of txns ?? []) {
-    if (txn.status === 'failed' || txn.status === 'rejected') continue
+    const status = (txn.status || '').toLowerCase()
+    if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
+
     const amount = Number(txn.amount) || 0
-    if (txn.type === 'stake') balance += amount
-    else if (txn.type === 'unstake') balance -= amount
+    const currency = (txn.currency || '').toUpperCase()
+    const type = (txn.type || '').toLowerCase()
+
+    if (currency === 'PULSE' || currency === 'PLS') {
+      if (type === 'stake') balance += amount
+      else if (type === 'unstake') balance -= amount
+    }
   }
   return Math.max(0, balance)
 }
@@ -151,37 +209,45 @@ export async function adjustAccount(
   const db = serviceClient()
   const acct = await ensureAccount(userId)
   const next: Record<string, number> = {}
+
   for (const [k, v] of Object.entries(deltas)) {
-    next[k] = Number(acct[k as keyof AccountRow] as number) + Number(v)
-    if (next[k] < -0.0001) throw new Error('Insufficient balance')
+    const currentVal = Number(acct[k as keyof AccountRow] ?? 0)
+    const newVal = currentVal + Number(v)
+    if (newVal < -0.0001) throw new Error(`Insufficient ${k.replace('_balance', '')} balance`)
+    next[k] = newVal
   }
+
   const { data, error } = await db
     .from('accounts')
     .update({ ...next, updated_at: new Date().toISOString() })
     .eq('user_id', userId)
     .select('*')
     .single()
+
   if (error) throw error
   return data as AccountRow
 }
 
-export async function recordTxn(userId: string, row: {
-  type: string
-  amount: number
-  currency?: string
-  status?: string
-  reference?: string | null
-  meta?: Record<string, unknown>
-  processedBy?: string | null
-}) {
+export async function recordTxn(
+  userId: string,
+  row: {
+    type: string
+    amount: number
+    currency?: string
+    status?: string
+    reference?: string | null
+    meta?: Record<string, unknown>
+    processedBy?: string | null
+  }
+) {
   const db = serviceClient()
   const { data, error } = await db
     .from('transactions')
     .insert({
       user_id: userId,
-      type: row.type,
+      type: row.type.toLowerCase(),
       amount: row.amount,
-      currency: row.currency ?? 'USD',
+      currency: (row.currency ?? 'USD').toUpperCase(),
       status: row.status ?? 'completed',
       reference: row.reference ?? null,
       meta: row.meta ?? {},
@@ -189,13 +255,52 @@ export async function recordTxn(userId: string, row: {
     })
     .select('*')
     .single()
+
   if (error) throw error
   return data
 }
 
+export async function disburseProjectPayoutFromFloat(params: {
+  userId: string
+  projectId: string
+  amount: number
+  currency?: string
+  floatTxHash?: string
+  processedBy?: string
+}) {
+  const { userId, projectId, amount, currency = 'USD', floatTxHash, processedBy } = params
+
+  const txn = await recordTxn(userId, {
+    type: 'project_payout',
+    amount,
+    currency,
+    status: 'completed',
+    processedBy: processedBy ?? 'float-wallet-system',
+    meta: {
+      projectId,
+      source: 'float_wallet',
+      floatTxHash: floatTxHash ?? null,
+      label: `Project Payout (${projectId})`,
+    },
+  })
+
+  await adjustAccount(userId, { cash_balance: amount })
+  return txn
+}
+
 export async function getSnapshot(userId: string): Promise<Snapshot> {
   const db = serviceClient()
-  const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }, { data: referrals }, { data: badgeRows }, { data: cardApp }, { data: wallets }] = await Promise.all([
+  const [
+    { data: profile },
+    acct,
+    { data: holdings },
+    { data: txns },
+    { data: pointsRows },
+    { data: referrals },
+    { data: badgeRows },
+    { data: cardApp },
+    { data: wallets },
+  ] = await Promise.all([
     db.from('profiles').select('*').eq('id', userId).maybeSingle(),
     ensureAccount(userId),
     db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
@@ -210,50 +315,50 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
   const kycStatus = profile?.kyc_status ?? 'none'
   const isAdmin = profile?.role === 'admin'
 
-  // SMART AUTO-SYNC FOR EXISTING USERS:
-  // If a user has pre-existing balances in their account table, transaction history, or holdings,
-  // we automatically consider them active/synced so they don't get locked out by a missing KYC flag.
-  const hasExistingData = 
-    Number(acct.cash_balance) > 0 || 
-    Number(acct.token_balance) > 0 || 
-    Number(acct.staked_balance) > 0 || 
-    (holdings ?? []).length > 0 || 
+  const hasExistingData =
+    Number(acct.cash_balance) > 0 ||
+    Number(acct.token_balance) > 0 ||
+    Number(acct.staked_balance) > 0 ||
+    (holdings ?? []).length > 0 ||
     (txns ?? []).length > 0
 
   const isVerified = isAdmin || kycStatus === 'verified' || hasExistingData
 
-  let cashBalance = Number(acct.cash_balance)
-  let tokenBalance = Number(acct.token_balance)
-  let stakedBalance = Number(acct.staked_balance)
-  let pendingYield = Number(acct.pending_yield)
+  let cashBalance = Number(acct.cash_balance ?? 0)
+  let tokenBalance = Number(acct.token_balance ?? 0)
+  let stakedBalance = Number(acct.staked_balance ?? 0)
+  let pendingYield = Number(acct.pending_yield ?? 0)
+
   let activeHoldings = (holdings ?? []).map((h) => ({
     id: h.id,
     projectId: h.project_id,
-    tierId: (tierForAmount(Number(h.amount)).id) as TierId,
+    tierId: tierForAmount(Number(h.amount)).id as TierId,
     amount: Number(h.amount),
     date: new Date(h.created_at).getTime(),
   }))
 
   if (isVerified) {
-    const ledgerCash = await calculateCashBalanceFromLedger(userId)
+    const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
+      calculateCashBalanceFromLedger(userId),
+      calculateTokenBalanceFromLedger(userId),
+      calculateStakedBalanceFromLedger(userId),
+    ])
+
     if (cashBalance <= 0 && ledgerCash > 0) {
       cashBalance = ledgerCash
-      await db.from('accounts').update({ cash_balance: cashBalance }).eq('user_id', userId)
+      await db.from('accounts').update({ cash_balance: cashBalance, updated_at: new Date().toISOString() }).eq('user_id', userId)
     }
 
-    const ledgerTokens = await calculateTokenBalanceFromLedger(userId)
     if (tokenBalance <= 0 && ledgerTokens > 0) {
       tokenBalance = ledgerTokens
-      await db.from('accounts').update({ token_balance: tokenBalance }).eq('user_id', userId)
+      await db.from('accounts').update({ token_balance: tokenBalance, updated_at: new Date().toISOString() }).eq('user_id', userId)
     }
 
-    const ledgerStaked = await calculateStakedBalanceFromLedger(userId)
     if (stakedBalance <= 0 && ledgerStaked > 0) {
       stakedBalance = ledgerStaked
-      await db.from('accounts').update({ staked_balance: stakedBalance }).eq('user_id', userId)
+      await db.from('accounts').update({ staked_balance: stakedBalance, updated_at: new Date().toISOString() }).eq('user_id', userId)
     }
   } else {
-    // Brand new users with zero history stay locked at 0
     cashBalance = 0
     tokenBalance = 0
     stakedBalance = 0
@@ -274,16 +379,20 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
     staked: stakedBalance,
     pendingYield: pendingYield,
     holdings: activeHoldings,
-    txns: (txns ?? []).map((t) => ({
-      id: t.id,
-      type: TXN_TYPE_MAP[t.type] ?? 'deposit',
-      label: (t.meta?.label as string) ?? TXN_LABEL[t.type] ?? t.type,
-      amount: Number(t.amount),
-      currency: t.currency === 'PULSE' ? 'PULSE' : 'USDT',
-      status: t.status as SnapshotTxn['status'],
-      isProcessing: !!t.processing_started_at,
-      date: new Date(t.created_at).getTime(),
-    })),
+    txns: (txns ?? []).map((t) => {
+      const rawType = (t.type || '').toLowerCase()
+      const rawCurrency = (t.currency || '').toUpperCase()
+      return {
+        id: t.id,
+        type: TXN_TYPE_MAP[rawType] ?? 'deposit',
+        label: (t.meta?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
+        amount: Number(t.amount),
+        currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
+        status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
+        isProcessing: !!t.processing_started_at,
+        date: new Date(t.created_at).getTime(),
+      }
+    }),
     kyc: kycMap[kycStatus] ?? 'none',
     wallet: profile?.wallet_address ?? null,
     referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? profile?.referral_code ?? 'PLS-XXXX',
@@ -309,5 +418,5 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   const db = serviceClient()
   const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
   return data?.role === 'admin'
-    }
-    
+      }
+                              
