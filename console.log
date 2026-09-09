@@ -1,0 +1,43 @@
+TEMPORARY DEBUG — add this ONE line into app/(investor)/app/page.tsx,
+right after the existing block that gets `user`:
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      console.error('[Pulse App Page] Auth error:', authError?.message)
+      redirect('/auth/login')
+    }
+
+    // ADD THIS ONE LINE RIGHT HERE, BEFORE "let initial = null":
+    console.log('[PULSE DEBUG] Logged-in user.id is:', user.id)
+
+That line writes to your Vercel *server* logs, not the browser console (this
+is a Server Component). To see it:
+
+1. Commit that one-line change, let it deploy.
+2. Load https://pulseinvest.uk/app while logged in as usual.
+3. Go to your Vercel project → the "Pulse Invest" project → click the
+   latest deployment → "Logs" tab (or "Runtime Logs" / "Functions" tab,
+   naming varies slightly by Vercel UI version).
+4. Look for the line: [PULSE DEBUG] Logged-in user.id is: <uuid>
+
+Compare that UUID character-for-character against:
+  627653b3-8b93-4244-9839-abe57b9b8ca0
+
+- If they MATCH: the real bug is inside getSnapshot/serviceClient itself
+  behaving differently at runtime than it reads on paper — rare, but
+  possible (e.g. wrong Supabase project's service key in Vercel env vars
+  for this deployment). Send me that log line + your Vercel env var names
+  (not values) for SUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URL.
+
+- If they DON'T MATCH: confirmed — you're logged into a different/newer
+  test account than the one holding real balance. Log out fully, log back
+  in with the exact email tied to 627653b3-8b93-4244-9839-abe57b9b8ca0,
+  and the dashboard should immediately show the correct balance with zero
+  further code changes needed.
+
+Remove the console.log line once this is confirmed either way — it's
+diagnostic only, not meant to stay in production.
