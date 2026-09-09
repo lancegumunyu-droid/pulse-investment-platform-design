@@ -191,6 +191,27 @@ export async function recordTxn(userId: string, row: {
   return data
 }
 
+export async function validateReferralCode(code: string) {
+  if (!code || code.trim() === '') {
+    return { valid: false, message: 'Referral code cannot be empty.' }
+  }
+  try {
+    const db = await getSupabase()
+    const { data, error } = await db
+      .from('profiles')
+      .select('id, full_name, username, tier')
+      .eq('referral_code', code.trim())
+      .maybeSingle()
+    
+    if (error || !data) {
+      return { valid: false, message: 'Invalid referral code.' }
+    }
+    return { valid: true, ambassador: data.full_name || data.username || 'Ambassador', tier: data.tier }
+  } catch (err) {
+    return { valid: false, message: 'Validation failed.' }
+  }
+}
+
 export async function getSnapshot(userId: string): Promise<Snapshot> {
   const db = await getSupabase()
   const [{ data: profile }, acct, { data: holdings }, { data: txns }, { data: pointsRows }, { data: referrals }, { data: badgeRows }, { data: cardApp }, { data: wallets }, liveProjects] = await Promise.all([
@@ -250,7 +271,7 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
       id: p.id,
       title: p.title,
       category: p.category,
-      apyRate: p.targetYieldMax, // or your APY representation
+      apyRate: p.targetYieldMax,
       raisedAmount: p.funded,
       goalAmount: p.goal,
       progress: Math.min(100, Math.round((p.funded / p.goal) * 100)),
@@ -294,6 +315,34 @@ export async function invest(amount: number, projectId: string) {
     await adjustAccount(user.id, { cash_balance: -amount, invested_balance: amount })
     await db.from('holdings').insert({ user_id: user.id, project_id: projectId, amount })
     await recordTxn(user.id, { type: 'investment', amount, currency: 'USD', meta: { projectId } })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function deposit(amount: number) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await adjustAccount(user.id, { cash_balance: amount })
+    await recordTxn(user.id, { type: 'deposit', amount, currency: 'USD' })
+    const snapshot = await getSnapshot(user.id)
+    return { ok: true as const, snapshot }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function withdraw(amount: number) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    await adjustAccount(user.id, { cash_balance: -amount })
+    await recordTxn(user.id, { type: 'withdrawal', amount, currency: 'USD' })
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
   } catch (e) {
