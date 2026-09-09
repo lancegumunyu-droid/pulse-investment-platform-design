@@ -91,31 +91,32 @@ interface State {
   savedWallets: SavedWallet[]
 }
 
-function fromSnapshot(s: Snapshot): State {
+function fromSnapshot(s: Snapshot | null | undefined): State {
+  const data = s || {}
   return {
-    cash: s.cash,
-    pulse: s.pulse,
-    staked: s.staked,
-    pendingYield: s.pendingYield,
-    holdings: s.holdings,
-    txns: s.txns,
-    kyc: s.kyc,
-    wallet: s.wallet,
-    referralCode: s.referralCode,
-    fullName: s.fullName,
-    email: s.email,
-    tier: s.tier,
-    isAdmin: s.isAdmin,
-    points: s.points,
-    founderNumber: s.founderNumber,
-    walletId: s.walletId,
-    username: s.username,
-    referralCount: s.referralCount,
-    referralVerifiedCount: s.referralVerifiedCount,
-    badges: s.badges,
-    adminScope: s.adminScope,
-    cardStatus: s.cardStatus,
-    savedWallets: s.savedWallets,
+    cash: data.cash ?? 0,
+    pulse: data.pulse ?? 0,
+    staked: data.staked ?? 0,
+    pendingYield: data.pendingYield ?? 0,
+    holdings: data.holdings ?? [],
+    txns: data.txns ?? [],
+    kyc: data.kyc ?? 'none',
+    wallet: data.wallet ?? null,
+    referralCode: data.referralCode ?? 'PULSE-USER',
+    fullName: data.fullName ?? null,
+    email: data.email ?? null,
+    tier: data.tier ?? 1,
+    isAdmin: data.isAdmin ?? false,
+    points: data.points ?? 0,
+    founderNumber: data.founderNumber ?? null,
+    walletId: data.walletId ?? null,
+    username: data.username ?? null,
+    referralCount: data.referralCount ?? 0,
+    referralVerifiedCount: data.referralVerifiedCount ?? 0,
+    badges: data.badges ?? [],
+    adminScope: data.adminScope ?? null,
+    cardStatus: data.cardStatus ?? 'none',
+    savedWallets: data.savedWallets ?? [],
   }
 }
 
