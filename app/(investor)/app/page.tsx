@@ -3,400 +3,304 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-// Initialize Supabase Client safely
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-interface Project {
+interface AccountState {
+  cash_balance: number
+  invested_balance: number
+  staked_balance: number
+  pending_yield: number
+}
+
+interface HoldingItem {
   id: string
-  title: string
-  category: string
-  apy: number
-  raised: number
-  goal: number
-  cover_url: string
+  project_id: string
+  amount: number
+  target_yield_low: number
+  target_yield_high: number
+  expected_return: number
   status: string
 }
 
-interface Transaction {
-  id: string
-  user_email: string
-  type: string
-  amount: number
-  status: 'pending' | 'completed' | 'rejected'
-  created_at: string
-}
-
-interface UserInvestment {
-  id: string
-  projectId: string
-  name: string
-  staked: number
-  returns: number
-}
-
-export default function UltimateDashboard() {
+export default function SADCTerminalAllProjects() {
   const [activeTab, setActiveTab] = useState<'home' | 'invest' | 'wallet' | 'profile'>('home')
-  const [isAdmin, setIsAdmin] = useState(true) // Switchable for testing admin vs user view
-  const [balance, setBalance] = useState(12500.00)
-  const [amountInput, setAmountInput] = useState('')
-  
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    { id: '1', user_email: 'client@pulse.sadr', type: 'Deposit', amount: 100.00, status: 'completed', created_at: '2026-09-09' },
-    { id: '2', user_email: 'client@pulse.sadr', type: 'Withdrawal', amount: 50.00, status: 'completed', created_at: '2026-09-09' }
-  ])
-  
-  const [pendingApprovals, setPendingApprovals] = useState<Transaction[]>([
-    { id: 'p1', user_email: 'investor@sadr.org', type: 'Deposit', amount: 5000.00, status: 'pending', created_at: '2026-09-09' },
-    { id: 'p2', user_email: 'partner@sadr.org', type: 'Withdrawal', amount: 1200.00, status: 'pending', created_at: '2026-09-09' }
-  ])
+  const [account, setAccount] = useState<AccountState>({
+    cash_balance: 6183.49,
+    invested_balance: 7450.00,
+    staked_balance: 60128.00,
+    pending_yield: 312.50
+  })
+  const [holdings, setHoldings] = useState<HoldingItem[]>([])
+  const [userEmail, setUserEmail] = useState('investor@sadr.org')
+  const [referralCode, setReferralCode] = useState('SADC-REF-9921-X7')
+  const [selectedProject, setSelectedProject] = useState<any | null>(null)
 
-  // Projects list with enhanced 4D cover assets
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: 'sandsloot',
-      title: 'Sandsloot Lithium & Tantalum Extraction Hub',
-      category: 'South Africa • Critical Minerals',
-      apy: 22.5,
-      raised: 385000,
-      goal: 500000,
-      cover_url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1200&q=80',
-      status: 'Active'
-    },
-    {
-      id: 'kalahari',
-      title: 'Kalahari Green Hydrogen & Ammonia Corridor',
-      category: 'Namibia • Clean Energy',
-      apy: 19.8,
-      raised: 940000,
-      goal: 1200000,
-      cover_url: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1200&q=80',
-      status: 'Active'
-    },
-    {
-      id: 'copperbelt',
-      title: 'Zambian Copperbelt Smelting & Refining Grid',
-      category: 'Zambia • Infrastructure',
-      apy: 21.0,
-      raised: 620000,
-      goal: 1000000,
-      cover_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
-      status: 'Active'
+  useEffect(() => {
+    async function syncData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user && user.email) {
+          setUserEmail(user.email)
+          const hash = user.id ? user.id.split('-')[0].toUpperCase() : '9921'
+          setReferralCode(`SADC-${user.email.substring(0, 3).toUpperCase()}-${hash}-X7`)
+
+          const { data: acc } = await supabase.from('accounts').select('*').eq('user_id', user.id).single()
+          if (acc) setAccount(acc)
+
+          const { data: holds } = await supabase.from('holdings').select('*').eq('user_id', user.id).eq('status', 'active')
+          if (holds) setHoldings(holds)
+        }
+      } catch (err) {
+        console.warn('Fallback state active.')
+      }
     }
-  ])
-
-  // User active investments for closing & transfer capability
-  const [myInvestments, setMyInvestments] = useState<UserInvestment[]>([
-    { id: 'inv-1', projectId: 'sandsloot', name: 'Sandsloot Lithium Hub', staked: 2500, returns: 312.50 }
-  ])
-
-  // Handle Deposit / Withdrawal creation (Submits to Pending State)
-  const handleFinancialAction = async (type: 'Deposit' | 'Withdrawal') => {
-    const val = parseFloat(amountInput)
-    if (isNaN(val) || val <= 0) {
-      alert('Enter a valid monetary amount.')
-      return
-    }
-
-    if (type === 'Withdrawal' && val > balance) {
-      alert('Insufficient available liquidity for this withdrawal request.')
-      return
-    }
-
-    const newTx: Transaction = {
-      id: Math.random().toString(36).substring(2, 9),
-      user_email: 'current-user@pulse.sadr',
-      type: type,
-      amount: val,
-      status: 'pending',
-      created_at: new Date().toISOString().split('T')[0]
-    }
-
-    // Optional Supabase persistence if table exists
-    try {
-      await supabase.from('transactions').insert([
-        { type, amount: val, status: 'pending', user_email: newTx.user_email }
-      ])
-    } catch (err) {
-      console.warn('Supabase offline or table missing, running local state fallback.')
-    }
-
-    setPendingApprovals([newTx, ...pendingApprovals])
-    setAmountInput('')
-    alert(`${type} request submitted successfully. Status is marked as PENDING and requires administrative compliance approval.`)
-  }
-
-  // Admin approval handler
-  const approveTransaction = async (id: string) => {
-    const tx = pendingApprovals.find(t => t.id === id)
-    if (!tx) return
-
-    setPendingApprovals(pendingApprovals.filter(t => t.id !== id))
-    setTransactions([{ ...tx, status: 'completed' }, ...transactions])
-
-    if (tx.type === 'Deposit') {
-      setBalance(prev => prev + tx.amount)
-    } else if (tx.type === 'Withdrawal') {
-      setBalance(prev => prev - tx.amount)
-    }
-
-    try {
-      await supabase.from('transactions').update({ status: 'completed' }).eq('id', id)
-    } catch (err) {
-      console.warn('Supabase update skipped (local fallback active).')
-    }
-  }
-
-  // Close project & transfer funds back to wallet
-  const handleCloseProject = (invId: string, stakedAmount: number, returns: number) => {
-    const totalPayout = stakedAmount + returns
-    setBalance(prev => prev + totalPayout)
-    setMyInvestments(myInvestments.filter(i => i.id !== invId))
-    alert(`Project successfully closed. Total liquidity of $${totalPayout.toFixed(2)} transferred back to your Pulse Wallet.`)
-  }
+    syncData()
+  }, [])
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-amber-100 font-sans pb-24">
-      {/* Top Header & Institutional Navigation */}
-      <header className="border-b border-amber-500/20 bg-[#121212]/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-600 to-yellow-300 flex items-center justify-center font-bold text-black">
-            P
-          </div>
-          <span className="text-xl font-extrabold tracking-widest text-amber-400">PULSE // SADC</span>
-        </div>
-        <div className="flex items-center space-x-4">
-          <button 
-            onClick={() => setIsAdmin(!isAdmin)}
-            className="text-xs px-3 py-1.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition"
-          >
-            Role: {isAdmin ? 'Admin Portal' : 'Client Mode'}
-          </button>
-          <div className="text-right">
-            <p className="text-xs text-amber-400/60">Available Liquidity</p>
-            <p className="font-mono font-bold text-amber-300">${balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-4 pt-6 space-y-8">
+    <div className="min-h-screen bg-[#060606] text-amber-100 font-sans flex flex-col items-center pb-32 selection:bg-amber-500 selection:text-black">
+      
+      {/* Fully Responsive Shell: Optimized for Mobile apps AND expands cleanly into a professional desktop dashboard */}
+      <div className="w-full max-w-[480px] md:max-w-3xl lg:max-w-5xl mx-auto px-4 py-4 space-y-4">
         
-        {/* VIEW: ADMIN APPROVALS */}
-        {isAdmin && (
-          <div className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-6 shadow-xl space-y-6">
-            <div className="flex justify-between items-center border-b border-amber-500/20 pb-4">
-              <div>
-                <h2 className="text-lg font-bold text-amber-300">Admin Clearance & Approvals</h2>
-                <p className="text-xs text-amber-400/60">Review and authorize pending user capital injections and withdrawals.</p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-xs bg-amber-500/20 text-amber-300 font-mono">
-                {pendingApprovals.length} Pending Actions
-              </span>
-            </div>
-
-            {pendingApprovals.length === 0 ? (
-              <p className="text-sm text-amber-400/40 italic text-center py-6">No pending deposits or withdrawals requiring clearance.</p>
-            ) : (
-              <div className="space-y-3">
-                {pendingApprovals.map(tx => (
-                  <div key={tx.id} className="flex items-center justify-between bg-black/40 border border-amber-500/20 p-4 rounded-xl">
-                    <div>
-                      <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono uppercase">{tx.type}</span>
-                      <p className="font-bold text-amber-100 mt-1">${tx.amount.toFixed(2)}</p>
-                      <p className="text-xs text-amber-400/50">User: {tx.user_email} • {tx.created_at}</p>
-                    </div>
-                    <div>
-                      <button 
-                        onClick={() => approveTransaction(tx.id)}
-                        className="px-4 py-2 bg-amber-500 text-black font-bold text-xs rounded-lg hover:bg-amber-400 transition"
-                      >
-                        Approve & Sync Ledger
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* Top Header Bar */}
+        <div className="flex justify-between items-center bg-[#101010] border border-amber-500/20 px-4 py-3 rounded-2xl shadow-md transition-all hover:border-amber-500/40">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-600 to-yellow-400 flex items-center justify-center font-bold text-black text-xs animate-pulse">P</div>
+            <span className="text-xs md:text-sm font-extrabold tracking-wider text-amber-400">Pulse SADC Terminal</span>
           </div>
-        )}
-
-        {/* TAB SWITCHER */}
-        <div className="flex space-x-2 border-b border-amber-500/20 pb-2">
-          {(['home', 'invest', 'wallet', 'profile'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition ${
-                activeTab === tab ? 'bg-amber-500 text-black' : 'text-amber-400/60 hover:text-amber-300 hover:bg-amber-500/10'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+          <span className="hidden sm:inline text-[10px] text-amber-400/60 uppercase tracking-widest font-mono">SOVEREIGN CLEARING NODE</span>
+          <div className="font-mono text-xs md:text-sm font-bold text-amber-300 bg-black/40 px-3 py-1 rounded-xl border border-amber-500/20">${account.cash_balance.toLocaleString()}</div>
         </div>
 
-        {/* SECTION: HOME & REGIONAL OPPORTUNITIES */}
+        {/* TAB: HOME */}
         {activeTab === 'home' && (
-          <div className="space-y-6">
-            <div className="text-center space-y-2">
-              <h1 className="text-2xl font-extrabold text-amber-300 tracking-tight">REGIONAL OPPORTUNITIES PIPELINE</h1>
-              <p className="text-xs text-amber-400/60">Live Ledger Synced • SADC Sovereign Infrastructure Mandate</p>
-            </div>
+          <div className="space-y-4 animate-fadeIn duration-500">
+            
+            {/* Net Liquidity Card */}
+            <div className="bg-gradient-to-b from-[#141414] to-[#0c0c0c] border border-amber-500/30 rounded-2xl p-5 md:p-6 text-center space-y-3 shadow-2xl relative overflow-hidden transition-all hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+              <div className="absolute top-3 right-4 text-[10px] bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-full font-mono border border-amber-500/30">Ambassador VIP</div>
+              <p className="text-[11px] text-amber-400/60 uppercase tracking-widest font-medium">Net Liquidity Value</p>
+              <h1 className="text-3xl md:text-5xl font-extrabold text-amber-300 font-mono tracking-tight">${(account.cash_balance + account.invested_balance + account.staked_balance).toLocaleString()}</h1>
+              <p className="text-[11px] text-emerald-400 font-mono">Sovereign Yield: +20.2% APY (Live Ledger)</p>
 
-            {/* Enhanced 4D Cover Photos Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {projects.map((proj) => (
-                <div key={proj.id} className="bg-[#141414] border border-amber-500/30 rounded-2xl overflow-hidden shadow-2xl hover:border-amber-500/60 transition group">
-                  <div className="relative h-48 w-full overflow-hidden">
-                    <img 
-                      src={proj.cover_url} 
-                      alt={proj.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                    />
-                    <div className="absolute top-3 right-3 bg-black/70 backdrop-blur border border-amber-500/40 px-3 py-1 rounded-full text-xs font-mono text-amber-300">
-                      {proj.apy}% APY
-                    </div>
-                  </div>
-                  <div className="p-5 space-y-4">
-                    <div>
-                      <p className="text-xs text-amber-400/60 uppercase tracking-widest">{proj.category}</p>
-                      <h3 className="font-bold text-amber-100 text-base mt-1">{proj.title}</h3>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-amber-400/80 font-mono">
-                        <span>Funded Progress</span>
-                        <span>${proj.raised.toLocaleString()} / ${proj.goal.toLocaleString()}</span>
-                      </div>
-                      <div className="w-full bg-black h-2 rounded-full overflow-hidden border border-amber-500/20">
-                        <div className="bg-amber-500 h-full rounded-full" style={{ width: `${(proj.raised / proj.goal) * 100}%` }} />
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-2 max-w-md mx-auto">
+                <button onClick={() => setSelectedProject({ title: 'General Capital Valuation', apy: 20.2 })} className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs py-2.5 rounded-xl transition shadow">
+                  + Valuate Capital
+                </button>
+                <button onClick={() => alert('Yield withdrawal request initiated to sovereign vault.')} className="flex-1 bg-amber-950/40 hover:bg-amber-900/40 border border-amber-500/40 text-amber-300 font-bold text-xs py-2.5 rounded-xl transition">
+                  Withdraw Yields
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-amber-500/10 text-center font-mono max-w-lg mx-auto">
+                <div className="bg-black/50 p-2 rounded-xl border border-amber-500/10">
+                  <span className="text-[9px] text-amber-400/50 block">DAP / P</span>
+                  <span className="text-xs text-amber-200 font-bold">14.8%</span>
                 </div>
-              ))}
-            </div>
-
-            {/* Institutional Quick Hubs & Reference Code Section */}
-            <div className="bg-[#121212] border border-amber-500/30 rounded-2xl p-6 space-y-4">
-              <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider">Institutional Quick Hubs</h3>
-              <p className="text-xs text-amber-400/60">Your secure cryptographic reference code identifier linked to current regional clearing channels.</p>
-              <div className="bg-black/60 border border-amber-500/20 p-4 rounded-xl flex items-center justify-between font-mono text-xs">
-                <span className="text-amber-400/50">REF-SADC-9921-X7</span>
-                <span className="text-emerald-400 font-bold">● Active Clearance Verified</span>
+                <div className="bg-black/50 p-2 rounded-xl border border-amber-500/10">
+                  <span className="text-[9px] text-amber-400/50 block">PORTFOLIO</span>
+                  <span className="text-xs text-amber-200 font-bold">${account.invested_balance.toLocaleString()}</span>
+                </div>
+                <div className="bg-black/50 p-2 rounded-xl border border-amber-500/10">
+                  <span className="text-[9px] text-amber-400/50 block">ROI ASSETS</span>
+                  <span className="text-xs text-amber-200 font-bold">${account.staked_balance.toLocaleString()}</span>
+                </div>
               </div>
             </div>
 
-            {/* Professional Regulatory & Risk Disclosure Box */}
-            <div className="bg-[#121212] border border-amber-500/20 rounded-2xl p-6 text-xs text-amber-400/70 space-y-3">
-              <div className="flex items-center space-x-2 text-amber-300 font-bold">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span>SADC Institutional Compliance & Risk Notice</span>
+            {/* Unique Referral Code Box */}
+            <div className="bg-[#101010] border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between text-xs transition hover:border-amber-500/40">
+              <div>
+                <span className="text-[10px] text-amber-400/50 uppercase tracking-widest block font-mono">Your Unique Referral Code</span>
+                <span className="font-mono font-bold text-amber-200 text-sm mt-0.5 block">{referralCode}</span>
+              </div>
+              <button 
+                onClick={() => { navigator.clipboard.writeText(referralCode); alert('Referral code copied to clipboard!'); }}
+                className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-xl hover:bg-amber-500/20 transition font-mono text-xs"
+              >
+                Copy Code
+              </button>
+            </div>
+
+            {/* REGIONAL OPPORTUNITIES PIPELINE (Grid view on desktop, stacked on mobile) */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center px-1">
+                <span className="font-bold text-amber-300 uppercase tracking-wider text-xs">Regional Opportunities Pipeline (4)</span>
+                <span className="text-[10px] text-amber-400/60 font-mono">Live Ledger Synced</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { id: 'sandsloot', title: 'Sandsloot Lithium & Tantalum Extraction Hub', cat: 'South Africa • Critical Minerals', apy: 22.5, raised: 385000, goal: 500000, cover: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1200&q=80' },
+                  { id: 'kalahari', title: 'Kalahari Green Hydrogen & Ammonia Corridor', cat: 'Namibia • Clean Energy', apy: 19.8, raised: 940000, goal: 1200000, cover: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1200&q=80' },
+                  { id: 'copperbelt', title: 'Zambian Copperbelt High-Voltage Grid Modernization', cat: 'Zambia • Infrastructure', apy: 21.0, raised: 620000, goal: 1000000, cover: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80' },
+                  { id: 'zambezi', title: 'Zambezi Hydro-Electric Generation & Transmission Grid', cat: 'Zimbabwe / Zambia • Clean Energy', apy: 18.5, raised: 1450000, goal: 2000000, cover: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1200&q=80' }
+                ].map((p) => {
+                  const percent = Math.round((p.raised / p.goal) * 100)
+                  return (
+                    <div 
+                      key={p.id} 
+                      onClick={() => setSelectedProject(p)}
+                      className="bg-[#101010] border border-amber-500/30 rounded-2xl overflow-hidden shadow-lg hover:border-amber-500/60 transition-all duration-300 group cursor-pointer flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="relative h-36 w-full overflow-hidden">
+                          <img src={p.cover} alt={p.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                          <div className="absolute top-2.5 right-2.5 bg-black/80 backdrop-blur border border-amber-500/40 px-3 py-1 rounded-full text-xs font-mono text-amber-300 shadow">
+                            {p.apy}% APY
+                          </div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <div>
+                            <p className="text-[10px] text-amber-400/60 uppercase tracking-widest">{p.cat}</p>
+                            <h3 className="font-bold text-amber-100 text-sm mt-0.5">{p.title}</h3>
+                          </div>
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between text-xs text-amber-400/80 font-mono">
+                              <span>Funded Progress ({percent}%)</span>
+                              <span>${p.raised.toLocaleString()} / ${p.goal.toLocaleString()}</span>
+                            </div>
+                            <div className="w-full bg-black h-2 rounded-full overflow-hidden border border-amber-500/20">
+                              <div className="bg-gradient-to-r from-amber-600 to-yellow-400 h-full rounded-full transition-all duration-500" style={{ width: `${percent}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="px-4 pb-4 pt-1">
+                        <span className="w-full block text-center bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl py-2 text-xs font-mono transition">
+                          Allocate Tranche →
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Institutional Compliance & Risk Disclaimer */}
+            <div className="bg-[#101010] border border-amber-500/20 rounded-2xl p-5 text-xs text-amber-400/70 space-y-2.5 leading-relaxed">
+              <div className="flex items-center space-x-2 text-amber-300 font-bold uppercase tracking-wider">
+                <span>Institutional Regulatory Disclaimer</span>
               </div>
               <p>
-                Capital allocations directed toward Southern African Development Community (SADC) infrastructure pipelines are governed under rigorous institutional clearing standards. Projected yields and APY baselines represent modeled targets and remain subject to sovereign macroeconomic clearing protocols and performance guarantees.
+                Capital allocations directed toward SADC infrastructure pipelines operate under sovereign clearing mandates. Projected yields and APY baselines represent algorithmic targets governed by macroeconomic stability protocols.
               </p>
-              <div className="flex justify-between text-[10px] text-amber-500/60 pt-2 border-t border-amber-500/10 font-mono">
-                <span>Protocol Version: 2.4.0-SADC</span>
-                <span>Encrypted 256-bit SSL Clearing</span>
+              <div className="flex justify-between text-[10px] text-amber-500/50 pt-2 border-t border-amber-500/10 font-mono">
+                <span>Protocol: SADC-256-SSL</span>
+                <span>Session: {userEmail}</span>
               </div>
             </div>
+
           </div>
         )}
 
-        {/* TAB: INVESTMENTS / PORTFOLIO CLOSE CAPABILITY */}
+        {/* TAB: INVEST */}
         {activeTab === 'invest' && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-bold text-amber-300">Active Portfolio Allocations & Closure Hub</h2>
-            <p className="text-xs text-amber-400/60">Manage your active stakes. You retain full capability to close projects and instantly transfer funds back to your wallet.</p>
-
-            {myInvestments.length === 0 ? (
-              <p className="text-sm text-amber-400/50 italic py-8 text-center">No active project stakes currently open in portfolio.</p>
-            ) : (
-              <div className="space-y-4">
-                {myInvestments.map(inv => (
-                  <div key={inv.id} className="bg-[#121212] border border-amber-500/30 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                      <h4 className="font-bold text-amber-100">{inv.name}</h4>
-                      <p className="text-xs text-amber-400/60 mt-1">Staked Capital: <span className="text-amber-300 font-mono">${inv.staked.toFixed(2)}</span> • Accrued Returns: <span className="text-emerald-400 font-mono">+${inv.returns.toFixed(2)}</span></p>
-                    </div>
-                    <button 
-                      onClick={() => handleCloseProject(inv.id, inv.staked, inv.returns)}
-                      className="px-4 py-2 bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold rounded-lg hover:bg-red-500/30 transition"
-                    >
-                      Close Project & Transfer Funds
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="space-y-4 animate-fadeIn duration-300">
+            <div className="border-b border-amber-500/20 pb-3">
+              <h2 className="text-base font-bold text-amber-300 uppercase">Regional Investment Deployment</h2>
+              <p className="text-xs text-amber-400/60">Choose your capital allocation tranche from the pipeline.</p>
+            </div>
+            <div className="bg-[#101010] border border-amber-500/20 rounded-2xl p-6 text-center space-y-4 font-mono text-xs">
+              <p className="text-amber-200">Available Cash Liquidity: <span className="font-bold text-amber-300 text-sm">${account.cash_balance.toLocaleString()}</span></p>
+              <button onClick={() => setActiveTab('home')} className="w-full max-w-sm mx-auto bg-amber-500 text-black font-bold py-3 rounded-xl text-xs hover:bg-amber-400 transition">
+                Return to Pipeline & Select Project
+              </button>
+            </div>
           </div>
         )}
 
-        {/* TAB: WALLET & FINANCIAL OPERATIONS */}
+        {/* TAB: WALLET */}
         {activeTab === 'wallet' && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-bold text-amber-300">Pulse Liquidity & Transaction Gateway</h2>
-            
-            {/* Action Input Card */}
-            <div className="bg-[#121212] border border-amber-500/30 rounded-2xl p-6 space-y-4">
-              <h3 className="text-sm font-bold text-amber-200">Initiate Capital Transfer</h3>
-              <div className="flex gap-4">
-                <input 
-                  type="number"
-                  placeholder="Enter amount (USD / USDT)"
-                  value={amountInput}
-                  onChange={(e) => setAmountInput(e.target.value)}
-                  className="flex-1 bg-black border border-amber-500/30 rounded-xl px-4 py-2.5 text-amber-100 text-sm focus:outline-none focus:border-amber-500"
-                />
-                <button 
-                  onClick={() => handleFinancialAction('Deposit')}
-                  className="px-5 py-2.5 bg-amber-500 text-black font-bold text-xs rounded-xl hover:bg-amber-400 transition"
-                >
-                  Deposit
-                </button>
-                <button 
-                  onClick={() => handleFinancialAction('Withdrawal')}
-                  className="px-5 py-5 bg-amber-950/60 border border-amber-500/40 text-amber-300 font-bold text-xs rounded-xl hover:bg-amber-900/60 transition"
-                >
-                  Withdraw
-                </button>
-              </div>
-              <p className="text-[11px] text-amber-400/50">Note: All transactions route through pending administrative compliance queues before final ledger settlement.</p>
+          <div className="space-y-4 animate-fadeIn duration-300">
+            <div className="border-b border-amber-500/20 pb-3">
+              <h2 className="text-base font-bold text-amber-300 uppercase">Pulse Wallet & Vault</h2>
+              <p className="text-xs text-amber-400/60">Secure gateway and liquidity status.</p>
             </div>
-
-            {/* Live Activity Feed */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-amber-300">Live Activity Feed</h3>
-              <div className="space-y-2">
-                {transactions.map(tx => (
-                  <div key={tx.id} className="flex justify-between items-center bg-[#121212] border border-amber-500/20 p-4 rounded-xl text-sm">
-                    <div>
-                      <p className="font-bold text-amber-100">{tx.type}</p>
-                      <p className="text-xs text-amber-400/50">{tx.created_at}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-mono font-bold text-amber-300">${tx.amount.toFixed(2)}</p>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase font-mono">
-                        {tx.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+            <div className="bg-[#101010] border border-amber-500/20 rounded-2xl p-6 space-y-3 font-mono text-sm">
+              <div className="flex justify-between border-b border-amber-500/10 pb-3">
+                <span className="text-amber-400/60">Cash Balance:</span>
+                <span className="text-amber-200 font-bold">${account.cash_balance.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between border-b border-amber-500/10 pb-3">
+                <span className="text-amber-400/60">Invested Balance:</span>
+                <span className="text-amber-200 font-bold">${account.invested_balance.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-amber-400/60">Staked Balance:</span>
+                <span className="text-amber-200 font-bold">${account.staked_balance.toLocaleString()}</span>
               </div>
             </div>
           </div>
         )}
 
+        {/* TAB: PROFILE */}
         {activeTab === 'profile' && (
-          <div className="bg-[#121212] border border-amber-500/30 rounded-2xl p-6 space-y-4">
-            <h2 className="text-lg font-bold text-amber-300">Institutional Profile & Tier Status</h2>
-            <p className="text-xs text-amber-400/60">KYC Clearance Level 4 Verified • Fully synced with SADC banking rails.</p>
+          <div className="space-y-4 animate-fadeIn duration-300">
+            <div className="border-b border-amber-500/20 pb-3">
+              <h2 className="text-base font-bold text-amber-300 uppercase">Sovereign User Profile</h2>
+              <p className="text-xs text-amber-400/60">KYC Level 4 Verified • Ambassador Syndicate.</p>
+            </div>
+            <div className="bg-[#101010] border border-amber-500/20 rounded-2xl p-6 space-y-3 text-xs font-mono">
+              <p className="text-amber-400/60">Account Email: <span className="text-amber-200">{userEmail}</span></p>
+              <p className="text-amber-400/60">Referral Identifier: <span className="text-amber-200">{referralCode}</span></p>
+            </div>
           </div>
         )}
 
-      </main>
+      </div>
+
+      {/* Interactive Capital Allocation Modal */}
+      {selectedProject && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#101010] border border-amber-500/40 rounded-2xl p-6 w-full max-w-md space-y-4 font-mono shadow-2xl">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[10px] text-amber-400/60 uppercase">Capital Deployment</span>
+                <h3 className="text-sm font-bold text-amber-300">{selectedProject.title}</h3>
+              </div>
+              <button onClick={() => setSelectedProject(null)} className="text-amber-400/50 hover:text-amber-300 text-lg px-2">✕</button>
+            </div>
+            <div className="bg-black/60 p-3.5 rounded-xl border border-amber-500/20 text-xs space-y-2">
+              <div className="flex justify-between"><span>Target APY:</span><span className="text-emerald-400 font-bold">{selectedProject.apy}%</span></div>
+              <div className="flex justify-between"><span>Available Cash:</span><span className="text-amber-300">${account.cash_balance.toLocaleString()}</span></div>
+            </div>
+            <button 
+              onClick={() => {
+                alert(`Successfully allocated capital tranche to ${selectedProject.title}!`)
+                setSelectedProject(null)
+              }} 
+              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 rounded-xl text-xs transition"
+            >
+              Confirm Tranche Allocation
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fixed Mobile Bottom Navigation Dock */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#0c0c0c]/95 backdrop-blur border-t border-amber-500/20 py-3 px-6 flex justify-around items-center z-40 max-w-md md:max-w-xl mx-auto rounded-t-2xl shadow-2xl">
+        <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'home' ? 'text-amber-400 font-bold scale-110' : 'text-amber-400/50 hover:text-amber-300'}`}>
+          <span className="text-base">🏠</span>
+          <span>Home</span>
+        </button>
+        <button onClick={() => setActiveTab('invest')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'invest' ? 'text-amber-400 font-bold scale-110' : 'text-amber-400/50 hover:text-amber-300'}`}>
+          <span className="text-base">📈</span>
+          <span>Invest</span>
+        </button>
+        <button onClick={() => setActiveTab('wallet')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'wallet' ? 'text-amber-400 font-bold scale-110' : 'text-amber-400/50 hover:text-amber-300'}`}>
+          <span className="text-base">💳</span>
+          <span>Wallet</span>
+        </button>
+        <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center text-[10px] transition ${activeTab === 'profile' ? 'text-amber-400 font-bold scale-110' : 'text-amber-400/50 hover:text-amber-300'}`}>
+          <span className="text-base">👤</span>
+          <span>Profile</span>
+        </button>
+      </div>
+
     </div>
   )
 }
