@@ -287,4 +287,4 @@ export function ProfileView() {
       </motion.div>
     </motion.div>
   )
-      }
+}
