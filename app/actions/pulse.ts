@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { tierForAmount, type TierId, PROJECTS, type Project, TOKEN } from '@/lib/pulse-data'
+import { isUserAdmin as checkIsUserAdmin } from '@/lib/pulse/data-access'
 import type { Snapshot, SnapshotTxn, LeaderboardRow, FounderRow, MyReferralRow } from './types'
 
 // Helper to get a Supabase client inside server actions
@@ -492,14 +493,13 @@ export async function claimAdmin() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = await getSupabase()
-    // SECURITY: self-service admin promotion is disabled. Admin role can only be
-    // granted by directly editing the `profiles` table in the Supabase dashboard.
-    // This function now only re-fetches the snapshot so existing admins can refresh
-    // their session view — it can no longer grant admin to anyone.
-    const { data: profile } = await db.from('profiles').select('role').eq('id', user.id).maybeSingle()
-    if (profile?.role !== 'admin') {
-      return { ok: false as const, error: 'Admin access must be granted manually in Supabase — contact the platform owner.' }
+    // SECURITY: self-service admin promotion is disabled. This now only recognizes
+    // admin status that already exists — via profiles.role, or the hardcoded owner
+    // email check in lib/pulse/data-access.ts's isUserAdmin(). It can no longer grant
+    // admin to anyone who doesn't already qualify by one of those two paths.
+    const admin = await checkIsUserAdmin(user.id)
+    if (!admin) {
+      return { ok: false as const, error: 'Admin access is not enabled for this account.' }
     }
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
