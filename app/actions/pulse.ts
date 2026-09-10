@@ -350,8 +350,19 @@ export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    await recordTxn(user.id, { type: 'deposit', amount, currency: 'USD', reference: txReference, meta: { originalCurrency: currency } })
-    await adjustAccount(user.id, { cash_balance: amount })
+    // SECURITY: deposits must NOT touch the account balance here. This just logs the
+    // claim as 'pending'. Balance only moves when an admin approves it via reviewDeposit
+    // in app/actions/admin.ts, which updates this same row's status to 'completed' and
+    // THEN calls adjustAccount. Do not remove the pending status or the balance skip below
+    // — without it, anyone can credit their own account by calling this action directly.
+    await recordTxn(user.id, {
+      type: 'deposit',
+      amount,
+      currency: 'USD',
+      status: 'pending',
+      reference: txReference,
+      meta: { originalCurrency: currency },
+    })
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
   } catch (e) {
@@ -364,8 +375,17 @@ export async function requestWithdrawal(amount: number, destinationAddress: stri
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    await adjustAccount(user.id, { cash_balance: -amount })
-    await recordTxn(user.id, { type: 'withdrawal', amount, currency: 'USD', meta: { destinationAddress, network, broker } })
+    // SECURITY: same pattern as submitDeposit — log as 'pending' only. We do NOT touch
+    // cash_balance here. Debiting happens when an admin approves via reviewWithdrawal in
+    // app/actions/admin.ts. If withdrawals debit here AND get rejected later, the user
+    // was never refunded — pending-only avoids that class of bug entirely.
+    await recordTxn(user.id, {
+      type: 'withdrawal',
+      amount,
+      currency: 'USD',
+      status: 'pending',
+      meta: { destinationAddress, network, broker },
+    })
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
   } catch (e) {
