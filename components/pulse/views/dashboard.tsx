@@ -1,35 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Award, Layers, Radio, Rocket, ShieldCheck, Zap } from 'lucide-react'
 import { money, usePulse } from '../store'
-
-const FALLBACK_PROJECTS = [
-  {
-    id: 'proj-1',
-    name: 'Sandsloot Lithium & Tantalum Extraction Hub',
-    country: 'South Africa',
-    sector: 'Critical Minerals',
-    targetYield: '22.5% APY',
-    goal: 500000,
-    funded: 385000,
-  },
-  {
-    id: 'proj-3',
-    name: 'Copperbelt High-Voltage Grid Modernization',
-    country: 'Zambia',
-    sector: 'Infrastructure',
-    targetYield: '24.0% APY',
-    goal: 850000,
-    funded: 620000,
-  },
-]
+import { PROJECTS, type Project } from '@/lib/pulse-data'
 
 export function DashboardView() {
-  const { state, api, openModal, totalInvested, currentTier, portfolioValue } = usePulse()
-  const [activeTab, setActiveTab] = useState<'overview' | 'projects'>('overview')
+  const { state, api, openModal, setView, totalInvested, currentTier, portfolioValue } = usePulse()
+  const [projects, setProjects] = useState<Project[]>(PROJECTS)
+
+  useEffect(() => {
+    let cancelled = false
+    api.liveProjectFunding().then((res) => {
+      if (!cancelled && res.ok) {
+        setProjects((prev) => prev.map((p) => ({ ...p, funded: res.funding[p.id] ?? p.funded })))
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [api])
+
+  const projectName = (projectId: string) => PROJECTS.find((p) => p.id === projectId)?.name ?? 'Project Holding'
 
   return (
-    <div className="mx-auto w-full max-w-[480px] md:max-w-3xl lg:max-w-5xl space-y-4 pb-24 text-amber-100 antialiased">
+    <div className="mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased md:max-w-3xl lg:max-w-5xl">
       {/* SADC CAPITAL TERMINAL STATUS BAR */}
       <div className="relative flex flex-col items-start justify-between gap-4 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-[#121212] to-[#0a0a0a] p-5 shadow-2xl md:flex-row md:items-center">
         <div className="space-y-1">
@@ -67,19 +62,12 @@ export function DashboardView() {
           $PULSE
         </div>
 
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <span className="font-mono text-[11px] uppercase tracking-wider text-amber-400/60">Total Net Portfolio Value</span>
-            <div className="mt-2 font-mono text-3xl font-extrabold tracking-tight text-amber-300 md:text-5xl">
-              ${money(portfolioValue)} <span className="text-sm font-normal text-amber-400/50">USDT</span>
-            </div>
-            <p className="mt-2 font-mono text-xs text-emerald-400">
-              Pending yield: +${money(state.pendingYield)}
-            </p>
-          </div>
+        <span className="font-mono text-[11px] uppercase tracking-wider text-amber-400/60">Total Net Portfolio Value</span>
+        <div className="mt-2 font-mono text-3xl font-extrabold tracking-tight text-amber-300 md:text-5xl">
+          ${money(portfolioValue)} <span className="text-sm font-normal text-amber-400/50">USDT</span>
         </div>
+        <p className="mt-2 font-mono text-xs text-emerald-400">Pending yield: +${money(state.pendingYield)}</p>
 
-        {/* Breakdown Sub-Grid */}
         <div className="mt-6 grid grid-cols-3 gap-3 border-t border-amber-500/20 pt-5 text-center font-mono">
           <div className="rounded-2xl border border-amber-500/10 bg-black/40 p-3">
             <span className="block text-[10px] uppercase text-amber-400/60">Cash Balance</span>
@@ -96,93 +84,87 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* STANDING & TIER BADGE CARD */}
-      <div className="flex items-center justify-between rounded-2xl border border-amber-500/30 bg-[#101010] p-4 shadow-lg">
-        <div className="space-y-0.5">
-          <span className="block font-mono text-[10px] uppercase tracking-wider text-amber-400/60">Standing: {currentTier.name}</span>
-          <p className="text-xs font-medium text-amber-200">{currentTier.yieldLabel} target</p>
+      {/* STANDING & REFERRAL QUICK-ACCESS */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="flex items-center justify-between rounded-2xl border border-amber-500/30 bg-[#101010] p-4 shadow-lg">
+          <div className="space-y-0.5">
+            <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-amber-400/60">
+              <Award className="h-3.5 w-3.5" /> Standing: {currentTier.name}
+            </span>
+            <p className="text-xs font-medium text-amber-200">{currentTier.yieldLabel} target</p>
+          </div>
+          <div className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-mono text-xs text-amber-300">
+            {currentTier.yieldLabel}
+          </div>
         </div>
-        <div className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-mono text-xs text-amber-300">
-          {currentTier.yieldLabel}
-        </div>
-      </div>
 
-      {/* Quick tabs */}
-      <div className="flex gap-6 border-b border-amber-500/20 pt-2">
         <button
-          onClick={() => setActiveTab('overview')}
-          className={`border-b-2 pb-3 text-xs font-bold uppercase tracking-wider transition-colors ${
-            activeTab === 'overview' ? 'border-amber-400 text-amber-300' : 'border-transparent text-amber-400/50 hover:text-amber-300'
-          }`}
+          onClick={() => setView('profile')}
+          className="flex items-center justify-between rounded-2xl border border-amber-500/30 bg-[#101010] p-4 text-left shadow-lg transition hover:border-amber-500/50"
         >
-          Portfolio &amp; Holdings ({state.holdings.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('projects')}
-          className={`border-b-2 pb-3 text-xs font-bold uppercase tracking-wider transition-colors ${
-            activeTab === 'projects' ? 'border-amber-400 text-amber-300' : 'border-transparent text-amber-400/50 hover:text-amber-300'
-          }`}
-        >
-          Projects Pipeline
+          <div className="space-y-0.5">
+            <span className="block font-mono text-[10px] uppercase tracking-wider text-amber-400/60">Your Referral Code</span>
+            <p className="font-mono text-sm font-bold tracking-wider text-amber-300">{state.referralCode}</p>
+          </div>
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-mono text-xs text-amber-300">
+            {state.referralCount} joined
+          </span>
         </button>
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="space-y-4">
-          {/* Holdings */}
-          <div className="rounded-2xl border border-amber-500/30 bg-[#101010] p-5 shadow-xl">
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-amber-300">Active Holdings</h3>
-            {state.holdings.length === 0 ? (
-              <p className="font-mono text-xs text-amber-400/50">No active capital allocations found. Explore the Projects Pipeline to deploy capital.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {state.holdings.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between border-b border-amber-500/10 py-2 text-xs last:border-0">
-                    <span className="font-medium text-amber-200">Project Holding</span>
-                    <span className="font-mono font-semibold text-amber-400">${money(h.amount)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Recent Ledger Transactions */}
-          <div className="rounded-2xl border border-amber-500/30 bg-[#101010] p-5 shadow-xl">
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-amber-300">Transaction Ledger</h3>
-            {state.txns.length === 0 ? (
-              <p className="font-mono text-xs text-amber-400/50">No transactions recorded yet.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {state.txns.slice(0, 5).map((t) => (
-                  <div key={t.id} className="flex items-center justify-between border-b border-amber-500/10 py-2 font-mono text-xs last:border-0">
-                    <div>
-                      <div className="font-medium text-amber-200">{t.label}</div>
-                      <span className="text-[9px] text-amber-400/50">{new Date(t.date).toLocaleDateString()}</span>
-                    </div>
-                    <div className={`font-semibold ${t.currency === 'PULSE' ? 'text-amber-400' : 'text-emerald-400'}`}>
-                      ${money(t.amount)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* ACTIVE HOLDINGS */}
+      <div className="rounded-2xl border border-amber-500/30 bg-[#101010] p-5 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-300">
+            <Layers className="h-4 w-4" /> Active Holdings ({state.holdings.length})
+          </h3>
+          <button onClick={() => setView('invest')} className="text-xs font-bold text-amber-400 hover:underline">
+            Explore →
+          </button>
         </div>
-      )}
+        {state.holdings.length === 0 ? (
+          <p className="font-mono text-xs text-amber-400/50">No active capital allocations found. Explore the pipeline below to deploy capital.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {state.holdings.map((h) => (
+              <div key={h.id} className="flex items-center justify-between border-b border-amber-500/10 py-2 text-xs last:border-0">
+                <span className="font-medium text-amber-200">{projectName(h.projectId)}</span>
+                <span className="font-mono font-semibold text-amber-400">${money(h.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {activeTab === 'projects' && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {FALLBACK_PROJECTS.map((p) => {
-            const pct = Math.min(100, Math.round((p.funded / p.goal) * 100))
+      {/* REGIONAL OPPORTUNITIES PIPELINE */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">Regional Opportunities Pipeline ({projects.length})</h3>
+          <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" /> Live Ledger Synced
+          </span>
+        </div>
+        <div className="grid gap-4">
+          {projects.map((p) => {
+            const pct = p.goal > 0 ? Math.min(100, Math.round((p.funded / p.goal) * 100)) : 0
             return (
               <div key={p.id} className="overflow-hidden rounded-2xl border border-amber-500/30 bg-[#101010] shadow-xl">
+                <div className="relative h-36 w-full overflow-hidden bg-amber-950/30">
+                  {p.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#101010] via-[#101010]/30 to-transparent" />
+                  <div className="absolute right-3 top-3 rounded-lg border border-emerald-500/40 bg-emerald-950/90 px-2.5 py-1 text-xs font-bold text-emerald-300">
+                    {p.targetYield}
+                  </div>
+                  <div className="absolute bottom-3 left-4 right-4">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-300">{p.country} • {p.sector}</p>
+                    <h4 className="text-base font-bold text-white">{p.name}</h4>
+                  </div>
+                </div>
                 <div className="space-y-3 p-5">
-                  <span className="block font-mono text-[10px] uppercase tracking-wider text-emerald-400">
-                    {p.country} • {p.sector}
-                  </span>
-                  <h3 className="text-base font-bold text-amber-200">{p.name}</h3>
-
-                  <div className="space-y-1.5 pt-2 font-mono text-xs">
+                  <div className="space-y-1.5 font-mono text-xs">
                     <div className="flex justify-between text-amber-400/80">
                       <span>Funded: ${money(p.funded, 0)} / ${money(p.goal, 0)}</span>
                       <span className="text-amber-300">{pct}%</span>
@@ -191,25 +173,35 @@ export function DashboardView() {
                       <div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-yellow-400" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between border-t border-amber-500/20 pt-3">
-                    <div>
-                      <span className="block font-mono text-[9px] uppercase text-amber-400/50">Target Yield</span>
-                      <span className="font-mono text-xs font-bold text-emerald-400">{p.targetYield}</span>
-                    </div>
-                    <button
-                      onClick={() => openModal('invest', { projectId: p.id })}
-                      className="rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-black shadow transition-colors hover:bg-amber-400"
-                    >
-                      Deploy Tranche
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => openModal('invest', { projectId: p.id })}
+                    className="w-full rounded-xl bg-amber-500 px-3.5 py-2.5 text-xs font-bold text-black shadow transition-colors hover:bg-amber-400"
+                  >
+                    Deploy Tranche
+                  </button>
                 </div>
               </div>
             )
           })}
         </div>
-      )}
+      </div>
+
+      {/* QUICK ACTIONS & HUBS */}
+      <div className="space-y-3">
+        <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-amber-300">Quick Actions &amp; Hubs</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <ActionTile icon={<Rocket className="h-4 w-4 text-amber-300" />} label="Buy $PULSE" detail="Private sale round" badge="Private" onClick={() => setView('sale')} />
+          <ActionTile icon={<Zap className="h-4 w-4 text-amber-300" />} label="Stake Vault" detail="High yield pool" badge="24.8% APY" onClick={() => setView('stake')} />
+          <ActionTile icon={<Radio className="h-4 w-4 text-amber-300" />} label="Signals Feed" detail="Institutional deals" badge="Live" onClick={() => setView('signals')} />
+          <ActionTile
+            icon={<ShieldCheck className="h-4 w-4 text-amber-300" />}
+            label="Verify KYC"
+            detail="Unlocked access"
+            badge={state.kyc === 'verified' ? 'Verified' : 'Level 2'}
+            onClick={() => (state.kyc === 'verified' ? setView('profile') : openModal('kyc'))}
+          />
+        </div>
+      </div>
 
       {/* COMPLIANCE DISCLAIMER */}
       <div className="mt-6 space-y-2 rounded-2xl border border-amber-500/20 bg-[#0c0c0c] p-4 font-mono text-[10px] leading-relaxed text-amber-400/50">
@@ -223,5 +215,27 @@ export function DashboardView() {
         </p>
       </div>
     </div>
+  )
+}
+
+function ActionTile({ icon, label, detail, badge, onClick }: { icon: React.ReactNode; label: string; detail: string; badge: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col justify-between rounded-2xl border border-amber-500/30 bg-[#101010] p-4 text-left shadow-md transition hover:border-amber-400"
+    >
+      <div className="flex items-center justify-between gap-1">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
+          {icon}
+        </div>
+        <span className="truncate rounded-md border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+          {badge}
+        </span>
+      </div>
+      <div className="mt-3.5 space-y-1">
+        <h4 className="text-xs font-extrabold text-white">{label}</h4>
+        <p className="truncate text-[10px] text-amber-400/60">{detail}</p>
+      </div>
+    </button>
   )
 }
