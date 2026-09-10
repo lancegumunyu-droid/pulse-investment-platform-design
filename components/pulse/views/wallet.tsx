@@ -13,6 +13,7 @@ import {
   CreditCard,
 } from 'lucide-react'
 import { money, usePulse } from '../store'
+import { RotateCw } from 'lucide-react'
 
 const STAKE_APY = 24.8 // TODO: pull from lib/pulse-data if a staking APY constant exists there
 
@@ -36,6 +37,7 @@ export function WalletView() {
   const [addressDraft, setAddressDraft] = React.useState('')
   const [sellAmount, setSellAmount] = React.useState('')
   const [sellOpen, setSellOpen] = React.useState(false)
+  const [cardFlipped, setCardFlipped] = React.useState(false)
 
   const cardMeta = CARD_STATUS_META[state.cardStatus ?? 'none'] ?? CARD_STATUS_META.none
   const recentTxns = state.txns.slice(0, 6)
@@ -220,23 +222,61 @@ export function WalletView() {
           </span>
         </div>
 
-        <div className="shimmer-sweep relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-600 p-5 shadow-lg shadow-amber-500/10">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
-          <div className="flex items-start justify-between">
-            <p className="text-lg font-black tracking-tight text-black">PULSE</p>
-            <div className="h-6 w-8 rounded bg-black/20" />
-          </div>
-          <p className="mt-8 font-mono text-sm tracking-[0.3em] text-black/80">•••• •••• •••• ••••</p>
-          <div className="mt-4 flex items-end justify-between">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-black/60">
-                {state.tier ? `Valued member · Tier ${state.tier}` : 'Valued member'}
+        <button
+          type="button"
+          onClick={() => setCardFlipped((f) => !f)}
+          aria-label="Flip Pulse Card"
+          className="block w-full [perspective:1400px]"
+        >
+          <div
+            className="relative h-[190px] w-full transition-transform duration-700 [transform-style:preserve-3d]"
+            style={{ transform: cardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+          >
+            {/* FRONT FACE */}
+            <div className="shimmer-sweep glow-edge absolute inset-0 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-600 p-5 text-left shadow-lg shadow-amber-500/10 [backface-visibility:hidden]">
+              <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+              <div className="flex items-start justify-between">
+                <p className="text-lg font-black tracking-tight text-black">PULSE</p>
+                <div className="h-6 w-8 rounded bg-black/20" />
+              </div>
+              <p className="mt-8 font-mono text-sm tracking-[0.3em] text-black/80">
+                •••• •••• •••• {state.cardLast4 ?? '••••'}
               </p>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-black/60">Linked to Pulse wallet</p>
+              <div className="mt-4 flex items-end justify-between">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-black/60">
+                    {state.tier ? `Valued member · Tier ${state.tier}` : 'Valued member'}
+                  </p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-black/60">Linked to Pulse wallet</p>
+                </div>
+                <p className="text-sm font-black italic text-black">VISA</p>
+              </div>
+              <RotateCw className="absolute bottom-3 right-3 h-3.5 w-3.5 text-black/40" />
             </div>
-            <p className="text-sm font-black italic text-black">VISA</p>
+
+            {/* BACK FACE */}
+            <div
+              className="glow-edge absolute inset-0 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-5 text-left shadow-lg [backface-visibility:hidden]"
+              style={{ transform: 'rotateY(180deg)' }}
+            >
+              <div className="h-9 w-full bg-black" />
+              <div className="mt-5 flex items-center justify-between rounded-md bg-zinc-200/90 px-3 py-2">
+                <span className="font-mono text-xs italic text-zinc-500">Authorized signature</span>
+                <span className="font-mono text-xs font-bold text-black">{state.cardCvv ?? '•••'}</span>
+              </div>
+              <p className="mt-4 text-[9px] leading-relaxed text-zinc-500">
+                This card is issued subject to Pulse Card Terms. Report loss or unauthorized use immediately via
+                Profile → Support. Not a bank deposit — funds are held in your Pulse cash wallet.
+              </p>
+              <p className="mt-3 font-mono text-[10px] text-zinc-600">
+                {state.cardStatus === 'approved' || state.cardStatus === 'free_card_earned'
+                  ? 'Card active'
+                  : 'Card inactive — pending issuance'}
+              </p>
+            </div>
           </div>
-        </div>
+        </button>
+        <p className="text-center text-[10px] text-zinc-600">Tap card to flip</p>
 
         {state.cardStatus === 'none' ? (
           <button
