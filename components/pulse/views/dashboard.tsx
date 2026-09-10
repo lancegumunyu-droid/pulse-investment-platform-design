@@ -38,9 +38,12 @@ export function DashboardView() {
   return (
     <div className="mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased md:max-w-3xl lg:max-w-5xl">
       {/* SADC CAPITAL STATUS BAR */}
-      <div className="space-y-2 rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4 shadow-lg">
+      <div className="glow-edge space-y-2 rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4 shadow-lg">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400" />
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-heartbeat-ring-slow rounded-full bg-emerald-400" />
+            <span className="relative inline-flex h-2 w-2 animate-heartbeat-icon-slow rounded-full bg-emerald-400" />
+          </span>
           <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-zinc-300">SADC Capital Network • Live Terminal</span>
         </div>
         <span className="inline-block rounded-full border border-amber-500/40 px-3 py-1 font-mono text-xs font-semibold text-amber-300">
@@ -49,7 +52,7 @@ export function DashboardView() {
       </div>
 
       {/* MAIN PORTFOLIO SUMMARY CARD */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-emerald-900/30 via-[#141414] to-[#0e0e0e] p-6 shadow-2xl md:p-8">
+      <div className="glass-gold glow-edge shimmer-sweep relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900/30 via-[#141414] to-[#0e0e0e] p-6 shadow-2xl md:p-8">
         <div className="pointer-events-none absolute right-0 top-0 select-none p-8 font-mono text-7xl text-amber-500 opacity-5">
           $PULSE
         </div>
@@ -70,13 +73,13 @@ export function DashboardView() {
         <div className="relative z-10 mt-5 flex gap-2.5">
           <button
             onClick={() => openModal('deposit')}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-4 py-2.5 text-xs font-bold text-black shadow-lg shadow-amber-900/30 transition-all hover:from-amber-300 hover:to-amber-400"
+            className="pulse-action flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-4 py-2.5 text-xs font-bold text-black shadow-lg shadow-amber-900/30"
           >
             ↘ Deposit Capital
           </button>
           <button
             onClick={() => openModal('withdraw')}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-xs font-bold text-zinc-200 transition-all hover:bg-black/60"
+            className="pulse-action flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-xs font-bold text-zinc-200"
           >
             ↗ Withdraw Earnings
           </button>
@@ -99,7 +102,7 @@ export function DashboardView() {
       </div>
 
       {/* STANDING WITH LOCKED NEXT-TIER PROGRESS */}
-      <div className="rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4 shadow-lg">
+      <div className="glow-card rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4 shadow-lg">
         <div className="flex items-center gap-2">
           <Lock className="h-4 w-4 text-amber-400" />
           <span className="font-mono text-xs uppercase tracking-wider text-zinc-400">
@@ -125,7 +128,7 @@ export function DashboardView() {
       {/* REFERRAL QUICK-ACCESS */}
       <button
         onClick={() => setView('profile')}
-        className="flex w-full items-center justify-between rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4 text-left shadow-lg transition hover:border-amber-500/50"
+        className="glow-card pulse-tile flex w-full items-center justify-between rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4 text-left shadow-lg"
       >
         <div className="space-y-0.5">
           <span className="block font-mono text-[10px] uppercase tracking-wider text-zinc-500">Your Referral Code</span>
@@ -151,7 +154,7 @@ export function DashboardView() {
               const proj = findProject(h.projectId)
               const Icon = sectorIcon(proj?.sector)
               return (
-                <div key={h.id} className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4">
+                <div key={h.id} className="glow-card pulse-tile flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-[#0a0a0a] p-4">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10">
                     <Icon className="h-4 w-4 text-amber-400" />
                   </span>
@@ -216,7 +219,7 @@ export function DashboardView() {
                 viewport={{ once: true, margin: '-40px' }}
                 transition={{ duration: 0.4, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
                 whileHover={{ y: -2 }}
-                className="overflow-hidden rounded-2xl border border-amber-500/30 bg-[#0a0a0a] shadow-xl"
+                className="glow-card overflow-hidden rounded-2xl border border-amber-500/30 bg-[#0a0a0a] shadow-xl"
               >
                 {p.image && (
                   <div className="relative h-40 w-full overflow-hidden">
@@ -259,7 +262,7 @@ export function DashboardView() {
                   <motion.button
                     whileTap={{ scale: 0.98 }}
                     onClick={() => openModal('invest', { projectId: p.id })}
-                    className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 px-3.5 py-2.5 text-xs font-bold text-black shadow transition-opacity hover:opacity-90"
+                    className="pulse-action w-full rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 px-3.5 py-2.5 text-xs font-bold text-black shadow"
                   >
                     Deploy Capital
                   </motion.button>
@@ -289,7 +292,7 @@ function ActionTile({ icon, label, detail, badge, onClick }: { icon: React.React
   return (
     <button
       onClick={onClick}
-      className="flex flex-col justify-between rounded-2xl border border-amber-500/30 bg-[#101010] p-4 text-left shadow-md transition hover:border-amber-400"
+      className="glow-card pulse-tile flex flex-col justify-between rounded-2xl border border-amber-500/30 bg-[#101010] p-4 text-left shadow-md"
     >
       <div className="flex items-center justify-between gap-1">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
