@@ -22,7 +22,6 @@ interface PulseAppProps {
 
 function ViewSwitcher() {
   const view = usePulse((s) => s.view)
-  const isAdmin = usePulse((s) => s.state.isAdmin)
   switch (view) {
     case 'dashboard':
       return <DashboardView />
@@ -39,7 +38,7 @@ function ViewSwitcher() {
     case 'profile':
       return <ProfileView />
     case 'admin':
-      return isAdmin ? <AdminView /> : <DashboardView />
+      return <AdminView />
     default:
       return <DashboardView />
   }
