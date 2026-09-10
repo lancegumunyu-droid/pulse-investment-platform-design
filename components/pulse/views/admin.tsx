@@ -1,4 +1,4 @@
-'use client'
+"use client"
 
 import React, { useState, useEffect, useCallback, useTransition } from 'react'
 import {
@@ -46,7 +46,7 @@ import {
   deleteSignal,
   processProjectPayout,
   getTeamVolumeReport
-} from '@/app/actions/admin' // Adjust path if needed
+} from '@/app/actions/admin'
 
 import type { AdminSnapshot } from '@/lib/pulse/types'
 import type { Project, Signal } from '@/lib/pulse/pulse-data'
@@ -77,7 +77,7 @@ function Pill({
     green: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     gold: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
     muted: 'bg-white/5 text-muted-foreground border-white/10',
-    red: 'bg-red-500/10 text-red-400 border-red-500/20',
+    red: 'bg-red-500/10 text-red-400 border-red-500/30',
     blue: 'bg-sky-500/10 text-sky-400 border-sky-500/20'
   }
 
@@ -287,7 +287,7 @@ export function AdminView() {
         </div>
       )}
 
-      {/* Navigation Tabs (Mobile scrollable) */}
+      {/* Navigation Tabs */}
       <div className="flex overflow-x-auto border-b border-white/10 pb-2 gap-2 scrollbar-none">
         <Button
           variant={activeTab === 'overview' ? 'default' : 'ghost'}
@@ -531,7 +531,7 @@ export function AdminView() {
             )}
           </Glass>
 
-          {/* Pending Withdrawals (Enforcing Limit Rule) */}
+          {/* Pending Withdrawals */}
           <Glass className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -618,7 +618,6 @@ export function AdminView() {
                     <Pill tone={isClosed ? 'red' : 'green'}>{p.status ?? 'Open'}</Pill>
                   </div>
 
-                  {/* Project Management Actions & Opening/Closing Dates */}
                   <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-white/5">
                     <div className="flex items-center gap-1.5 w-full sm:w-auto">
                       <label className="text-[10px] text-muted-foreground uppercase whitespace-nowrap">Audit Closing/Opening Date:</label>
@@ -678,7 +677,6 @@ export function AdminView() {
           ========================================== */}
       {activeTab === 'signals' && (
         <div className="space-y-6">
-          {/* Create / Broadcast New Signal Form */}
           <Glass className="space-y-4">
             <h3 className="font-semibold text-sm flex items-center gap-2">
               <Plus className="size-4 text-amber-400" /> Create / Broadcast New Signal
@@ -779,7 +777,7 @@ export function AdminView() {
             <h3 className="font-semibold text-sm">Active Network Signals ({signals.length})</h3>
             {signals.length === 0 ? (
               <Glass>
-                <p className="text-center text-xs text-muted-foreground py-2">No active signals.</p>
+                <p className="text-center text-xs text-muted-foreground py-3">No active signals broadcasting.</p>
               </Glass>
             ) : (
               signals.map((sig) => (
@@ -787,11 +785,11 @@ export function AdminView() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold text-sm">{sig.title}</h4>
-                      <Pill tone="gold">{sig.urgency}</Pill>
+                      <Pill tone={sig.urgency === 'Closing soon' ? 'red' : 'gold'}>{sig.urgency}</Pill>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{sig.detail}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{sig.detail}</p>
                     <p className="text-[10px] text-muted-foreground font-mono mt-1">
-                      ID: {sig.id} | Project: {sig.projectId} | Window: {sig.window} | Yield: {sig.targetYield}
+                      ID: {sig.id} | Project: {sig.projectId || 'N/A'} | Yield: {sig.targetYield || 'N/A'}
                     </p>
                   </div>
                   <Button
@@ -810,92 +808,142 @@ export function AdminView() {
       )}
 
       {/* ==========================================
-          TAB 5: USERS & ROLE MANAGEMENT
+          TAB 5: USERS MANAGEMENT
           ========================================== */}
       {activeTab === 'users' && snapshot && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Glass className="space-y-4">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
-              <UserPlus className="size-4 text-amber-400" /> Appoint New Admin / Staff Member
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input
-                type="email"
-                placeholder="staff@sadc-pulse.org"
-                value={newAdminEmail}
-                onChange={(e) => setNewAdminEmail(e.target.value)}
-                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 sm:col-span-2"
-              />
-              <select
-                value={newAdminScope}
-                onChange={(e) => setNewAdminScope(e.target.value as AdminScope)}
-                className="rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs outline-none focus:border-amber-400 text-foreground"
-              >
-                <option value="operations">Operations Scope</option>
-                <option value="finance">Finance Scope</option>
-                <option value="manager">Manager Scope</option>
-                <option value="director">Director Scope</option>
-                <option value="full">Full Superadmin</option>
-              </select>
+            <h3 className="font-semibold text-sm">Platform User Base Directory</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead>
+                  <tr className="border-b border-white/10 text-muted-foreground">
+                    <th className="p-2">User ID</th>
+                    <th className="p-2">Email</th>
+                    <th className="p-2">KYC Status</th>
+                    <th className="p-2">Assigned Manager ID</th>
+                    <th className="p-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {snapshot.usersList.map((u) => (
+                    <tr key={u.id}>
+                      <td className="p-2 font-mono text-[10px]">{u.id}</td>
+                      <td className="p-2 font-medium">{u.email}</td>
+                      <td className="p-2">
+                        <Pill tone={u.kycVerified ? 'green' : 'gold'}>
+                          {u.kycVerified ? 'Verified' : 'Pending'}
+                        </Pill>
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Manager ID..."
+                            value={managerIdDraft[u.id] ?? u.managerId ?? ''}
+                            onChange={(e) => setManagerIdDraft({ ...managerIdDraft, [u.id]: e.target.value })}
+                            className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] outline-none focus:border-amber-400 w-28"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[10px]"
+                            disabled={isPending}
+                            onClick={() =>
+                              handleAction(() => assignManager(u.id, managerIdDraft[u.id] ?? u.managerId ?? ''))
+                            }
+                          >
+                            Assign
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="p-2 text-right space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px]"
+                          disabled={isPending}
+                          onClick={() => handleAction(() => resetKyc(u.id))}
+                        >
+                          Reset KYC
+                        </Button>
+                        {confirmDeleteId === u.id ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 px-2 text-[10px]"
+                            disabled={isPending}
+                            onClick={() => {
+                              handleAction(() => deleteUser(u.id))
+                              setConfirmDeleteId(null)
+                            }}
+                          >
+                            Confirm Delete
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-[10px] text-red-400 hover:bg-red-500/10"
+                            onClick={() => setConfirmDeleteId(u.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                disabled={isPending || !newAdminEmail}
-                onClick={() => handleAction(() => addAdminByEmail(newAdminEmail, newAdminScope))}
-              >
-                Grant Admin Access
-              </Button>
-            </div>
-          </Glass>
-
-          {/* User Directory Summary */}
-          <Glass className="space-y-3">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
-              <Users className="size-4 text-amber-400" /> Registered User Accounts ({snapshot.userCount})
-            </h3>
-            <p className="text-xs text-muted-foreground">Detailed list of platform participants and their assigned managerial hierarchy.</p>
           </Glass>
         </div>
       )}
 
       {/* ==========================================
-          TAB 6: TEAM VOLUME AUDITS
+          TAB 6: TEAM AUDITS
           ========================================== */}
       {activeTab === 'team' && (
         <div className="space-y-4">
           <Glass className="space-y-3">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
-              <Briefcase className="size-4 text-amber-400" /> Downline & Team Volume Reports
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {teamReport?.scope === 'director' ? 'Director Level Audit View (All Subordinate Networks)' : 'Manager Level Audit View (Assigned Downline)'}
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-sm">Team Volume Report</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Scope Hierarchy Level: <span className="text-amber-400 uppercase font-mono">{teamReport?.scope ?? 'director'}</span>
+                </p>
+              </div>
+              <Button size="sm" variant="outline" disabled={isPending} onClick={loadTeamData}>
+                Refresh Report
+              </Button>
+            </div>
 
             {!teamReport || teamReport.rows.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">No downline team volumes recorded.</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">No team records found under your assigned hierarchy.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-white/10 text-muted-foreground">
-                      <th className="p-2">User</th>
+                      <th className="p-2">User ID</th>
+                      <th className="p-2">Name</th>
                       <th className="p-2">Email</th>
-                      <th className="p-2">KYC Status</th>
-                      <th className="p-2">Invested Volume</th>
+                      <th className="p-2">KYC</th>
+                      <th className="p-2 text-right">Invested Volume</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {teamReport.rows.map((r) => (
-                      <tr key={r.userId}>
-                        <td className="p-2 font-medium">{r.name ?? 'Anonymous'}</td>
-                        <td className="p-2 font-mono text-muted-foreground">{r.email ?? r.userId}</td>
+                    {teamReport.rows.map((row) => (
+                      <tr key={row.userId}>
+                        <td className="p-2 font-mono text-[10px]">{row.userId}</td>
+                        <td className="p-2 font-medium">{row.name ?? 'Unassigned'}</td>
+                        <td className="p-2 text-muted-foreground">{row.email ?? 'N/A'}</td>
                         <td className="p-2">
-                          <Pill tone={r.kycVerified ? 'green' : 'gold'}>
-                            {r.kycVerified ? 'Verified' : 'Pending'}
+                          <Pill tone={row.kycVerified ? 'green' : 'gold'}>
+                            {row.kycVerified ? 'Verified' : 'Pending'}
                           </Pill>
                         </td>
-                        <td className="p-2 font-semibold">{formatMoney(r.investedVolume)}</td>
+                        <td className="p-2 text-right font-bold">{formatMoney(row.investedVolume)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -915,14 +963,14 @@ export function AdminView() {
             <h3 className="font-semibold text-sm flex items-center gap-2">
               <Lock className="size-4 text-amber-400" /> Global Risk & Withdrawal Ceilings
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] text-muted-foreground uppercase block mb-1">Max Single Withdrawal Limit ($)</label>
                 <input
                   type="number"
                   value={maxWithdrawalLimit}
                   onChange={(e) => setMaxWithdrawalLimit(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 font-mono"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
                 />
               </div>
               <div>
@@ -931,22 +979,55 @@ export function AdminView() {
                   type="number"
                   value={payoutCadenceStandard}
                   onChange={(e) => setPayoutCadenceStandard(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Least-Performing Cadence (Days)</label>
-                <input
-                  type="number"
-                  value={payoutCadenceLeast}
-                  onChange={(e) => setPayoutCadenceLeast(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400 font-mono"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
                 />
               </div>
             </div>
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => showNotice('Global risk ceilings and payout cadences updated successfully.')}>
-                Save Governance Settings
+              <Button size="sm" onClick={() => showNotice('Global risk ceilings and payout cadence updated.')}>
+                Save Risk Configuration
+              </Button>
+            </div>
+          </Glass>
+
+          {/* Admin Appointment Console */}
+          <Glass className="space-y-4">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <UserPlus className="size-4 text-amber-400" /> Admin Role & Scope Appointments
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase block mb-1">User Email</label>
+                <input
+                  type="email"
+                  placeholder="colleague@pulseinvest.uk"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-amber-400"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase block mb-1">Assign Administrative Scope</label>
+                <select
+                  value={newAdminScope}
+                  onChange={(e) => setNewAdminScope(e.target.value as AdminScope)}
+                  className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs outline-none focus:border-amber-400 text-foreground"
+                >
+                  <option value="operations">Operations</option>
+                  <option value="finance">Finance</option>
+                  <option value="manager">Manager</option>
+                  <option value="director">Director</option>
+                  <option value="full">Full Control</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                disabled={isPending || !newAdminEmail.trim()}
+                onClick={() => handleAction(() => addAdminByEmail(newAdminEmail.trim(), newAdminScope))}
+              >
+                Appoint Admin Scope
               </Button>
             </div>
           </Glass>
