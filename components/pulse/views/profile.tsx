@@ -3,31 +3,16 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Award,
-  BadgeCheck,
   Copy,
   Gift,
-  ListChecks,
   Lock,
   LogOut,
-  Medal,
-  ShieldCheck,
-  Sparkles,
-  Trophy,
   User,
-  Users,
 } from 'lucide-react'
 import { usePulse } from '../store'
-import { Glass, Pill, RiskNote, SectionTitle } from '../ui-bits'
+import { Glass, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 import type { LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
-
-const BADGE_LABELS: Record<string, { label: string; hint: string }> = {
-  referral_10: { label: '10 Referrals', hint: '10 verified friends joined through you' },
-  referral_25: { label: '25 Referrals', hint: '25 verified friends joined through you' },
-  referral_100: { label: '100 Referrals', hint: '100 verified friends — free Pulse Card earned' },
-  founder: { label: 'Founder', hint: 'One of the first 1,000 verified investors' },
-}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -40,7 +25,7 @@ const itemVariants = {
 }
 
 export function ProfileView() {
-  const { state, currentTier, openModal, setView, toast, signOut, api } = usePulse()
+  const { state, currentTier, setView, toast, signOut, api } = usePulse()
   const referralCode = state.referralCode
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[] | null>(null)
   const [founders, setFounders] = useState<FounderRow[] | null>(null)
@@ -107,14 +92,13 @@ export function ProfileView() {
     setLoadingReferrals(false)
   }
 
+  // Admin button is now ALWAYS visible (not gated on state.isAdmin, which was the
+  // chicken-and-egg bug hiding it from you). Clicking it always tries claimAdmin(),
+  // which now genuinely checks your real profiles.role server-side — so this button
+  // is safe to show to everyone: non-admins just get a clear "not authorized" toast.
   const openAdmin = async () => {
-    if (state.isAdmin) {
-      setView('admin')
-      return
-    }
     const res = await api.claimAdmin()
     if (res.ok) {
-      toast({ title: 'Admin access granted', description: 'You are now a platform administrator.', variant: 'success' })
       setView('admin')
     } else {
       toast({ title: 'Admin access unavailable', description: res.error, variant: 'error' })
@@ -194,20 +178,98 @@ export function ProfileView() {
         </Glass>
       </motion.div>
 
-      {/* Admin Panel Access Button (Only visible if admin status is active) */}
-      {state.isAdmin && (
-        <motion.div variants={itemVariants}>
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-11 w-full border-amber-400/40 bg-amber-500/10 text-amber-300 font-bold hover:bg-amber-500/20 cursor-pointer"
-            onClick={openAdmin}
-          >
-            <Lock className="size-4 mr-2" />
-            Admin Dashboard
-          </Button>
-        </motion.div>
-      )}
+      {/* MY REFERRALS */}
+      <motion.div variants={itemVariants}>
+        <Glass className="border border-white/10 bg-black/40 p-5">
+          <button onClick={toggleMyReferrals} className="flex w-full items-center justify-between text-left">
+            <div>
+              <p className="text-sm font-bold text-white">My Referrals</p>
+              <p className="text-xs text-zinc-400">Tap to expand &amp; view</p>
+            </div>
+            <span className="text-xs font-bold text-amber-400">{loadingReferrals ? '...' : myReferrals ? 'Hide' : 'Show'}</span>
+          </button>
+          {myReferrals && (
+            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+              {myReferrals.length === 0 ? (
+                <p className="text-xs text-zinc-500">No referrals yet.</p>
+              ) : (
+                myReferrals.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-300">{r.name}</span>
+                    <span className={r.status === 'verified' ? 'text-emerald-400' : 'text-amber-400'}>{r.status}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Glass>
+      </motion.div>
+
+      {/* TOP REFERRERS / LEADERBOARD */}
+      <motion.div variants={itemVariants}>
+        <Glass className="border border-white/10 bg-black/40 p-5">
+          <button onClick={toggleLeaderboard} className="flex w-full items-center justify-between text-left">
+            <div>
+              <p className="text-sm font-bold text-white">Top Referrers</p>
+              <p className="text-xs text-zinc-400">Tap to expand &amp; view</p>
+            </div>
+            <span className="text-xs font-bold text-amber-400">{loadingBoard ? '...' : leaderboard ? 'Hide' : 'Show'}</span>
+          </button>
+          {leaderboard && (
+            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+              {leaderboard.length === 0 ? (
+                <p className="text-xs text-zinc-500">No data yet.</p>
+              ) : (
+                leaderboard.map((row) => (
+                  <div key={row.rank} className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-300">#{row.rank} {row.username}</span>
+                    <span className="text-amber-400">{row.tier}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Glass>
+      </motion.div>
+
+      {/* WALL OF FOUNDERS */}
+      <motion.div variants={itemVariants}>
+        <Glass className="border border-white/10 bg-black/40 p-5">
+          <button onClick={toggleFounders} className="flex w-full items-center justify-between text-left">
+            <div>
+              <p className="text-sm font-bold text-white">Wall of Founders</p>
+              <p className="text-xs text-zinc-400">Tap to expand &amp; view</p>
+            </div>
+            <span className="text-xs font-bold text-amber-400">{loadingFounders ? '...' : founders ? 'Hide' : 'Show'}</span>
+          </button>
+          {founders && (
+            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+              {founders.length === 0 ? (
+                <p className="text-xs text-zinc-500">No founders listed yet.</p>
+              ) : (
+                founders.map((f) => (
+                  <div key={f.founderNumber} className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-300">#{f.founderNumber} {f.name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Glass>
+      </motion.div>
+
+      {/* Admin Panel Access — always visible; server-side check decides access */}
+      <motion.div variants={itemVariants}>
+        <Button
+          variant="outline"
+          size="lg"
+          className="h-11 w-full border-amber-400/40 bg-amber-500/10 text-amber-300 font-bold hover:bg-amber-500/20 cursor-pointer"
+          onClick={openAdmin}
+        >
+          <Lock className="size-4 mr-2" />
+          Admin Dashboard
+        </Button>
+      </motion.div>
 
       <motion.div variants={itemVariants}>
         <Button
@@ -225,4 +287,4 @@ export function ProfileView() {
       </motion.div>
     </motion.div>
   )
-}
+      }
