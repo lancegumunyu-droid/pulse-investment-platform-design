@@ -493,7 +493,14 @@ export async function claimAdmin() {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = await getSupabase()
-    await db.from('profiles').update({ role: 'admin' }).eq('id', user.id)
+    // SECURITY: self-service admin promotion is disabled. Admin role can only be
+    // granted by directly editing the `profiles` table in the Supabase dashboard.
+    // This function now only re-fetches the snapshot so existing admins can refresh
+    // their session view — it can no longer grant admin to anyone.
+    const { data: profile } = await db.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (profile?.role !== 'admin') {
+      return { ok: false as const, error: 'Admin access must be granted manually in Supabase — contact the platform owner.' }
+    }
     const snapshot = await getSnapshot(user.id)
     return { ok: true as const, snapshot }
   } catch (e) {
@@ -535,113 +542,4 @@ export async function addSavedWallet(label: string, address: string) {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = await getSupabase()
-    await db.from('saved_wallets').insert({ user_id: user.id, label, address })
-    const snapshot = await getSnapshot(user.id)
-    return { ok: true as const, snapshot }
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message }
-  }
-}
-
-export async function removeSavedWallet(id: string) {
-  const supabase = await getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false as const, error: 'Unauthorized' }
-  try {
-    const db = await getSupabase()
-    await db.from('saved_wallets').delete().eq('id', id).eq('user_id', user.id)
-    const snapshot = await getSnapshot(user.id)
-    return { ok: true as const, snapshot }
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message }
-  }
-}
-
-export async function requestTransfer(recipientIdentifier: string, amount: number) {
-  const supabase = await getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false as const, error: 'Unauthorized' }
-  try {
-    await adjustAccount(user.id, { cash_balance: -amount })
-    await recordTxn(user.id, { type: 'p2p_send', amount, currency: 'USD', meta: { recipientIdentifier } })
-    const snapshot = await getSnapshot(user.id)
-    return { ok: true as const, snapshot }
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message }
-  }
-}
-
-export async function closeInvestment(holdingId: string) {
-  const supabase = await getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false as const, error: 'Unauthorized' }
-  try {
-    const db = await getSupabase()
-    const { data: holding } = await db.from('holdings').select('*').eq('id', holdingId).eq('user_id', user.id).single()
-    if (!holding) return { ok: false as const, error: 'Holding not found' }
-
-    const amount = Number(holding.amount)
-    await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount })
-    await db.from('holdings').delete().eq('id', holdingId)
-    await recordTxn(user.id, { type: 'close_investment', amount, currency: 'USD', meta: { holdingId } })
-
-    const snapshot = await getSnapshot(user.id)
-    return { ok: true as const, snapshot }
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message }
-  }
-}
-
-export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }> {
-  try {
-    const db = await getSupabase()
-    const { data } = await db.from('profiles').select('username, full_name, tier').limit(20)
-    const rows: LeaderboardRow[] = (data ?? []).map((p, i) => ({
-      rank: i + 1,
-      username: p.username ?? p.full_name ?? 'Anonymous',
-      tier: p.tier ?? 0,
-      points: 0,
-    }))
-    return { ok: true, rows }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }> {
-  try {
-    const db = await getSupabase()
-    const { data } = await db.from('profiles').select('username, full_name, founder_number').not('founder_number', 'is', null).order('founder_number', { ascending: true })
-    const rows: FounderRow[] = (data ?? []).map((p) => ({
-      founderNumber: p.founder_number,
-      name: p.username ?? p.full_name ?? 'Founder',
-    }))
-    return { ok: true, rows }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }> {
-  try {
-    const supabase = await getSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { ok: false, error: 'Unauthorized' }
-    const db = await getSupabase()
-    const { data } = await db.from('profiles').select('username, full_name, kyc_status, created_at').eq('referred_by', user.id)
-    const rows: MyReferralRow[] = (data ?? []).map((p) => ({
-      name: p.username ?? p.full_name ?? 'Invited User',
-      status: p.kyc_status === 'verified' ? 'verified' : 'pending',
-      date: new Date(p.created_at).getTime(),
-    }))
-    return { ok: true, rows }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
-export async function isUserAdmin(userId: string): Promise<boolean> {
-  const db = await getSupabase()
-  const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
-  return data?.role === 'admin'
-}
+    await db.from('saved_wallets').in
