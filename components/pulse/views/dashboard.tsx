@@ -53,7 +53,26 @@ export function DashboardView() {
 
       {/* MAIN PORTFOLIO SUMMARY CARD */}
       <div className="glass-gold glow-edge shimmer-sweep relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900/30 via-[#141414] to-[#0e0e0e] p-6 shadow-2xl md:p-8">
-        <div className="pointer-events-none absolute right-0 top-0 select-none p-8 font-mono text-7xl text-amber-500 opacity-5">
+        {/* Ambient moving glow behind the card content */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-70 mix-blend-screen"
+          style={{
+            background:
+              'radial-gradient(60% 60% at 20% 15%, rgba(245,158,11,0.16), transparent 60%), radial-gradient(50% 50% at 85% 85%, rgba(16,185,129,0.14), transparent 60%)',
+            animation: 'pulse-shimmer 8s ease-in-out infinite',
+            backgroundSize: '200% 200%',
+          }}
+        />
+        {/* Engraved $PULSE watermark — layered light/dark text-shadow for a pressed-metal look */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-4 top-4 select-none font-mono text-6xl font-black tracking-tighter md:text-7xl"
+          style={{
+            color: 'transparent',
+            WebkitTextStroke: '1px rgba(255,255,255,0.06)',
+            textShadow: '1px 1px 0 rgba(0,0,0,0.6), -1px -1px 0 rgba(255,255,255,0.04)',
+          }}
+        >
           $PULSE
         </div>
 
