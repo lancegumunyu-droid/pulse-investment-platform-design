@@ -8,9 +8,9 @@ import {
   Lock,
   LogOut,
   User,
+  ChevronDown,
 } from 'lucide-react'
 import { usePulse } from '../store'
-import { Glass, RiskNote, SectionTitle } from '../ui-bits'
 import { Button } from '@/components/ui/button'
 import type { LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
 
@@ -22,6 +22,13 @@ const containerVariants = {
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+}
+
+function useMouseGlow<T extends HTMLElement>() {
+  const ref = (el: T | null) => {
+    ref.current = el
+  }
+  return ref
 }
 
 export function ProfileView() {
@@ -92,10 +99,7 @@ export function ProfileView() {
     setLoadingReferrals(false)
   }
 
-  // Admin button is now ALWAYS visible (not gated on state.isAdmin, which was the
-  // chicken-and-egg bug hiding it from you). Clicking it always tries claimAdmin(),
-  // which now genuinely checks your real profiles.role server-side — so this button
-  // is safe to show to everyone: non-admins just get a clear "not authorized" toast.
+  // Admin button is ALWAYS visible; claimAdmin() checks real profiles.role server-side.
   const openAdmin = async () => {
     const res = await api.claimAdmin()
     if (res.ok) {
@@ -105,185 +109,234 @@ export function ProfileView() {
     }
   }
 
+  const displayName = state.fullName || state.username || 'Investor'
+
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5 pb-32 pt-2 px-1 text-zinc-100 font-sans">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl"
+    >
+      {/* SECTION HEADER */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static flex items-center gap-3 p-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
+          <User className="h-4.5 w-4.5 text-amber-400" />
+        </span>
+        <div>
+          <h2 className="text-lg font-bold text-white font-display">Profile</h2>
+          <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">
+            Account details, verification, and network activity.
+          </p>
+        </div>
+      </motion.div>
+
+      {/* PROFILE HERO CARD */}
       <motion.div variants={itemVariants}>
-        <SectionTitle title="Profile" subtitle="Account details, verification, and network activity." icon={<User className="size-5 text-amber-400" />} />
+        <div className="pulse-hero-premium pulse-glow-track">
+          <div className="relative z-[3] p-6 md:p-8">
+            <div className="flex items-center gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/15 text-amber-400">
+                <User className="h-7 w-7" />
+              </span>
+              <div className="min-w-0 flex-1">
+                {editingUsername ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={usernameInput}
+                      onChange={(e) => setUsernameInput(e.target.value)}
+                      placeholder="username"
+                      autoFocus
+                      className="pulse-input min-w-0 flex-1 border-amber-400/50 bg-black/80"
+                    />
+                    <Button
+                      size="sm"
+                      className="bg-amber-400 font-bold text-black hover:bg-amber-300"
+                      disabled={savingUsername}
+                      onClick={saveUsername}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      onClick={() => {
+                        setEditingUsername(false)
+                        setUsernameInput(state.username ?? '')
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <button onClick={() => setEditingUsername(true)} className="text-left">
+                    <p className="pulse-value-md truncate text-lg transition-colors hover:text-amber-300">
+                      {state.username ? `@${state.username}` : 'Set a username →'}
+                    </p>
+                  </button>
+                )}
+                <p className="pulse-label mt-1 truncate normal-case tracking-normal text-zinc-400">
+                  {displayName} &middot;{' '}
+                  <span className="pulse-value-accent font-mono">{currentTier.name} tier</span>
+                </p>
+              </div>
+            </div>
+
+            {state.walletId && (
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-500/20 bg-black/40 px-3.5 py-2.5">
+                <span className="pulse-label">Pulse Wallet ID</span>
+                <span className="pulse-value-accent font-mono">{state.walletId}</span>
+              </div>
+            )}
+          </div>
+        </div>
       </motion.div>
 
-      {/* Main Profile Header Card */}
-      <motion.div variants={itemVariants} className="transition-all">
-        <Glass className="border border-amber-400/40 bg-gradient-to-b from-[#181510] to-[#0d0e12] p-5 relative overflow-hidden">
-          <div className="flex items-center gap-4 relative z-10">
-            <span className="flex size-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
-              <User className="size-7" />
-            </span>
-            <div className="min-w-0 flex-1">
-              {editingUsername ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    value={usernameInput}
-                    onChange={(e) => setUsernameInput(e.target.value)}
-                    placeholder="username"
-                    autoFocus
-                    className="min-w-0 flex-1 rounded-xl border border-amber-400/50 bg-black/80 px-3 py-2 text-sm text-white outline-none"
-                  />
-                  <Button size="sm" className="bg-amber-400 font-bold text-black" disabled={savingUsername} onClick={saveUsername}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => { setEditingUsername(false); setUsernameInput(state.username ?? '') }}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <button onClick={() => setEditingUsername(true)} className="text-left cursor-pointer">
-                  <p className="truncate text-lg font-bold text-white hover:text-amber-300 transition-colors">
-                    {state.username ? `@${state.username}` : 'Set a username →'}
-                  </p>
-                </button>
-              )}
-              <p className="truncate text-xs text-zinc-400 mt-0.5">
-                {state.fullName ?? 'Investor'} &middot; <span className="text-amber-400 font-semibold">{currentTier.name} tier</span>
-              </p>
-            </div>
+      {/* REFER FRIENDS */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static p-5">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-400">
+            <Gift className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="pulse-value-md">Refer friends</p>
+            <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">
+              Earn Pulse Points and build your network
+            </p>
           </div>
-
-          {state.walletId && (
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-400/20 bg-black/40 px-3.5 py-2.5 text-xs">
-              <span className="text-zinc-400">Pulse Wallet ID</span>
-              <span className="font-mono font-bold text-amber-400">{state.walletId}</span>
-            </div>
-          )}
-        </Glass>
-      </motion.div>
-
-      {/* Refer Friends Card */}
-      <motion.div variants={itemVariants} className="transition-all">
-        <Glass className="border border-white/10 bg-black/40 p-5">
-          <div className="mb-3 flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
-              <Gift className="size-5" />
-            </span>
-            <div>
-              <p className="text-sm font-bold text-white">Refer friends</p>
-              <p className="text-xs text-zinc-400">Earn Pulse Points and build your network</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-black/60 px-3.5 py-2.5">
-            <span className="flex-1 truncate font-mono text-sm text-amber-300">{referralLink}</span>
-            <button onClick={copyRef} className="text-amber-400 hover:text-white transition-colors cursor-pointer" aria-label="Copy referral link">
-              <Copy className="size-4" />
-            </button>
-          </div>
-        </Glass>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-black/40 px-3.5 py-2.5">
+          <span className="flex-1 truncate font-mono text-sm text-amber-300">{referralLink}</span>
+          <button onClick={copyRef} className="text-amber-400 transition-colors hover:text-white" aria-label="Copy referral link">
+            <Copy className="h-4 w-4" />
+          </button>
+        </div>
       </motion.div>
 
       {/* MY REFERRALS */}
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 p-5">
-          <button onClick={toggleMyReferrals} className="flex w-full items-center justify-between text-left">
-            <div>
-              <p className="text-sm font-bold text-white">My Referrals</p>
-              <p className="text-xs text-zinc-400">Tap to expand &amp; view</p>
-            </div>
-            <span className="text-xs font-bold text-amber-400">{loadingReferrals ? '...' : myReferrals ? 'Hide' : 'Show'}</span>
-          </button>
-          {myReferrals && (
-            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
-              {myReferrals.length === 0 ? (
-                <p className="text-xs text-zinc-500">No referrals yet.</p>
-              ) : (
-                myReferrals.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-300">{r.name}</span>
-                    <span className={r.status === 'verified' ? 'text-emerald-400' : 'text-amber-400'}>{r.status}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </Glass>
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static overflow-hidden">
+        <button onClick={toggleMyReferrals} className="pulse-vault-header w-full text-left">
+          <div>
+            <p className="pulse-value-md">My Referrals</p>
+            <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">Tap to expand &amp; view</p>
+          </div>
+          <motion.span animate={{ rotate: myReferrals ? 180 : 0 }} transition={{ duration: 0.25 }}>
+            <ChevronDown className="h-4 w-4 text-amber-400" />
+          </motion.span>
+        </button>
+        {loadingReferrals && !myReferrals ? (
+          <p className="p-5 font-mono text-xs text-zinc-500">Loading…</p>
+        ) : myReferrals ? (
+          <div className="divide-y divide-white/[0.06]">
+            {myReferrals.length === 0 ? (
+              <p className="p-5 font-mono text-xs text-zinc-500">No referrals yet.</p>
+            ) : (
+              myReferrals.map((r, i) => (
+                <div key={i} className="flex items-center justify-between p-4">
+                  <span className="text-sm text-zinc-200">{r.name}</span>
+                  <span className={r.status === 'verified' ? 'pulse-chip pulse-chip-green' : 'pulse-chip pulse-chip-gold'}>
+                    {r.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        ) : null}
       </motion.div>
 
       {/* TOP REFERRERS / LEADERBOARD */}
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 p-5">
-          <button onClick={toggleLeaderboard} className="flex w-full items-center justify-between text-left">
-            <div>
-              <p className="text-sm font-bold text-white">Top Referrers</p>
-              <p className="text-xs text-zinc-400">Tap to expand &amp; view</p>
-            </div>
-            <span className="text-xs font-bold text-amber-400">{loadingBoard ? '...' : leaderboard ? 'Hide' : 'Show'}</span>
-          </button>
-          {leaderboard && (
-            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
-              {leaderboard.length === 0 ? (
-                <p className="text-xs text-zinc-500">No data yet.</p>
-              ) : (
-                leaderboard.map((row) => (
-                  <div key={row.rank} className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-300">#{row.rank} {row.username}</span>
-                    <span className="text-amber-400">{row.tier}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </Glass>
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static overflow-hidden">
+        <button onClick={toggleLeaderboard} className="pulse-vault-header w-full text-left">
+          <div>
+            <p className="pulse-value-md">Top Referrers</p>
+            <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">Tap to expand &amp; view</p>
+          </div>
+          <motion.span animate={{ rotate: leaderboard ? 180 : 0 }} transition={{ duration: 0.25 }}>
+            <ChevronDown className="h-4 w-4 text-amber-400" />
+          </motion.span>
+        </button>
+        {loadingBoard && !leaderboard ? (
+          <p className="p-5 font-mono text-xs text-zinc-500">Loading…</p>
+        ) : leaderboard ? (
+          <div className="divide-y divide-white/[0.06]">
+            {leaderboard.length === 0 ? (
+              <p className="p-5 font-mono text-xs text-zinc-500">No data yet.</p>
+            ) : (
+              leaderboard.map((row) => (
+                <div key={row.rank} className="flex items-center justify-between p-4">
+                  <span className="text-sm text-zinc-200">
+                    #{row.rank} {row.username}
+                  </span>
+                  <span className="pulse-value-accent text-xs">{row.tier}</span>
+                </div>
+              ))
+            )}
+          </div>
+        ) : null}
       </motion.div>
 
       {/* WALL OF FOUNDERS */}
-      <motion.div variants={itemVariants}>
-        <Glass className="border border-white/10 bg-black/40 p-5">
-          <button onClick={toggleFounders} className="flex w-full items-center justify-between text-left">
-            <div>
-              <p className="text-sm font-bold text-white">Wall of Founders</p>
-              <p className="text-xs text-zinc-400">Tap to expand &amp; view</p>
-            </div>
-            <span className="text-xs font-bold text-amber-400">{loadingFounders ? '...' : founders ? 'Hide' : 'Show'}</span>
-          </button>
-          {founders && (
-            <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
-              {founders.length === 0 ? (
-                <p className="text-xs text-zinc-500">No founders listed yet.</p>
-              ) : (
-                founders.map((f) => (
-                  <div key={f.founderNumber} className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-300">#{f.founderNumber} {f.name}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </Glass>
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static overflow-hidden">
+        <button onClick={toggleFounders} className="pulse-vault-header w-full text-left">
+          <div>
+            <p className="pulse-value-md">Wall of Founders</p>
+            <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">Tap to expand &amp; view</p>
+          </div>
+          <motion.span animate={{ rotate: founders ? 180 : 0 }} transition={{ duration: 0.25 }}>
+            <ChevronDown className="h-4 w-4 text-amber-400" />
+          </motion.span>
+        </button>
+        {loadingFounders && !founders ? (
+          <p className="p-5 font-mono text-xs text-zinc-500">Loading…</p>
+        ) : founders ? (
+          <div className="divide-y divide-white/[0.06]">
+            {founders.length === 0 ? (
+              <p className="p-5 font-mono text-xs text-zinc-500">No founders listed yet.</p>
+            ) : (
+              founders.map((f) => (
+                <div key={f.founderNumber} className="flex items-center justify-between p-4">
+                  <span className="text-sm text-zinc-200">
+                    #{f.founderNumber} {f.name}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        ) : null}
       </motion.div>
 
-      {/* Admin Panel Access — always visible; server-side check decides access */}
+      {/* ADMIN PANEL ACCESS */}
       <motion.div variants={itemVariants}>
-        <Button
-          variant="outline"
-          size="lg"
-          className="h-11 w-full border-amber-400/40 bg-amber-500/10 text-amber-300 font-bold hover:bg-amber-500/20 cursor-pointer"
+        <button
           onClick={openAdmin}
+          className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 font-mono text-sm font-bold uppercase tracking-wide text-amber-300"
         >
-          <Lock className="size-4 mr-2" />
+          <Lock className="h-4 w-4" />
           Admin Dashboard
-        </Button>
+        </button>
       </motion.div>
 
+      {/* SIGN OUT */}
       <motion.div variants={itemVariants}>
-        <Button
-          variant="ghost"
-          size="lg"
-          className="h-11 w-full font-bold text-zinc-400 hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+        <button
           onClick={signOut}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 font-mono text-sm font-bold uppercase tracking-wide text-zinc-400 transition hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400"
         >
-          <LogOut className="size-4 mr-2" /> Sign out
-        </Button>
+          <LogOut className="h-4 w-4" /> Sign out
+        </button>
       </motion.div>
 
-      <motion.div variants={itemVariants}>
-        <RiskNote />
+      {/* RISK DISCLAIMER — unified font, matches dashboard/wallet */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static space-y-2 p-4">
+        <div className="flex items-center space-x-2 pulse-disclaimer-title">
+          <span>⚠️</span>
+          <span>Risk Disclaimer</span>
+        </div>
+        <p className="pulse-disclaimer">
+          Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
+          does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
+        </p>
       </motion.div>
     </motion.div>
   )
