@@ -84,7 +84,7 @@ export function DashboardView() {
   return (
     <div className="mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
       {/* SADC CAPITAL STATUS BAR */}
-      <div className="pulse-glass-card flex flex-wrap items-center justify-between gap-3 p-4">
+      <div className="pulse-glass-card pulse-glow-frame flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -192,7 +192,7 @@ export function DashboardView() {
         )}
       </div>
 
-      {/* ACTIVE HOLDINGS — matches reference: preview row + Explore link, not a dropdown */}
+      {/* ACTIVE HOLDINGS */}
       <button
         onClick={() => setView('wallet')}
         className="pulse-glass-card flex w-full items-center justify-between p-4 text-left"
@@ -249,7 +249,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* REFERRAL — right before Quick Actions, last data card before actions */}
+      {/* REFERRAL */}
       <button onClick={() => setView('profile')} className="pulse-glass-card flex w-full items-center justify-between p-4 text-left">
         <div className="min-w-0 space-y-0.5">
           <span className="pulse-label block truncate">Your Referral Code</span>
@@ -260,7 +260,7 @@ export function DashboardView() {
         </span>
       </button>
 
-      {/* QUICK ACTIONS — strictly last section before disclaimer */}
+      {/* QUICK ACTIONS */}
       <div className="space-y-3">
         <h3 className="pulse-label text-amber-300">Quick Actions &amp; Hubs</h3>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -279,11 +279,11 @@ export function DashboardView() {
 
       {/* COMPLIANCE */}
       <div className="mt-6 space-y-2 rounded-2xl border border-amber-500/20 bg-[#0c0c0c] p-4 font-mono text-[10px] leading-relaxed text-amber-400/70">
-        <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-300">
+        <div className="flex items-center space-x-2 pulse-disclaimer-title">
           <span>⚠️</span>
           <span>Risk Disclaimer</span>
         </div>
-        <p>
+        <p className="pulse-disclaimer">
           Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
           does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
         </p>
