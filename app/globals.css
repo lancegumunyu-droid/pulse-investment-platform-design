@@ -2,7 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-/* Pulse Theme v3 - Kinetic Obsidian & Deep Space Specification */
+/* Pulse Theme v4 - Kinetic Obsidian & Deep Space Specification */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -350,7 +350,7 @@
   }
 
   /* ============================================
-     PULSE DESIGN SYSTEM v3 — the ONE set of
+     PULSE DESIGN SYSTEM v4 — the ONE set of
      primitives every view (dashboard, wallet,
      invest, sale, stake, signals, profile, admin)
      must use for full app-wide uniformity.
@@ -401,6 +401,24 @@
     color: #fbbf24;
   }
 
+  /* Disclaimer / fine-print text — clean sans reading face, NOT monospace,
+     used universally for all risk/legal footers throughout the app */
+  .pulse-disclaimer {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+    color: rgba(252, 211, 77, 0.75);
+  }
+  .pulse-disclaimer-title {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #fbbf24;
+  }
+
   /* Cursor-reactive radial glow — attach alongside any pulse-glass-card
      or pulse-hero-premium element that should feel "alive" on hover */
   .pulse-glow-track {
@@ -413,7 +431,7 @@
     border-radius: inherit;
     background: radial-gradient(
       480px circle at var(--mx, 50%) var(--my, 0%),
-      rgba(245, 158, 11, 0.14),
+      rgba(245, 158, 11, 0.16),
       transparent 72%
     );
     opacity: 0;
@@ -425,38 +443,55 @@
     opacity: 1;
   }
 
-  /* Hero card — the single "big number" container style, used once per screen */
+  /* Glow frame — for smaller pill/status containers that need the same
+     gold edge glow as the hero without the full hero treatment */
+  .pulse-glow-frame {
+    border: 1.5px solid rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  }
+
+  /* Hero card — rich saturated diagonal wash: amber-dominant top,
+     emerald bleed bottom-left, strong gold edge glow. One hero style
+     per screen, reused across Dashboard, Wallet, Sale, Stake. */
   .pulse-hero-premium {
     position: relative;
     overflow: hidden;
     border-radius: 1.75rem;
     background:
-      radial-gradient(140% 120% at 15% 0%, rgba(16, 60, 40, 0.55), transparent 55%),
-      radial-gradient(140% 120% at 100% 100%, rgba(120, 72, 12, 0.45), transparent 55%),
-      linear-gradient(160deg, #0f1310 0%, #0a0a08 55%, #070605 100%);
-    border: 1px solid rgba(245, 158, 11, 0.55);
+      linear-gradient(125deg,
+        rgba(180, 120, 20, 0.5) 0%,
+        rgba(120, 80, 15, 0.35) 30%,
+        rgba(20, 50, 35, 0.55) 65%,
+        rgba(10, 40, 28, 0.6) 100%
+      ),
+      linear-gradient(160deg, #17130c 0%, #0d0c09 55%, #080706 100%);
+    border: 1.5px solid rgba(245, 158, 11, 0.65);
     box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset,
-      0 0 45px rgba(16, 185, 129, 0.15),
-      0 0 65px rgba(245, 158, 11, 0.2),
+      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+      0 0 50px rgba(16, 185, 129, 0.2),
+      0 0 80px rgba(245, 158, 11, 0.3),
       0 30px 70px -30px rgba(0, 0, 0, 0.9);
     transition: box-shadow 0.4s ease, border-color 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .pulse-hero-premium:hover {
-    border-color: rgba(245, 158, 11, 0.75);
+    border-color: rgba(245, 158, 11, 0.9);
     box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-      0 0 55px rgba(16, 185, 129, 0.2),
-      0 0 85px rgba(245, 158, 11, 0.28),
+      0 0 0 1px rgba(255, 255, 255, 0.07) inset,
+      0 0 65px rgba(16, 185, 129, 0.28),
+      0 0 100px rgba(245, 158, 11, 0.4),
       0 35px 80px -30px rgba(0, 0, 0, 0.95);
     transform: translateY(-2px);
   }
-  /* Alternate hue for screens themed around $PULSE token / staking rather than cash */
+  /* Violet variant — for token/staking-themed screens rather than cash */
   .pulse-hero-premium.pulse-hero-violet {
     background:
-      radial-gradient(140% 120% at 15% 0%, rgba(88, 28, 135, 0.35), transparent 55%),
-      radial-gradient(140% 120% at 100% 100%, rgba(120, 72, 12, 0.45), transparent 55%),
-      linear-gradient(160deg, #100f14 0%, #0a0a0c 55%, #070607 100%);
+      linear-gradient(125deg,
+        rgba(120, 40, 160, 0.4) 0%,
+        rgba(90, 30, 120, 0.3) 30%,
+        rgba(120, 80, 15, 0.4) 70%,
+        rgba(80, 55, 10, 0.5) 100%
+      ),
+      linear-gradient(160deg, #120f16 0%, #0b0a0c 55%, #070607 100%);
   }
 
   /* Flush footer strip inside a hero card — card-in-card harmony, no floating blocks */
@@ -479,20 +514,21 @@
     background: linear-gradient(180deg, transparent, rgba(245, 158, 11, 0.25), transparent);
   }
 
-  /* Standard card — the ONE container style for every non-hero card app-wide */
+  /* Standard card — the ONE container style for every non-hero card app-wide.
+     Boosted border/glow intensity to match the hero's gold richness. */
   .pulse-glass-card {
     position: relative;
     border-radius: 1.25rem;
     background:
-      radial-gradient(140% 140% at 0% 0%, rgba(245, 158, 11, 0.05), transparent 60%),
-      linear-gradient(160deg, #121110 0%, #0b0a09 100%);
-    border: 1px solid rgba(245, 158, 11, 0.16);
-    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.85);
+      radial-gradient(140% 140% at 0% 0%, rgba(245, 158, 11, 0.08), transparent 60%),
+      linear-gradient(160deg, #131210 0%, #0b0a09 100%);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.85), 0 0 20px rgba(245, 158, 11, 0.06);
     transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .pulse-glass-card:hover {
-    border-color: rgba(245, 158, 11, 0.4);
-    box-shadow: 0 25px 55px -25px rgba(0, 0, 0, 0.9), 0 0 30px rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.55);
+    box-shadow: 0 25px 55px -25px rgba(0, 0, 0, 0.9), 0 0 35px rgba(245, 158, 11, 0.14);
     transform: translateY(-3px);
   }
   /* Non-hoverable variant for cards inside forms/lists that shouldn't lift on hover */
@@ -506,10 +542,11 @@
     justify-content: space-between;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     padding: 0.875rem 1.25rem;
-    background: linear-gradient(180deg, rgba(245, 158, 11, 0.04), transparent);
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.05), transparent);
   }
 
-  /* Pill badge — status chips (Verified, Pending, Live, Private, etc.) */
+  /* Pill badge — status chips (Verified, Pending, Live, Private, etc.)
+     All carry a soft gold/green glow to match the hero's saturation. */
   .pulse-chip {
     display: inline-flex;
     align-items: center;
@@ -523,10 +560,29 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .pulse-chip-gold { border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1); color: #fbbf24; }
-  .pulse-chip-green { border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1); color: #34d399; }
-  .pulse-chip-red { border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.1); color: #fb7185; }
-  .pulse-chip-muted { border-color: rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.04); color: #d4d4d8; }
+  .pulse-chip-gold {
+    border-color: rgba(245, 158, 11, 0.55);
+    background: rgba(245, 158, 11, 0.14);
+    color: #fcd34d;
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.25);
+  }
+  .pulse-chip-green {
+    border-color: rgba(16, 185, 129, 0.55);
+    background: rgba(16, 185, 129, 0.14);
+    color: #6ee7b7;
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.2);
+  }
+  .pulse-chip-red {
+    border-color: rgba(244, 63, 94, 0.5);
+    background: rgba(244, 63, 94, 0.12);
+    color: #fb7185;
+    box-shadow: 0 0 18px rgba(244, 63, 94, 0.18);
+  }
+  .pulse-chip-muted {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.05);
+    color: #d4d4d8;
+  }
 
   /* Bulletproof async image loading skeleton */
   .pulse-img-skeleton {
