@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Pickaxe, Radio, Rocket, ShieldCheck, Sprout, Sun, Zap, Building2, Layers, BadgeCheck, Vault } from 'lucide-react'
+import { Lock, Pickaxe, Radio, Rocket, ShieldCheck, Sprout, Sun, Zap, Building2, Layers, BadgeCheck, ChevronRight } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { PROJECTS, nextTier, type Project } from '@/lib/pulse-data'
 
@@ -81,8 +81,6 @@ export function DashboardView() {
   const cumulativeYield = Math.max(0, portfolioValue - principalPlusCash)
   const cumulativeYieldPct = principalPlusCash > 0 ? (cumulativeYield / principalPlusCash) * 100 : 0
 
-  const displayName = state.fullName || state.username || 'Investor'
-
   return (
     <div className="mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
       {/* SADC CAPITAL STATUS BAR */}
@@ -100,12 +98,8 @@ export function DashboardView() {
         </span>
       </div>
 
-      {/* MAIN PORTFOLIO SUMMARY CARD — rich organic depth, integrated telemetry footer */}
-      <div
-        ref={heroGlow.ref}
-        onPointerMove={heroGlow.onMove}
-        className="pulse-hero-premium pulse-glow-track"
-      >
+      {/* MAIN PORTFOLIO SUMMARY CARD */}
+      <div ref={heroGlow.ref} onPointerMove={heroGlow.onMove} className="pulse-hero-premium pulse-glow-track">
         <div className="relative z-[3] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <span className="pulse-label">Total Net Portfolio Value</span>
@@ -144,7 +138,6 @@ export function DashboardView() {
           </div>
         </div>
 
-        {/* Flush telemetry strip — genuinely inside the hero, card-in-card harmony */}
         <div className="pulse-hero-telemetry grid grid-cols-3">
           <div className="px-4 py-4 text-center">
             <span className="pulse-label block">Cash</span>
@@ -161,7 +154,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* STANDING WITH LOCKED NEXT-TIER PROGRESS */}
+      {/* STANDING */}
       <div className="pulse-glass-card p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -199,65 +192,45 @@ export function DashboardView() {
         )}
       </div>
 
-      {/* REFERRAL QUICK-ACCESS */}
-      <button onClick={() => setView('profile')} className="pulse-glass-card flex w-full items-center justify-between p-4 text-left">
-        <div className="min-w-0 space-y-0.5">
-          <span className="pulse-label block truncate">{displayName} • Your Referral Code</span>
-          <p className="pulse-value-accent truncate text-sm tracking-wider">{state.referralCode}</p>
-        </div>
-        <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-mono text-xs text-amber-300">
-          {state.referralCount} joined
+      {/* ACTIVE HOLDINGS — matches reference: preview row + Explore link, not a dropdown */}
+      <button
+        onClick={() => setView('wallet')}
+        className="pulse-glass-card flex w-full items-center justify-between p-4 text-left"
+      >
+        <span className="pulse-label">Active Holdings ({state.holdings.length})</span>
+        <span className="flex items-center gap-1 font-mono text-xs font-bold text-amber-400">
+          Explore <ChevronRight className="h-3.5 w-3.5" />
         </span>
       </button>
-
-      {/* ACTIVE HOLDINGS — dedicated vault container, isolated from the data stream */}
-      <div className="pulse-glass-card overflow-hidden">
-        <div className="pulse-vault-header">
-          <span className="flex items-center gap-2 pulse-label text-zinc-300">
-            <Vault className="h-3.5 w-3.5 text-amber-400" />
-            Holdings Vault ({state.holdings.length})
-          </span>
-        </div>
-        {state.holdings.length === 0 ? (
-          <p className="p-5 font-mono text-xs text-zinc-500">
-            No active capital allocations found. Explore the pipeline below to deploy capital.
-          </p>
-        ) : (
-          <div className="divide-y divide-white/[0.06]">
-            {state.holdings.map((h) => {
-              const proj = findProject(h.projectId)
-              const Icon = sectorIcon(proj?.sector)
-              return (
-                <div key={h.id} className="flex items-center gap-3 p-4 transition-colors hover:bg-white/[0.02]">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10">
-                    <Icon className="h-4 w-4 text-amber-400" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-white">{proj?.name ?? 'Legacy Holding'}</p>
-                    <p className="pulse-value-accent text-xs">
-                      ${money(h.amount, 0)} <span className="font-sans font-normal text-zinc-500">USDT · Generating Yield</span>
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => api.closeInvestment(h.id)}
-                    className="shrink-0 rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-300 transition hover:border-red-500/40 hover:text-red-400"
-                  >
-                    Liquidate
-                  </button>
+      {state.holdings.length > 0 && (
+        <div className="pulse-glass-card divide-y divide-white/[0.06] overflow-hidden">
+          {state.holdings.slice(0, 3).map((h) => {
+            const proj = findProject(h.projectId)
+            const Icon = sectorIcon(proj?.sector)
+            return (
+              <div key={h.id} className="flex items-center gap-3 p-4 transition-colors hover:bg-white/[0.02]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10">
+                  <Icon className="h-4 w-4 text-amber-400" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{proj?.name ?? 'Legacy Holding'}</p>
+                  <p className="pulse-value-accent text-xs">
+                    ${money(h.amount, 0)} <span className="font-sans font-normal text-zinc-500">USDT · Generating Yield</span>
+                  </p>
                 </div>
-              )
-            })}
-          </div>
-        )}
-        {state.holdings.some((h) => !findProject(h.projectId)) && (
-          <p className="border-t border-white/[0.06] px-4 py-2 font-mono text-[10px] text-zinc-600">
-            Some holdings reference older projects no longer in the active pipeline — balances are correct, display
-            names are limited for these.
-          </p>
-        )}
-      </div>
+                <button
+                  onClick={() => api.closeInvestment(h.id)}
+                  className="shrink-0 rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-300 transition hover:border-red-500/40 hover:text-red-400"
+                >
+                  Liquidate
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-      {/* REGIONAL OPPORTUNITIES PIPELINE */}
+      {/* REGIONAL OPPORTUNITIES */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="pulse-label text-amber-300">Regional Opportunities ({projects.length})</h3>
@@ -276,7 +249,18 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* QUICK ACTIONS & HUBS — strictly at the bottom */}
+      {/* REFERRAL — right before Quick Actions, last data card before actions */}
+      <button onClick={() => setView('profile')} className="pulse-glass-card flex w-full items-center justify-between p-4 text-left">
+        <div className="min-w-0 space-y-0.5">
+          <span className="pulse-label block truncate">Your Referral Code</span>
+          <p className="pulse-value-accent truncate text-sm tracking-wider">{state.referralCode}</p>
+        </div>
+        <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-mono text-xs text-amber-300">
+          {state.referralCount} joined
+        </span>
+      </button>
+
+      {/* QUICK ACTIONS — strictly last section before disclaimer */}
       <div className="space-y-3">
         <h3 className="pulse-label text-amber-300">Quick Actions &amp; Hubs</h3>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -293,7 +277,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* COMPLIANCE DISCLAIMER */}
+      {/* COMPLIANCE */}
       <div className="mt-6 space-y-2 rounded-2xl border border-amber-500/20 bg-[#0c0c0c] p-4 font-mono text-[10px] leading-relaxed text-amber-400/70">
         <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-300">
           <span>⚠️</span>
