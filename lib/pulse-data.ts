@@ -117,7 +117,7 @@ export const FALLBACK_PROJECTS: Project[] = [
     goal: 750_000,
     risk: 'Higher',
     summary: 'Revenue royalty on an operating copper concession. Returns track commodity prices and output.',
-    image: 'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?q=80&w=1000&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1610375461369-d613b564f4c4?q=80&w=1000&auto=format&fit=crop',
     status: 'Open',
     deadline: '2026-08-30',
   },
