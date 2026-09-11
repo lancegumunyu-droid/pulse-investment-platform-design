@@ -8,7 +8,6 @@ import {
   Link2,
   Zap,
   Folder,
-  ShieldAlert,
   Loader2,
   CreditCard,
   RotateCw,
@@ -445,11 +444,11 @@ export function WalletView() {
 
       {/* RISK WARNING */}
       <div className="pulse-glass-card pulse-static space-y-2 p-4">
-        <div className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-amber-300">
-          <ShieldAlert className="h-4 w-4 shrink-0" />
+        <div className="flex items-center space-x-2 pulse-disclaimer-title">
+          <span>⚠️</span>
           <span>Risk Disclaimer</span>
         </div>
-        <p className="font-mono text-[10px] leading-relaxed text-amber-100/70">
+        <p className="pulse-disclaimer">
           Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
           does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
         </p>
