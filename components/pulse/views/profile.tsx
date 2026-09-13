@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Copy,
@@ -24,11 +24,19 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
 }
 
+// FIXED: real persistent ref via useRef, matching dashboard.tsx/wallet.tsx exactly.
+// The previous version created a plain object each render, which only worked on
+// first mount and silently stopped tracking the mouse after any re-render.
 function useMouseGlow<T extends HTMLElement>() {
-  const ref = (el: T | null) => {
-    ref.current = el
+  const ref = useRef<T | null>(null)
+  const onMove = (e: React.PointerEvent<T>) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
+    el.style.setProperty('--my', `${e.clientY - rect.top}px`)
   }
-  return ref
+  return { ref, onMove }
 }
 
 export function ProfileView() {
@@ -43,6 +51,9 @@ export function ProfileView() {
   const [editingUsername, setEditingUsername] = useState(false)
   const [usernameInput, setUsernameInput] = useState(state.username ?? '')
   const [savingUsername, setSavingUsername] = useState(false)
+
+  const heroGlow = useMouseGlow<HTMLDivElement>()
+  const adminGlow = useMouseGlow<HTMLButtonElement>()
 
   const saveUsername = async () => {
     setSavingUsername(true)
@@ -131,9 +142,13 @@ export function ProfileView() {
         </div>
       </motion.div>
 
-      {/* PROFILE HERO CARD */}
+      {/* PROFILE HERO CARD — now with REAL mouse-tracking glow wired in */}
       <motion.div variants={itemVariants}>
-        <div className="pulse-hero-premium pulse-glow-track">
+        <div
+          ref={heroGlow.ref}
+          onPointerMove={heroGlow.onMove}
+          className="pulse-hero-premium pulse-glow-track"
+        >
           <div className="relative z-[3] p-6 md:p-8">
             <div className="flex items-center gap-4">
               <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/15 text-amber-400">
@@ -306,9 +321,11 @@ export function ProfileView() {
         ) : null}
       </motion.div>
 
-      {/* ADMIN PANEL ACCESS */}
+      {/* ADMIN PANEL ACCESS — now with REAL mouse-tracking glow wired in */}
       <motion.div variants={itemVariants}>
         <button
+          ref={adminGlow.ref}
+          onPointerMove={adminGlow.onMove}
           onClick={openAdmin}
           className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 font-mono text-sm font-bold uppercase tracking-wide text-amber-300"
         >
