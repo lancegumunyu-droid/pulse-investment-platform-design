@@ -278,7 +278,7 @@ export function DashboardView() {
       </div>
 
       {/* COMPLIANCE */}
-      <div className="mt-6 space-y-2 rounded-2xl border border-amber-500/20 bg-[#0c0c0c] p-4 font-mono text-[10px] leading-relaxed text-amber-400/70">
+      <div className="pulse-glass-card pulse-static space-y-2 p-4">
         <div className="flex items-center space-x-2 pulse-disclaimer-title">
           <span>⚠️</span>
           <span>Risk Disclaimer</span>
