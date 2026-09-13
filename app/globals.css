@@ -2,7 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-/* Pulse Theme v4 - Kinetic Obsidian & Deep Space Specification */
+/* Pulse Theme v2 - Kinetic Obsidian & Deep Space Specification */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -104,10 +104,6 @@
 }
 
 @layer utilities {
-  /* ============================================
-     LEGACY / SUPPORTING UTILITIES (still in active use
-     across marketing pages, auth pages, modals)
-     ============================================ */
   .text-hero {
     font-size: 38px;
     line-height: 1.1;
@@ -115,6 +111,7 @@
     letter-spacing: -0.03em;
     font-family: var(--font-display);
   }
+
   @media (min-width: 640px) {
     .text-hero { font-size: 48px; }
   }
@@ -129,14 +126,14 @@
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
   }
-  .font-display {
-    font-family: var(--font-display);
+  .font-display { 
+    font-family: var(--font-display); 
   }
-  .pulse-home {
-    font-family: var(--font-sans);
+  .pulse-home { 
+    font-family: var(--font-sans); 
   }
-  .pulse-home h1, .pulse-home h2, .pulse-home h3, .pulse-home h4 {
-    font-family: var(--font-display);
+  .pulse-home h1, .pulse-home h2, .pulse-home h3, .pulse-home h4 { 
+    font-family: var(--font-display); 
   }
 
   .pulse-surface {
@@ -146,73 +143,73 @@
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
   }
-
-  .pulse-screen .glass, .pulse-screen .glass-gold {
-    border-color: rgba(255,255,255,.18);
-    box-shadow: 0 25px 60px -25px #000, 0 0 35px rgba(245,158,11,.18);
+  
+  .pulse-screen .glass, .pulse-screen .glass-gold { 
+    border-color: rgba(255,255,255,.18); 
+    box-shadow: 0 25px 60px -25px #000, 0 0 35px rgba(245,158,11,.18); 
   }
-
-  .pulse-screen input, .pulse-screen textarea, .pulse-screen select {
-    border-color: rgba(255,255,255,.2);
-    background: rgba(255,255,255,.06);
-    color: #f4f4f6;
+  
+  .pulse-screen input, .pulse-screen textarea, .pulse-screen select { 
+    border-color: rgba(255,255,255,.2); 
+    background: rgba(255,255,255,.06); 
+    color: #f4f4f6; 
   }
-
-  .pulse-screen button:not([aria-label]) {
-    transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .3s cubic-bezier(0.16, 1, 0.3, 1), filter .3s ease;
+  
+  .pulse-screen button:not([aria-label]) { 
+    transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .3s cubic-bezier(0.16, 1, 0.3, 1), filter .3s ease; 
   }
-
-  .pulse-screen button:not([aria-label]):hover {
-    filter: brightness(1.15);
+  
+  .pulse-screen button:not([aria-label]):hover { 
+    filter: brightness(1.15); 
   }
-
+  
   .pulse-action {
     box-shadow: 0 0 30px rgba(245,158,11,0.35);
     transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .3s cubic-bezier(0.16, 1, 0.3, 1), filter .3s ease;
   }
-
-  .pulse-action:hover {
-    transform: translate3d(0, -3px, 0) scale(1.02);
-    box-shadow: 0 0 45px rgba(245,158,11,0.55), 0 0 15px rgba(16,185,129,0.3);
-    filter: brightness(1.12);
+  
+  .pulse-action:hover { 
+    transform: translate3d(0, -3px, 0) scale(1.02); 
+    box-shadow: 0 0 45px rgba(245,158,11,0.55), 0 0 15px rgba(16,185,129,0.3); 
+    filter: brightness(1.12); 
   }
 
-  .pulse-tile, .pulse-tab {
-    transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), border-color .35s ease, box-shadow .35s ease, background-position .35s ease;
+  .pulse-tile, .pulse-tab { 
+    transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), border-color .35s ease, box-shadow .35s ease, background-position .35s ease; 
   }
-
-  .glow-card, .pulse-tile {
-    position: relative;
-    transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), border-color .35s ease, box-shadow .35s ease;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.08);
+  
+  .glow-card, .pulse-tile { 
+    position: relative; 
+    transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), border-color .35s ease, box-shadow .35s ease; 
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08); 
   }
-
-  .glow-card:hover, .glow-card:focus-within, .pulse-tile:hover, .pulse-tile:focus-within {
-    border-color: rgba(245,158,11,.65);
-    box-shadow: 0 0 45px -5px rgba(245,158,11,.4), 0 0 20px rgba(16,185,129,0.2), 0 0 0 1px rgba(245,158,11,.5);
+  
+  .glow-card:hover, .glow-card:focus-within, .pulse-tile:hover, .pulse-tile:focus-within { 
+    border-color: rgba(245,158,11,.65); 
+    box-shadow: 0 0 45px -5px rgba(245,158,11,.4), 0 0 20px rgba(16,185,129,0.2), 0 0 0 1px rgba(245,158,11,.5); 
     transform: translate3d(0, -4px, 0);
   }
-
-  .glow-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border-radius: inherit;
-    background: radial-gradient(circle at 20% 0%, rgba(245,158,11,.2), transparent 45%);
-    opacity: .9;
+  
+  .glow-card::after { 
+    content: ''; 
+    position: absolute; 
+    inset: 0; 
+    pointer-events: none; 
+    border-radius: inherit; 
+    background: radial-gradient(circle at 20% 0%, rgba(245,158,11,.2), transparent 45%); 
+    opacity: .9; 
   }
 
-  .pulse-tab:hover, .pulse-tab:focus-visible {
-    border-color: rgba(245,158,11,.5);
-    box-shadow: 0 0 25px rgba(245,158,11,.25);
+  .pulse-tab:hover, .pulse-tab:focus-visible { 
+    border-color: rgba(245,158,11,.5); 
+    box-shadow: 0 0 25px rgba(245,158,11,.25); 
   }
-
-  .pulse-tab-active {
-    background: linear-gradient(110deg, rgba(245,158,11,.32), rgba(255,255,255,.12), rgba(16,185,129,.2), rgba(245,158,11,.32));
-    background-size: 300% 100%;
-    animation: pulse-shimmer 3.5s ease-in-out infinite;
-    box-shadow: 0 0 35px rgba(245,158,11,.4), inset 0 0 25px rgba(245,158,11,.15);
+  
+  .pulse-tab-active { 
+    background: linear-gradient(110deg, rgba(245,158,11,.32), rgba(255,255,255,.12), rgba(16,185,129,.2), rgba(245,158,11,.32)); 
+    background-size: 300% 100%; 
+    animation: pulse-shimmer 3.5s ease-in-out infinite; 
+    box-shadow: 0 0 35px rgba(245,158,11,.4), inset 0 0 25px rgba(245,158,11,.15); 
   }
 
   .pulse-view { min-height: 100%; }
@@ -220,34 +217,30 @@
   .pulse-view h1, .pulse-view h2, .pulse-view h3 { font-family: var(--font-display); letter-spacing: -.025em; }
   .pulse-view .rounded-3xl, .pulse-view .rounded-2xl { box-shadow: 0 25px 60px -25px #000, 0 0 30px rgba(245,158,11,.12); }
   .pulse-view .border-white\/10 { border-color: rgba(255,255,255,.2); }
-
+  
   .pulse-app button:active { transform: scale(.96); }
 
-  @keyframes pulse-shimmer {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+  @keyframes pulse-shimmer { 
+    0%, 100% { background-position: 0% 50%; } 
+    50% { background-position: 100% 50%; } 
   }
 
   .pulse-scroll { scrollbar-width: thin; scrollbar-color: rgba(245,158,11,.6) transparent; }
   .pulse-home ::-webkit-scrollbar, .pulse-signals ::-webkit-scrollbar { width: 5px; height: 5px; }
   .pulse-home ::-webkit-scrollbar-thumb, .pulse-signals ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 999px; }
-
-  @keyframes pulse-beat {
-    0%, 100% { transform: scale(1); }
-    12% { transform: scale(1.08); }
-    22% { transform: scale(1); }
-    32% { transform: scale(1.04); }
-    45% { transform: scale(1); }
+  
+  @keyframes pulse-beat { 
+    0%, 100% { transform: scale(1); } 
+    12% { transform: scale(1.08); } 
+    22% { transform: scale(1); } 
+    32% { transform: scale(1.04); } 
+    45% { transform: scale(1); } 
   }
-
+  
   .animate-pulse-beat { animation: pulse-beat 1.8s ease-in-out infinite; transform-origin: center; }
 
-  @media (prefers-reduced-motion: reduce) {
-    .animate-pulse-beat, .pulse-tile, .pulse-action, .pulse-tab-active, .pulse-screen,
-    .pulse-glow-track::before, .pulse-hero-premium, .pulse-glass-card {
-      animation: none !important;
-      transition: none !important;
-    }
+  @media (prefers-reduced-motion: reduce) { 
+    .animate-pulse-beat, .pulse-tile, .pulse-action, .pulse-tab-active, .pulse-screen { animation: none; transition: none; } 
   }
 
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
@@ -263,13 +256,13 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 28px 56px -24px rgba(0, 0, 0, 0.9);
   }
-
+  
   .glass-gold {
     background: linear-gradient(180deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.05));
     border: 1px solid rgba(245, 158, 11, 0.38);
     box-shadow: 0 32px 64px -24px rgba(245, 158, 11, 0.45);
   }
-
+  
   .glow-edge { position: relative; }
   .glow-edge::before {
     content: '';
@@ -283,7 +276,7 @@
     mask-composite: exclude;
     pointer-events: none;
   }
-
+  
   .pulse-input {
     width: 100%;
     border-radius: 0.875rem;
@@ -295,12 +288,12 @@
     outline: none;
     transition: border-color 0.25s ease, box-shadow 0.25s ease;
   }
-
+  
   .pulse-input:focus {
     border-color: rgba(245, 158, 11, 0.7);
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3), 0 0 15px rgba(16, 185, 129, 0.15);
   }
-
+  
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -350,13 +343,146 @@
   }
 
   /* ============================================
-     PULSE DESIGN SYSTEM v4 — the ONE set of
-     primitives every view (dashboard, wallet,
-     invest, sale, stake, signals, profile, admin)
-     must use for full app-wide uniformity.
+     MOUSE-TRACKING GLOW (hero cards, executive shell)
      ============================================ */
+  .mouse-glow {
+    position: relative;
+  }
+  .mouse-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      420px circle at var(--mx, 50%) var(--my, 0%),
+      rgba(245, 158, 11, 0.16),
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .mouse-glow:hover::before {
+    opacity: 1;
+  }
 
-  /* Typography — one scale, everywhere */
+  /* ============================================
+     EXECUTIVE DESKTOP SHELL — kills the mobile tunnel
+     ============================================ */
+  .pulse-executive-shell {
+    width: 100%;
+  }
+  @media (min-width: 1024px) {
+    .pulse-executive-shell {
+      max-width: 64rem;
+      margin-left: auto;
+      margin-right: auto;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      box-shadow: 0 25px 80px -20px rgba(0, 0, 0, 0.9);
+      border-radius: 1.5rem;
+      padding: 1.5rem;
+    }
+  }
+
+  /* ============================================
+     TABULAR FINANCIAL TELEMETRY
+     ============================================ */
+  .pulse-figure {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: #fbbf24;
+    letter-spacing: -0.01em;
+  }
+  .pulse-figure-white {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+
+  /* ============================================
+     HERO CARD — Preview 3 Standard
+     ============================================ */
+  .pulse-hero-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.75rem;
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    background: #060606;
+    background-image:
+      linear-gradient(135deg, #1c1a14 0%, #0f0e0b 55%, #070705 100%);
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.2), 0 30px 70px -25px rgba(0, 0, 0, 0.95);
+  }
+  .pulse-hero-card::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      120deg,
+      rgba(245, 158, 11, 0.55),
+      rgba(254, 240, 138, 0.15) 35%,
+      rgba(16, 185, 129, 0.35) 70%,
+      rgba(245, 158, 11, 0.55)
+    );
+    background-size: 250% 250%;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: pulse-shimmer 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Live status dot */
+  .pulse-live-dot {
+    position: relative;
+    display: inline-flex;
+    height: 8px;
+    width: 8px;
+  }
+  .pulse-live-dot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: #10b981;
+    animation: pulse-ring-slow 2.2s ease-out infinite;
+  }
+  .pulse-live-dot::after {
+    content: '';
+    position: relative;
+    display: block;
+    height: 8px;
+    width: 8px;
+    border-radius: 9999px;
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.9);
+  }
+
+  /* Bulletproof image loading skeleton */
+  .pulse-img-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(90deg, #111114 0%, #1a1a1e 50%, #111114 100%);
+    background-size: 200% 100%;
+    animation: pulse-skeleton-sweep 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse-skeleton-sweep {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ============================================
+     NEW — PREMIUM TYPOGRAPHY SCALE for dashboard.tsx
+     (appended, not replacing anything above)
+     ============================================ */
   .pulse-label {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -364,7 +490,6 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgba(161, 161, 170, 0.85);
-    line-height: 1.3;
   }
   .pulse-value-xl {
     font-family: var(--font-mono);
@@ -372,7 +497,7 @@
     font-weight: 800;
     letter-spacing: -0.02em;
     color: #ffffff;
-    font-size: clamp(1.75rem, 5vw, 3rem);
+    font-size: clamp(2rem, 5vw, 3rem);
     line-height: 1.05;
   }
   .pulse-value-md {
@@ -382,16 +507,6 @@
     letter-spacing: -0.01em;
     color: #ffffff;
     font-size: 1rem;
-    line-height: 1.2;
-  }
-  .pulse-value-sm {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
-    letter-spacing: -0.005em;
-    color: #ffffff;
-    font-size: 0.8125rem;
-    line-height: 1.2;
   }
   .pulse-value-accent {
     font-family: var(--font-mono);
@@ -401,26 +516,7 @@
     color: #fbbf24;
   }
 
-  /* Disclaimer / fine-print text — clean sans reading face, NOT monospace,
-     used universally for all risk/legal footers throughout the app */
-  .pulse-disclaimer {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    line-height: 1.6;
-    letter-spacing: 0.01em;
-    color: rgba(252, 211, 77, 0.75);
-  }
-  .pulse-disclaimer-title {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #fbbf24;
-  }
-
-  /* Cursor-reactive radial glow — attach alongside any pulse-glass-card
-     or pulse-hero-premium element that should feel "alive" on hover */
+  /* NEW — mouse-tracking glow used by dashboard.tsx's useMouseGlow hook */
   .pulse-glow-track {
     position: relative;
   }
@@ -431,7 +527,7 @@
     border-radius: inherit;
     background: radial-gradient(
       480px circle at var(--mx, 50%) var(--my, 0%),
-      rgba(245, 158, 11, 0.16),
+      rgba(245, 158, 11, 0.14),
       transparent 72%
     );
     opacity: 0;
@@ -443,58 +539,34 @@
     opacity: 1;
   }
 
-  /* Glow frame — for smaller pill/status containers that need the same
-     gold edge glow as the hero without the full hero treatment */
-  .pulse-glow-frame {
-    border: 1.5px solid rgba(245, 158, 11, 0.5);
-    box-shadow: 0 0 25px rgba(245, 158, 11, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
-  }
-
-  /* Hero card — rich saturated diagonal wash: amber-dominant top,
-     emerald bleed bottom-left, strong gold edge glow. One hero style
-     per screen, reused across Dashboard, Wallet, Sale, Stake. */
+  /* NEW — hero card with organic green-to-amber depth */
   .pulse-hero-premium {
     position: relative;
     overflow: hidden;
     border-radius: 1.75rem;
     background:
-      linear-gradient(125deg,
-        rgba(180, 120, 20, 0.5) 0%,
-        rgba(120, 80, 15, 0.35) 30%,
-        rgba(20, 50, 35, 0.55) 65%,
-        rgba(10, 40, 28, 0.6) 100%
-      ),
-      linear-gradient(160deg, #17130c 0%, #0d0c09 55%, #080706 100%);
-    border: 1.5px solid rgba(245, 158, 11, 0.65);
+      radial-gradient(120% 100% at 8% 0%, rgba(21, 40, 24, 1), transparent 58%),
+      radial-gradient(120% 100% at 95% 100%, rgba(36, 26, 14, 1), transparent 58%),
+      linear-gradient(160deg, #171510 0%, #0d0c0a 60%, #080706 100%);
+    border: 1px solid rgba(245, 158, 11, 0.4);
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-      0 0 50px rgba(16, 185, 129, 0.2),
-      0 0 80px rgba(245, 158, 11, 0.3),
+      0 0 55px rgba(16, 185, 129, 0.16),
+      0 0 90px rgba(245, 158, 11, 0.22),
       0 30px 70px -30px rgba(0, 0, 0, 0.9);
     transition: box-shadow 0.4s ease, border-color 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .pulse-hero-premium:hover {
-    border-color: rgba(245, 158, 11, 0.9);
+    border-color: rgba(245, 158, 11, 0.6);
     box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.07) inset,
-      0 0 65px rgba(16, 185, 129, 0.28),
-      0 0 100px rgba(245, 158, 11, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+      0 0 70px rgba(16, 185, 129, 0.22),
+      0 0 110px rgba(245, 158, 11, 0.3),
       0 35px 80px -30px rgba(0, 0, 0, 0.95);
     transform: translateY(-2px);
   }
-  /* Violet variant — for token/staking-themed screens rather than cash */
-  .pulse-hero-premium.pulse-hero-violet {
-    background:
-      linear-gradient(125deg,
-        rgba(120, 40, 160, 0.4) 0%,
-        rgba(90, 30, 120, 0.3) 30%,
-        rgba(120, 80, 15, 0.4) 70%,
-        rgba(80, 55, 10, 0.5) 100%
-      ),
-      linear-gradient(160deg, #120f16 0%, #0b0a0c 55%, #070607 100%);
-  }
 
-  /* Flush footer strip inside a hero card — card-in-card harmony, no floating blocks */
+  /* NEW — telemetry footer strip flush inside the hero card */
   .pulse-hero-telemetry {
     position: relative;
     z-index: 3;
@@ -514,92 +586,101 @@
     background: linear-gradient(180deg, transparent, rgba(245, 158, 11, 0.25), transparent);
   }
 
-  /* Standard card — the ONE container style for every non-hero card app-wide.
-     Boosted border/glow intensity to match the hero's gold richness. */
+  /* NEW — premium glass card used throughout the redesigned dashboard */
   .pulse-glass-card {
     position: relative;
     border-radius: 1.25rem;
     background:
       radial-gradient(140% 140% at 0% 0%, rgba(245, 158, 11, 0.08), transparent 60%),
-      linear-gradient(160deg, #131210 0%, #0b0a09 100%);
-    border: 1px solid rgba(245, 158, 11, 0.28);
-    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.85), 0 0 20px rgba(245, 158, 11, 0.06);
+      linear-gradient(160deg, #141210 0%, #0c0a09 100%);
+    border: 1px solid rgba(245, 158, 11, 0.24);
+    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.85), 0 0 20px rgba(245, 158, 11, 0.05);
     transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .pulse-glass-card:hover {
     border-color: rgba(245, 158, 11, 0.55);
-    box-shadow: 0 25px 55px -25px rgba(0, 0, 0, 0.9), 0 0 35px rgba(245, 158, 11, 0.14);
+    box-shadow: 0 25px 55px -25px rgba(0, 0, 0, 0.9), 0 0 40px rgba(245, 158, 11, 0.16);
     transform: translateY(-3px);
   }
-  /* Non-hoverable variant for cards inside forms/lists that shouldn't lift on hover */
-  .pulse-glass-card.pulse-static:hover {
-    transform: none;
-  }
 
+  /* NEW — Holdings Vault header bar */
   .pulse-vault-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     padding: 0.875rem 1.25rem;
-    background: linear-gradient(180deg, rgba(245, 158, 11, 0.05), transparent);
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.04), transparent);
   }
 
-  /* Pill badge — status chips (Verified, Pending, Live, Private, etc.)
-     All carry a soft gold/green glow to match the hero's saturation. */
+  /* ============================================
+     STRICT TYPOGRAPHY ENFORCEMENT — every number and
+     every label on every screen must use these three
+     classes and nothing else. No page may invent its
+     own font-size/weight/tracking for a number or a
+     section label — use pulse-label / pulse-value-* /
+     pulse-chip / pulse-disclaimer-* below, always.
+     ============================================ */
+
+  /* Non-interactive variant of pulse-glass-card: identical look,
+     no hover lift — for cards that aren't clickable (profile hero,
+     disclaimer box), so hover never implies an action that isn't there. */
+  .pulse-static {
+    transform: none !important;
+  }
+  .pulse-static:hover {
+    transform: none !important;
+    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.85) !important;
+    border-color: rgba(245, 158, 11, 0.16) !important;
+  }
+
+  /* Small status pill — the ONLY badge style allowed for
+     verified/pending/tier labels anywhere in the app */
   .pulse-chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.375rem;
     border-radius: 9999px;
-    border: 1px solid;
-    padding: 0.25rem 0.625rem;
+    padding: 0.2rem 0.65rem;
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 700;
-    text-transform: uppercase;
     letter-spacing: 0.04em;
-  }
-  .pulse-chip-gold {
-    border-color: rgba(245, 158, 11, 0.55);
-    background: rgba(245, 158, 11, 0.14);
-    color: #fcd34d;
-    box-shadow: 0 0 18px rgba(245, 158, 11, 0.25);
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
   }
   .pulse-chip-green {
-    border-color: rgba(16, 185, 129, 0.55);
-    background: rgba(16, 185, 129, 0.14);
-    color: #6ee7b7;
-    box-shadow: 0 0 18px rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
   }
-  .pulse-chip-red {
-    border-color: rgba(244, 63, 94, 0.5);
-    background: rgba(244, 63, 94, 0.12);
-    color: #fb7185;
-    box-shadow: 0 0 18px rgba(244, 63, 94, 0.18);
-  }
-  .pulse-chip-muted {
-    border-color: rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.05);
-    color: #d4d4d8;
+  .pulse-chip-gold {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
   }
 
-  /* Bulletproof async image loading skeleton */
-  .pulse-img-skeleton {
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(90deg, #111114 0%, #1a1a1e 50%, #111114 100%);
-    background-size: 200% 100%;
-    animation: pulse-skeleton-sweep 1.6s ease-in-out infinite;
+  /* Risk disclaimer — the ONE allowed treatment for this text,
+     identical on dashboard, wallet, and profile. Never restyle
+     this per-page. */
+  .pulse-disclaimer-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #fbbf24;
   }
-  @keyframes pulse-skeleton-sweep {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+  .pulse-disclaimer {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.6;
+    color: rgba(251, 191, 36, 0.7);
   }
 
-  /* Responsive safety: keep all pulse cards behaving on very narrow viewports */
-  @media (max-width: 360px) {
-    .pulse-value-xl { font-size: 1.5rem; }
-    .pulse-hero-telemetry { font-size: 0.9em; }
+  /* Static glow frame for non-interactive header/status bars — a subtle
+     always-on amber edge-light, no hover lift (unlike pulse-glow-track,
+     which is for clickable/hoverable cards). */
+  .pulse-glow-frame {
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12) inset, 0 0 30px rgba(245, 158, 11, 0.06);
   }
 }
