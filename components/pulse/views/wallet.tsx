@@ -46,8 +46,8 @@ function chipClass(tone: 'muted' | 'gold' | 'green' | 'red') {
 /**
  * Persistent-ref mouse glow. The ref MUST come from useRef — a plain object
  * recreated each render detaches after the first re-render and the glow
- * silently stops tracking. Writes --mx/--my in px, which .pulse-glow-track
- * reads in its radial-gradient.
+ * silently stops tracking. Writes --mx/--my in px; .pulse-glow-track reads
+ * them in its radial-gradient and also animates them on its own when idle.
  */
 function useMouseGlow<T extends HTMLElement>() {
   const ref = React.useRef<T | null>(null)
@@ -58,7 +58,14 @@ function useMouseGlow<T extends HTMLElement>() {
     el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
     el.style.setProperty('--my', `${e.clientY - rect.top}px`)
   }
-  return { ref, onMove }
+  // Handing --mx/--my back lets the idle drift animation resume on exit.
+  const onLeave = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.removeProperty('--mx')
+    el.style.removeProperty('--my')
+  }
+  return { ref, onMove, onLeave }
 }
 
 export function WalletView() {
@@ -74,9 +81,8 @@ export function WalletView() {
   const cashGlow = useMouseGlow<HTMLDivElement>()
   const pulseGlow = useMouseGlow<HTMLDivElement>()
 
-  // Card face digits are derived from the real card_ref issued by the admin
-  // approval flow (reviewCardApplication writes PULSE-xxxx-xxxx-xxxx-xxxx).
-  // No placeholder digits are ever invented — an unissued card shows bullets.
+  // Card digits derive from the real card_ref written by reviewCardApplication.
+  // No placeholder digits are invented — an unissued card shows bullets.
   const cardIssued = state.cardStatus === 'approved' || state.cardStatus === 'free_card_earned'
   const cardLast4 = React.useMemo(() => {
     if (!cardIssued || !state.cardRef) return null
@@ -84,7 +90,6 @@ export function WalletView() {
     return digits.length >= 4 ? digits.slice(-4) : null
   }, [cardIssued, state.cardRef])
 
-  // ---- Live sell calculator ----
   const sellAmountNum = Number(sellAmount) || 0
   const sellUsdValue = sellAmountNum * TOKEN.salePrice
   const sellExceedsBalance = sellAmountNum > state.pulse
@@ -150,8 +155,13 @@ export function WalletView() {
         </div>
       </div>
 
-      {/* CASH WALLET — hero card with live mouse-tracking glow */}
-      <div ref={cashGlow.ref} onPointerMove={cashGlow.onMove} className="pulse-hero-premium pulse-glow-track">
+      {/* CASH WALLET — hero card, always-on ambient glow + mouse tracking */}
+      <div
+        ref={cashGlow.ref}
+        onPointerMove={cashGlow.onMove}
+        onPointerLeave={cashGlow.onLeave}
+        className="pulse-hero-premium pulse-glow-track"
+      >
         <div className="relative z-[3] p-6 md:p-8">
           <span className="pulse-label">Cash Wallet</span>
           <div className="pulse-value-xl mt-2">${money(state.cash)}</div>
@@ -162,21 +172,21 @@ export function WalletView() {
           <div className="mt-5 grid grid-cols-3 gap-2.5">
             <button
               onClick={() => openModal('deposit')}
-              className="flex flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-2 py-3 text-black shadow-[0_8px_24px_-8px_rgba(245,158,11,0.6)] transition hover:brightness-110"
+              className="flex flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-2 py-3 text-black shadow-[0_8px_24px_-8px_rgba(245,158,11,0.7)] transition hover:brightness-110"
             >
               <ArrowDownToLine className="h-4 w-4" />
               <span className="text-[10px] font-semibold uppercase tracking-wide">Deposit</span>
             </button>
             <button
               onClick={() => openModal('withdraw')}
-              className="flex flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-3 text-zinc-200 transition hover:bg-white/[0.08]"
+              className="flex flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-2 py-3 text-zinc-200 transition hover:bg-white/[0.09]"
             >
               <ArrowUpFromLine className="h-4 w-4" />
               <span className="text-[10px] font-semibold uppercase tracking-wide">Withdraw</span>
             </button>
             <button
               onClick={() => openModal('transfer')}
-              className="flex flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-3 text-zinc-200 transition hover:bg-white/[0.08]"
+              className="flex flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-2 py-3 text-zinc-200 transition hover:bg-white/[0.09]"
             >
               <SendIcon className="h-4 w-4" />
               <span className="text-[10px] font-semibold uppercase tracking-wide">Send</span>
@@ -229,6 +239,7 @@ export function WalletView() {
       <div
         ref={pulseGlow.ref}
         onPointerMove={pulseGlow.onMove}
+        onPointerLeave={pulseGlow.onLeave}
         className="pulse-hero-premium pulse-hero-violet pulse-glow-track"
       >
         <div className="relative z-[3] p-6 md:p-8">
@@ -272,7 +283,7 @@ export function WalletView() {
                   <button
                     key={pct}
                     onClick={() => setPct(pct)}
-                    className="rounded-lg border border-white/10 bg-white/[0.03] py-1.5 font-mono text-[10px] font-semibold text-zinc-300 transition hover:border-amber-400/50 hover:bg-amber-400/10 hover:text-amber-400"
+                    className="rounded-lg border border-white/10 bg-white/[0.04] py-1.5 font-mono text-[10px] font-semibold text-zinc-300 transition hover:border-amber-400/50 hover:bg-amber-400/10 hover:text-amber-400"
                   >
                     {pct === 1 ? 'MAX' : `${pct * 100}%`}
                   </button>
@@ -309,7 +320,7 @@ export function WalletView() {
                 <button
                   onClick={handleSell}
                   disabled={busy || !sellAmountNum || sellAmountNum <= 0 || sellExceedsBalance}
-                  className="flex-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-black shadow-[0_8px_24px_-8px_rgba(245,158,11,0.6)] transition hover:brightness-110 disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-black shadow-[0_8px_24px_-8px_rgba(245,158,11,0.7)] transition hover:brightness-110 disabled:opacity-50"
                 >
                   Confirm Sale
                 </button>
@@ -318,7 +329,7 @@ export function WalletView() {
                     setSellOpen(false)
                     setSellAmount('')
                   }}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 transition hover:bg-white/[0.08]"
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 transition hover:bg-white/[0.09]"
                 >
                   Cancel
                 </button>
@@ -328,7 +339,7 @@ export function WalletView() {
             <button
               onClick={() => setSellOpen(true)}
               disabled={state.pulse <= 0}
-              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-amber-400 transition hover:bg-white/[0.08] disabled:opacity-40"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-amber-400 transition hover:bg-white/[0.09] disabled:opacity-40"
             >
               <Calculator className="h-3.5 w-3.5" />
               Sell PULSE for Cash
@@ -357,19 +368,19 @@ export function WalletView() {
             style={{ transform: cardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
           >
             {/* FRONT FACE */}
-            <div className="shimmer-sweep absolute inset-0 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-600 p-5 text-left shadow-lg shadow-amber-500/10 [backface-visibility:hidden]">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+            <div className="shimmer-sweep absolute inset-0 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-600 p-5 text-left shadow-lg shadow-amber-500/20 [backface-visibility:hidden]">
+              <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/25 blur-2xl" />
               <div className="flex items-start justify-between">
                 <p className="text-lg font-bold tracking-tight text-black">PULSE</p>
                 <div className="h-6 w-8 rounded bg-black/20" />
               </div>
               <p className="mt-8 font-mono text-sm tracking-[0.3em] text-black/80">
-                •••• •••• •••• {cardLast4 ?? '••••'}
+                &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; {cardLast4 ?? '\u2022\u2022\u2022\u2022'}
               </p>
               <div className="mt-4 flex items-end justify-between">
                 <div>
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-black/60">
-                    {state.tier ? `Valued member · Tier ${state.tier}` : 'Valued member'}
+                    {state.tier ? `Valued member \u00b7 Tier ${state.tier}` : 'Valued member'}
                   </p>
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-black/60">
                     Linked to Pulse wallet
@@ -389,16 +400,16 @@ export function WalletView() {
               <div className="mt-5 flex items-center justify-between rounded-md bg-zinc-200/90 px-3 py-2">
                 <span className="text-xs italic text-zinc-500">Authorized signature</span>
                 <span className="font-mono text-xs font-semibold text-black">
-                  {cardIssued ? '•••' : '—'}
+                  {cardIssued ? '\u2022\u2022\u2022' : '\u2014'}
                 </span>
               </div>
               <p className="mt-4 text-[9px] leading-relaxed text-zinc-500">
                 This card is issued subject to Pulse Card Terms. Report loss or unauthorized use immediately via
-                Profile → Support. Not a bank deposit — funds are held in your Pulse cash wallet.
+                Profile &rarr; Support. Not a bank deposit — funds are held in your Pulse cash wallet.
               </p>
               <p className="pulse-label mt-3 normal-case tracking-normal text-zinc-600">
                 {cardIssued
-                  ? `Card active${state.cardRef ? ` · ${state.cardRef}` : ''}`
+                  ? `Card active${state.cardRef ? ` \u00b7 ${state.cardRef}` : ''}`
                   : 'Card inactive — pending issuance'}
               </p>
             </div>
@@ -421,7 +432,7 @@ export function WalletView() {
         )}
       </div>
 
-      {/* LIVE ACTIVITY FEED — reads state.txns directly, no local cache */}
+      {/* LIVE ACTIVITY FEED */}
       <div className="pulse-glass-card pulse-static overflow-hidden">
         <div className="pulse-vault-header">
           <span className="pulse-label">Live Activity Feed</span>
@@ -440,7 +451,7 @@ export function WalletView() {
               return (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-white/[0.02]"
+                  className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-white/[0.03]"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white">{tx.label}</p>
@@ -464,7 +475,7 @@ export function WalletView() {
       {/* RISK DISCLAIMER */}
       <div className="pulse-glass-card pulse-static space-y-2 p-4">
         <div className="pulse-disclaimer-title flex items-center gap-2">
-          <span>⚠️</span>
+          <span>&#9888;&#65039;</span>
           <span>Risk Disclaimer</span>
         </div>
         <p className="pulse-disclaimer">
