@@ -1,15 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { motion } from 'framer-motion'
-import {
-  Copy,
-  Gift,
-  Lock,
-  LogOut,
-  User,
-  ChevronDown,
-} from 'lucide-react'
+import { Copy, Gift, Lock, LogOut, User, ChevronDown } from 'lucide-react'
 import { usePulse } from '../store'
 import { Button } from '@/components/ui/button'
 import type { LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
@@ -24,12 +17,16 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
 }
 
-// FIXED: real persistent ref via useRef, matching dashboard.tsx/wallet.tsx exactly.
-// The previous version created a plain object each render, which only worked on
-// first mount and silently stopped tracking the mouse after any re-render.
+/**
+ * Persistent-ref mouse glow, identical to dashboard.tsx / wallet.tsx.
+ *
+ * NOTE: the PointerEvent type is imported explicitly rather than written as
+ * `React.PointerEvent`. This file is an ES module with no default React
+ * import, so `React.X` would resolve to the UMD global and fail type-check.
+ */
 function useMouseGlow<T extends HTMLElement>() {
   const ref = useRef<T | null>(null)
-  const onMove = (e: React.PointerEvent<T>) => {
+  const onMove = (e: ReactPointerEvent<T>) => {
     const el = ref.current
     if (!el) return
     const rect = el.getBoundingClientRect()
@@ -110,7 +107,7 @@ export function ProfileView() {
     setLoadingReferrals(false)
   }
 
-  // Admin button is ALWAYS visible; claimAdmin() checks real profiles.role server-side.
+  // Admin button is always visible; claimAdmin() checks profiles.role server-side.
   const openAdmin = async () => {
     const res = await api.claimAdmin()
     if (res.ok) {
@@ -127,28 +124,24 @@ export function ProfileView() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl"
+      className="pulse-executive-shell mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl"
     >
       {/* SECTION HEADER */}
       <motion.div variants={itemVariants} className="pulse-glass-card pulse-static flex items-center gap-3 p-4">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
-          <User className="h-4.5 w-4.5 text-amber-400" />
+          <User className="h-4 w-4 text-amber-400" />
         </span>
         <div>
-          <h2 className="text-lg font-bold text-white font-display">Profile</h2>
+          <h2 className="text-lg font-bold text-white">Profile</h2>
           <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">
             Account details, verification, and network activity.
           </p>
         </div>
       </motion.div>
 
-      {/* PROFILE HERO CARD — now with REAL mouse-tracking glow wired in */}
+      {/* PROFILE HERO CARD — live mouse-tracking glow */}
       <motion.div variants={itemVariants}>
-        <div
-          ref={heroGlow.ref}
-          onPointerMove={heroGlow.onMove}
-          className="pulse-hero-premium pulse-glow-track"
-        >
+        <div ref={heroGlow.ref} onPointerMove={heroGlow.onMove} className="pulse-hero-premium pulse-glow-track">
           <div className="relative z-[3] p-6 md:p-8">
             <div className="flex items-center gap-4">
               <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/15 text-amber-400">
@@ -166,7 +159,7 @@ export function ProfileView() {
                     />
                     <Button
                       size="sm"
-                      className="bg-amber-400 font-bold text-black hover:bg-amber-300"
+                      className="bg-amber-400 font-semibold text-black hover:bg-amber-300"
                       disabled={savingUsername}
                       onClick={saveUsername}
                     >
@@ -192,8 +185,7 @@ export function ProfileView() {
                   </button>
                 )}
                 <p className="pulse-label mt-1 truncate normal-case tracking-normal text-zinc-400">
-                  {displayName} &middot;{' '}
-                  <span className="pulse-value-accent font-mono">{currentTier.name} tier</span>
+                  {displayName} &middot; <span className="pulse-value-accent">{currentTier.name} tier</span>
                 </p>
               </div>
             </div>
@@ -201,7 +193,7 @@ export function ProfileView() {
             {state.walletId && (
               <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-500/20 bg-black/40 px-3.5 py-2.5">
                 <span className="pulse-label">Pulse Wallet ID</span>
-                <span className="pulse-value-accent font-mono">{state.walletId}</span>
+                <span className="pulse-value-accent">{state.walletId}</span>
               </div>
             )}
           </div>
@@ -223,7 +215,11 @@ export function ProfileView() {
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-black/40 px-3.5 py-2.5">
           <span className="flex-1 truncate font-mono text-sm text-amber-300">{referralLink}</span>
-          <button onClick={copyRef} className="text-amber-400 transition-colors hover:text-white" aria-label="Copy referral link">
+          <button
+            onClick={copyRef}
+            className="shrink-0 text-amber-400 transition-colors hover:text-white"
+            aria-label="Copy referral link"
+          >
             <Copy className="h-4 w-4" />
           </button>
         </div>
@@ -241,11 +237,11 @@ export function ProfileView() {
           </motion.span>
         </button>
         {loadingReferrals && !myReferrals ? (
-          <p className="p-5 font-mono text-xs text-zinc-500">Loading…</p>
+          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading…</p>
         ) : myReferrals ? (
           <div className="divide-y divide-white/[0.06]">
             {myReferrals.length === 0 ? (
-              <p className="p-5 font-mono text-xs text-zinc-500">No referrals yet.</p>
+              <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">No referrals yet.</p>
             ) : (
               myReferrals.map((r, i) => (
                 <div key={i} className="flex items-center justify-between p-4">
@@ -260,7 +256,7 @@ export function ProfileView() {
         ) : null}
       </motion.div>
 
-      {/* TOP REFERRERS / LEADERBOARD */}
+      {/* TOP REFERRERS */}
       <motion.div variants={itemVariants} className="pulse-glass-card pulse-static overflow-hidden">
         <button onClick={toggleLeaderboard} className="pulse-vault-header w-full text-left">
           <div>
@@ -272,11 +268,11 @@ export function ProfileView() {
           </motion.span>
         </button>
         {loadingBoard && !leaderboard ? (
-          <p className="p-5 font-mono text-xs text-zinc-500">Loading…</p>
+          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading…</p>
         ) : leaderboard ? (
           <div className="divide-y divide-white/[0.06]">
             {leaderboard.length === 0 ? (
-              <p className="p-5 font-mono text-xs text-zinc-500">No data yet.</p>
+              <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">No data yet.</p>
             ) : (
               leaderboard.map((row) => (
                 <div key={row.rank} className="flex items-center justify-between p-4">
@@ -303,11 +299,11 @@ export function ProfileView() {
           </motion.span>
         </button>
         {loadingFounders && !founders ? (
-          <p className="p-5 font-mono text-xs text-zinc-500">Loading…</p>
+          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading…</p>
         ) : founders ? (
           <div className="divide-y divide-white/[0.06]">
             {founders.length === 0 ? (
-              <p className="p-5 font-mono text-xs text-zinc-500">No founders listed yet.</p>
+              <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">No founders listed yet.</p>
             ) : (
               founders.map((f) => (
                 <div key={f.founderNumber} className="flex items-center justify-between p-4">
@@ -321,13 +317,13 @@ export function ProfileView() {
         ) : null}
       </motion.div>
 
-      {/* ADMIN PANEL ACCESS — now with REAL mouse-tracking glow wired in */}
+      {/* ADMIN PANEL ACCESS — live mouse-tracking glow */}
       <motion.div variants={itemVariants}>
         <button
           ref={adminGlow.ref}
           onPointerMove={adminGlow.onMove}
           onClick={openAdmin}
-          className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 font-mono text-sm font-bold uppercase tracking-wide text-amber-300"
+          className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 text-sm font-semibold uppercase tracking-wide text-amber-300"
         >
           <Lock className="h-4 w-4" />
           Admin Dashboard
@@ -338,15 +334,15 @@ export function ProfileView() {
       <motion.div variants={itemVariants}>
         <button
           onClick={signOut}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 font-mono text-sm font-bold uppercase tracking-wide text-zinc-400 transition hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm font-semibold uppercase tracking-wide text-zinc-400 transition hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400"
         >
           <LogOut className="h-4 w-4" /> Sign out
         </button>
       </motion.div>
 
-      {/* RISK DISCLAIMER — unified font, matches dashboard/wallet */}
+      {/* RISK DISCLAIMER */}
       <motion.div variants={itemVariants} className="pulse-glass-card pulse-static space-y-2 p-4">
-        <div className="flex items-center space-x-2 pulse-disclaimer-title">
+        <div className="pulse-disclaimer-title flex items-center gap-2">
           <span>⚠️</span>
           <span>Risk Disclaimer</span>
         </div>
