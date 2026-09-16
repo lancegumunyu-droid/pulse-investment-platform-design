@@ -4,11 +4,26 @@
 
 /* ============================================================
    PULSE THEME v3 — Obsidian & Deep Space
-   Single source of truth for typography, colour, and glow.
-   Font law: Inter everywhere, JetBrains Mono for numerals only.
+   FONT LAW: Plus Jakarta Sans everywhere (the face in the invest
+   modal), Roboto as the declared system fallback, JetBrains Mono
+   for numerals only. No third typeface is loaded anywhere.
    ============================================================ */
 
 @custom-variant dark (&:is(.dark *));
+
+/* Registering --mx / --my lets the ambient glow animate them in CSS
+   with no pointer input at all, so hero cards breathe on page load and
+   on touch devices. The JS hook overwrites them live on pointer move. */
+@property --mx {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+@property --my {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -37,14 +52,11 @@
   --color-green-soft: var(--green-soft);
   --color-danger: var(--danger);
 
-  /* ONE interface font. --font-inter is injected by app/layout.tsx and
-     app/(site)/layout.tsx. Roboto is the declared system fallback. */
-  --font-sans: var(--font-inter), 'Inter', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: var(--font-mono-num), 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* Display intentionally resolves to the SAME stack as sans — no second
-     typeface anywhere in the app. Kept as a variable so existing
-     `font-display` class usages keep working instead of breaking. */
-  --font-display: var(--font-inter), 'Inter', Roboto, -apple-system, sans-serif;
+  /* Resolves to the SAME stack as sans so legacy `font-display` usages keep
+     working without introducing a second typeface. */
+  --font-display: var(--font-jakarta), 'Plus Jakarta Sans', Roboto, -apple-system, sans-serif;
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -105,32 +117,26 @@
     min-height: 100vh;
     min-height: 100dvh;
     background-image:
-      radial-gradient(70rem 70rem at 85% -10%, rgba(245, 158, 11, 0.14), transparent 60%),
-      radial-gradient(60rem 60rem at -10% 25%, rgba(16, 185, 129, 0.10), transparent 55%),
-      radial-gradient(50rem 50rem at 50% 110%, rgba(245, 158, 11, 0.08), transparent 50%);
+      radial-gradient(70rem 70rem at 85% -10%, rgba(245, 158, 11, 0.16), transparent 60%),
+      radial-gradient(60rem 60rem at -10% 25%, rgba(16, 185, 129, 0.12), transparent 55%),
+      radial-gradient(50rem 50rem at 50% 110%, rgba(245, 158, 11, 0.10), transparent 50%);
     background-attachment: fixed;
     overflow-x: hidden;
   }
 
-  /* ZERO EXCEPTIONS RULE — every element inherits the one interface font.
-     Form controls are the usual offenders (browsers force their own UI font),
-     so they are named explicitly. Anything that must be monospaced opts in
-     via .font-mono / .pulse-value-* / .pulse-label, which win on specificity. */
+  /* ZERO EXCEPTIONS. Form controls are the usual leak — browsers force their
+     own UI font onto them, which is what made buttons and selects look
+     different from the rest of the app. */
   h1, h2, h3, h4, h5, h6,
   p, span, div, a, li, td, th, label, legend,
   button, input, select, textarea, optgroup, option {
     font-family: inherit;
   }
 
-  /* Headings: Bold/Semi-Bold only */
   h1, h2, h3 { font-weight: 700; letter-spacing: -0.025em; }
   h4, h5, h6 { font-weight: 600; letter-spacing: -0.015em; }
-
-  /* Body copy: Regular only */
   p { font-weight: 400; }
 
-  /* Every numeral in the app aligns on a tabular grid, even inside
-     plain Tailwind text, so decimals never jitter between rows. */
   .font-mono, [class*='pulse-value'], [class*='pulse-figure'], .pulse-chip, .tabular-nums {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1, 'zero' 1;
@@ -145,7 +151,6 @@
     letter-spacing: -0.03em;
     font-family: var(--font-sans);
   }
-
   @media (min-width: 640px) { .text-hero { font-size: 48px; } }
   @media (min-width: 1024px) { .text-hero { font-size: 60px; } }
   @media (min-width: 1280px) { .text-hero { font-size: 72px; } }
@@ -167,13 +172,11 @@
     border-color: rgba(255,255,255,.18);
     box-shadow: 0 25px 60px -25px #000, 0 0 35px rgba(245,158,11,.18);
   }
-
   .pulse-screen input, .pulse-screen textarea, .pulse-screen select {
     border-color: rgba(255,255,255,.2);
     background: rgba(255,255,255,.06);
     color: #f4f4f6;
   }
-
   .pulse-screen button:not([aria-label]) {
     transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .3s cubic-bezier(0.16, 1, 0.3, 1), filter .3s ease;
   }
@@ -229,7 +232,6 @@
   .pulse-view h1, .pulse-view h2, .pulse-view h3 { font-family: var(--font-sans); letter-spacing: -.025em; }
   .pulse-view .rounded-3xl, .pulse-view .rounded-2xl { box-shadow: 0 25px 60px -25px #000, 0 0 30px rgba(245,158,11,.12); }
   .pulse-view .border-white\/10 { border-color: rgba(255,255,255,.2); }
-
   .pulse-app button:active { transform: scale(.96); }
 
   @keyframes pulse-shimmer {
@@ -301,7 +303,6 @@
     border-color: rgba(245, 158, 11, 0.7);
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3), 0 0 15px rgba(16, 185, 129, 0.15);
   }
-  /* Numeric inputs get tabular figures so typed amounts align with displayed ones */
   .pulse-input[type='number'] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -347,21 +348,18 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(75deg, transparent 35%, rgba(254, 240, 138, 0.18) 50%, rgba(16, 185, 129, 0.12) 65%, transparent 80%);
+    background: linear-gradient(75deg, transparent 35%, rgba(254, 240, 138, 0.22) 50%, rgba(16, 185, 129, 0.14) 65%, transparent 80%);
     animation: shimmer-sweep 4s ease-in-out infinite;
     pointer-events: none;
   }
 
-  /* ============================================
-     MOUSE-TRACKING GLOW (generic)
-     ============================================ */
   .mouse-glow { position: relative; }
   .mouse-glow::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(245, 158, 11, 0.20), transparent 70%);
+    background: radial-gradient(420px circle at var(--mx) var(--my), rgba(245, 158, 11, 0.22), transparent 70%);
     opacity: 0;
     transition: opacity 0.35s ease;
     pointer-events: none;
@@ -388,9 +386,6 @@
     }
   }
 
-  /* ============================================
-     TABULAR FINANCIAL TELEMETRY
-     ============================================ */
   .pulse-figure {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -406,9 +401,6 @@
     letter-spacing: -0.01em;
   }
 
-  /* ============================================
-     HERO CARD — Preview 3 Standard
-     ============================================ */
   .pulse-hero-card {
     position: relative;
     overflow: hidden;
@@ -433,7 +425,6 @@
     pointer-events: none;
   }
 
-  /* Live status dot */
   .pulse-live-dot { position: relative; display: inline-flex; height: 8px; width: 8px; }
   .pulse-live-dot::before {
     content: '';
@@ -467,13 +458,13 @@
   }
 
   /* ============================================
-     TYPOGRAPHY SCALE — the ONLY approved treatments
+     TYPOGRAPHY SCALE — the only approved treatments
      for labels and numbers anywhere in the app.
      ============================================ */
   .pulse-label {
     font-family: var(--font-sans);
     font-size: 10px;
-    font-weight: 500;              /* Medium — sub-labels & metadata */
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgba(161, 161, 170, 0.9);
@@ -486,6 +477,7 @@
     color: #ffffff;
     font-size: clamp(2rem, 5vw, 3rem);
     line-height: 1.05;
+    text-shadow: 0 0 30px rgba(245, 158, 11, 0.25);
   }
   .pulse-value-md {
     font-family: var(--font-mono);
@@ -495,7 +487,6 @@
     color: #ffffff;
     font-size: 1rem;
   }
-  /* ADDED — was used by wallet.tsx but never defined. */
   .pulse-value-sm {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -511,94 +502,141 @@
     letter-spacing: -0.01em;
     color: #fbbf24;
     font-size: 0.875rem;
+    text-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
   }
 
   /* ============================================
-     MOUSE-TRACKING GLOW — wired to the useMouseGlow
-     hook in dashboard.tsx / wallet.tsx / profile.tsx.
-     The hook writes --mx / --my in px on the element;
-     the fallbacks keep the card looking right before
-     the first pointer event and on touch devices.
+     GLOW TRACK — TWO LAYERS.
+     ::after is ALWAYS ON and self-animating, so every hero card
+     breathes on load with no hover, no scroll, no pointer at all
+     (this is what was missing — the old rule only lit up on hover).
+     ::before is the mouse-tracked layer written by useMouseGlow.
      ============================================ */
-  .pulse-glow-track { position: relative; }
+  @keyframes pulse-ambient-drift {
+    0%   { --mx: 18%; --my: 12%; opacity: 0.55; }
+    25%  { --mx: 78%; --my: 4%;  opacity: 0.85; }
+    50%  { --mx: 88%; --my: 62%; opacity: 0.6; }
+    75%  { --mx: 26%; --my: 78%; opacity: 0.85; }
+    100% { --mx: 18%; --my: 12%; opacity: 0.55; }
+  }
+  @keyframes pulse-ambient-breathe {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50%      { opacity: 0.9; transform: scale(1.04); }
+  }
+
+  .pulse-glow-track { position: relative; isolation: isolate; }
+
+  /* Always-on ambient glow */
+  .pulse-glow-track::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 1;
+    background:
+      radial-gradient(60% 55% at 22% 8%, rgba(16, 185, 129, 0.30), transparent 70%),
+      radial-gradient(65% 60% at 84% 88%, rgba(245, 158, 11, 0.34), transparent 70%),
+      radial-gradient(40% 40% at 60% 40%, rgba(254, 240, 138, 0.14), transparent 72%);
+    animation: pulse-ambient-breathe 5.5s ease-in-out infinite;
+  }
+
+  /* Mouse-tracked glow, layered above the ambient one */
   .pulse-glow-track::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    /* Brighter + wider than before: the previous 0.14 alpha was effectively
-       invisible against the hero card's own background glow. */
-    background:
-      radial-gradient(520px circle at var(--mx, 50%) var(--my, 0%), rgba(245, 158, 11, 0.28), transparent 68%),
-      radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), rgba(254, 240, 138, 0.14), transparent 60%);
-    opacity: 0;
-    transition: opacity 0.35s ease;
     pointer-events: none;
     z-index: 2;
+    background:
+      radial-gradient(520px circle at var(--mx) var(--my), rgba(245, 158, 11, 0.34), transparent 66%),
+      radial-gradient(240px circle at var(--mx) var(--my), rgba(254, 240, 138, 0.20), transparent 60%);
+    opacity: 0.7;
+    /* Drifts on its own until a pointer takes over. */
+    animation: pulse-ambient-drift 14s ease-in-out infinite;
+    transition: opacity 0.3s ease;
   }
   .pulse-glow-track:hover::before,
-  .pulse-glow-track:focus-within::before { opacity: 1; }
-
-  /* Touch devices never fire hover — show a gentle static sheen instead
-     so the card is never visually dead on mobile. */
-  @media (hover: none) {
-    .pulse-glow-track::before {
-      opacity: 0.55;
-      background: radial-gradient(420px circle at 50% 0%, rgba(245, 158, 11, 0.18), transparent 65%);
-    }
+  .pulse-glow-track:focus-within::before {
+    opacity: 1;
+    /* Pausing the drift hands --mx/--my back to the JS hook instantly. */
+    animation-play-state: paused;
   }
 
   /* ============================================
-     HERO CARDS
+     HERO CARDS — deeper base, brighter rim
      ============================================ */
   .pulse-hero-premium {
     position: relative;
     overflow: hidden;
     border-radius: 1.75rem;
     background:
-      radial-gradient(120% 100% at 8% 0%, rgba(21, 40, 24, 1), transparent 58%),
-      radial-gradient(120% 100% at 95% 100%, rgba(36, 26, 14, 1), transparent 58%),
-      linear-gradient(160deg, #171510 0%, #0d0c0a 60%, #080706 100%);
-    border: 1px solid rgba(245, 158, 11, 0.45);
+      radial-gradient(130% 110% at 6% 0%, rgba(10, 46, 30, 1), transparent 60%),
+      radial-gradient(130% 110% at 96% 100%, rgba(48, 32, 10, 1), transparent 60%),
+      linear-gradient(160deg, #12100b 0%, #090806 62%, #050404 100%);
+    border: 1px solid rgba(245, 158, 11, 0.55);
     box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-      0 0 60px rgba(16, 185, 129, 0.20),
-      0 0 100px rgba(245, 158, 11, 0.26),
-      0 30px 70px -30px rgba(0, 0, 0, 0.9);
+      0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+      0 0 70px rgba(16, 185, 129, 0.26),
+      0 0 120px rgba(245, 158, 11, 0.34),
+      0 30px 70px -28px rgba(0, 0, 0, 0.95);
+    animation: pulse-hero-halo 6s ease-in-out infinite;
     transition: box-shadow 0.4s ease, border-color 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .pulse-hero-premium:hover {
-    border-color: rgba(245, 158, 11, 0.7);
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-      0 0 80px rgba(16, 185, 129, 0.26),
-      0 0 130px rgba(245, 158, 11, 0.36),
-      0 35px 80px -30px rgba(0, 0, 0, 0.95);
-    transform: translateY(-2px);
+  /* The rim light pulses on its own — no hover required. */
+  @keyframes pulse-hero-halo {
+    0%, 100% {
+      border-color: rgba(245, 158, 11, 0.5);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 0 70px rgba(16, 185, 129, 0.24),
+        0 0 120px rgba(245, 158, 11, 0.30),
+        0 30px 70px -28px rgba(0, 0, 0, 0.95);
+    }
+    50% {
+      border-color: rgba(251, 191, 36, 0.85);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+        0 0 95px rgba(16, 185, 129, 0.34),
+        0 0 160px rgba(245, 158, 11, 0.46),
+        0 35px 80px -28px rgba(0, 0, 0, 0.98);
+    }
   }
+  .pulse-hero-premium:hover { transform: translateY(-3px); }
 
-  /* ADDED — was used by wallet.tsx's Pulse-token hero but never defined.
-     Same structure as pulse-hero-premium, violet-leaning so the token
-     wallet reads as a different asset class from the cash wallet. */
+  /* Violet variant for the PULSE token wallet */
   .pulse-hero-violet {
     background:
-      radial-gradient(120% 100% at 8% 0%, rgba(38, 24, 56, 1), transparent 58%),
-      radial-gradient(120% 100% at 95% 100%, rgba(36, 26, 14, 1), transparent 58%),
-      linear-gradient(160deg, #16121d 0%, #0c0a10 60%, #070608 100%);
-    border-color: rgba(167, 139, 250, 0.35);
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-      0 0 60px rgba(139, 92, 246, 0.18),
-      0 0 100px rgba(245, 158, 11, 0.18),
-      0 30px 70px -30px rgba(0, 0, 0, 0.9);
+      radial-gradient(130% 110% at 6% 0%, rgba(44, 20, 72, 1), transparent 60%),
+      radial-gradient(130% 110% at 96% 100%, rgba(48, 32, 10, 1), transparent 60%),
+      linear-gradient(160deg, #130f1d 0%, #0a0810 62%, #050406 100%);
+    border-color: rgba(167, 139, 250, 0.5);
+    animation: pulse-hero-halo-violet 6s ease-in-out infinite;
   }
-  .pulse-hero-violet:hover {
-    border-color: rgba(167, 139, 250, 0.55);
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-      0 0 80px rgba(139, 92, 246, 0.26),
-      0 0 130px rgba(245, 158, 11, 0.24),
-      0 35px 80px -30px rgba(0, 0, 0, 0.95);
+  @keyframes pulse-hero-halo-violet {
+    0%, 100% {
+      border-color: rgba(167, 139, 250, 0.42);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 0 70px rgba(139, 92, 246, 0.26),
+        0 0 120px rgba(245, 158, 11, 0.22),
+        0 30px 70px -28px rgba(0, 0, 0, 0.95);
+    }
+    50% {
+      border-color: rgba(196, 181, 253, 0.8);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+        0 0 95px rgba(139, 92, 246, 0.38),
+        0 0 160px rgba(245, 158, 11, 0.30),
+        0 35px 80px -28px rgba(0, 0, 0, 0.98);
+    }
+  }
+  .pulse-hero-violet.pulse-glow-track::after {
+    background:
+      radial-gradient(60% 55% at 22% 8%, rgba(139, 92, 246, 0.34), transparent 70%),
+      radial-gradient(65% 60% at 84% 88%, rgba(245, 158, 11, 0.30), transparent 70%),
+      radial-gradient(40% 40% at 60% 40%, rgba(233, 213, 255, 0.12), transparent 72%);
   }
 
   .pulse-hero-telemetry {
@@ -615,7 +653,7 @@
     top: 15%;
     height: 70%;
     width: 1px;
-    background: linear-gradient(180deg, transparent, rgba(245, 158, 11, 0.25), transparent);
+    background: linear-gradient(180deg, transparent, rgba(245, 158, 11, 0.3), transparent);
   }
 
   /* ============================================
@@ -625,15 +663,15 @@
     position: relative;
     border-radius: 1.25rem;
     background:
-      radial-gradient(140% 140% at 0% 0%, rgba(245, 158, 11, 0.08), transparent 60%),
-      linear-gradient(160deg, #141210 0%, #0c0a09 100%);
-    border: 1px solid rgba(245, 158, 11, 0.24);
-    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.85), 0 0 20px rgba(245, 158, 11, 0.05);
+      radial-gradient(140% 140% at 0% 0%, rgba(245, 158, 11, 0.10), transparent 60%),
+      linear-gradient(160deg, #121009 0%, #0a0807 100%);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.9), 0 0 24px rgba(245, 158, 11, 0.08);
     transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .pulse-glass-card:hover {
-    border-color: rgba(245, 158, 11, 0.55);
-    box-shadow: 0 25px 55px -25px rgba(0, 0, 0, 0.9), 0 0 40px rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.6);
+    box-shadow: 0 25px 55px -25px rgba(0, 0, 0, 0.92), 0 0 46px rgba(245, 158, 11, 0.2);
     transform: translateY(-3px);
   }
 
@@ -643,19 +681,18 @@
     justify-content: space-between;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     padding: 0.875rem 1.25rem;
-    background: linear-gradient(180deg, rgba(245, 158, 11, 0.04), transparent);
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.05), transparent);
   }
 
-  /* Non-interactive variant: same look, no hover lift. */
   .pulse-static { transform: none !important; }
   .pulse-static:hover {
     transform: none !important;
-    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.85) !important;
-    border-color: rgba(245, 158, 11, 0.24) !important;
+    box-shadow: 0 20px 45px -25px rgba(0, 0, 0, 0.9) !important;
+    border-color: rgba(245, 158, 11, 0.28) !important;
   }
 
   /* ============================================
-     STATUS CHIPS — the ONLY badge style in the app
+     STATUS CHIPS
      ============================================ */
   .pulse-chip {
     display: inline-flex;
@@ -665,33 +702,16 @@
     padding: 0.2rem 0.65rem;
     font-family: var(--font-sans);
     font-size: 10px;
-    font-weight: 500;              /* Medium — badges */
+    font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
-  .pulse-chip-green {
-    color: #34d399;
-    background: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.35);
-  }
-  .pulse-chip-gold {
-    color: #fbbf24;
-    background: rgba(245, 158, 11, 0.12);
-    border: 1px solid rgba(245, 158, 11, 0.35);
-  }
-  /* ADDED — both were referenced by wallet.tsx's chipClass() but never defined. */
-  .pulse-chip-muted {
-    color: #a1a1aa;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-  }
-  .pulse-chip-red {
-    color: #fb7185;
-    background: rgba(244, 63, 94, 0.12);
-    border: 1px solid rgba(244, 63, 94, 0.35);
-  }
+  .pulse-chip-green { color: #34d399; background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.4); }
+  .pulse-chip-gold  { color: #fbbf24; background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(245, 158, 11, 0.4); }
+  .pulse-chip-muted { color: #a1a1aa; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); }
+  .pulse-chip-red   { color: #fb7185; background: rgba(244, 63, 94, 0.14); border: 1px solid rgba(244, 63, 94, 0.4); }
 
   /* ============================================
      RISK DISCLAIMER — one treatment, every screen
@@ -707,28 +727,27 @@
   .pulse-disclaimer {
     font-family: var(--font-sans);
     font-size: 11px;
-    font-weight: 400;              /* Regular — body copy */
+    font-weight: 400;
     line-height: 1.6;
-    color: rgba(251, 191, 36, 0.72);
+    color: rgba(251, 191, 36, 0.75);
   }
 
   .pulse-glow-frame {
-    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12) inset, 0 0 30px rgba(245, 158, 11, 0.06);
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.14) inset, 0 0 34px rgba(245, 158, 11, 0.08);
   }
 
-  /* Live-sync indicator used by the activity feeds */
   .pulse-sync-dot {
     display: inline-block;
     height: 6px;
     width: 6px;
     border-radius: 9999px;
     background: #10b981;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.9);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 1);
     animation: heartbeat-icon 1.8s ease-in-out infinite;
   }
 
   /* ============================================
-     REDUCED MOTION — single consolidated block
+     REDUCED MOTION
      ============================================ */
   @media (prefers-reduced-motion: reduce) {
     .animate-pulse-beat,
@@ -739,11 +758,14 @@
     .pulse-sync-dot,
     .shimmer-sweep::after,
     .pulse-hero-card::after,
+    .pulse-hero-premium,
+    .pulse-hero-violet,
+    .pulse-glow-track::before,
+    .pulse-glow-track::after,
     .pulse-img-skeleton {
       animation: none !important;
       transition: none !important;
     }
-    .pulse-glow-track::before { display: none; }
     .pulse-hero-premium:hover,
     .pulse-glass-card:hover { transform: none; }
   }
