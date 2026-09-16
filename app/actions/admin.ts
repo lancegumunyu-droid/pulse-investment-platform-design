@@ -3,8 +3,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
 import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
-import type { AdminSnapshot } from '@/lib/pulse/types'
-import type { Project, Signal } from '@/lib/pulse/pulse-data'
+import type {
+  AdminSnapshot,
+  AdminUserRow,
+  AdminKycRow,
+  AdminTxnRow,
+  AdminCardRow,
+  AdminP2PRow,
+} from '@/lib/pulse/types'
+// FIX #4 — BUILD BLOCKER. This used to import from '@/lib/pulse/pulse-data',
+// a path that does not exist. The real module is '@/lib/pulse-data'.
+import type { Project, Signal } from '@/lib/pulse-data'
 
 type AdminScope = 'full' | 'finance' | 'operations' | 'manager' | 'director'
 
@@ -26,18 +35,17 @@ async function requireAdminScope(allowed: AdminScope[]) {
   const user = await requireAdmin()
   const db = serviceClient()
   const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
-  
-  const scope = (data?.admin_scope as AdminScope | null)
-  
-  // Strict Security: Do not silently fallback high privileges if undefined. Require explicit scope.
-  if (!scope) {
-    if (!allowed.includes('operations')) {
-      throw new Error(`This action requires an explicit admin scope configuration.`)
-    }
+
+  const scope = data?.admin_scope as AdminScope | null
+
+  // No implicit privilege. An admin with no scope set can only perform
+  // actions that explicitly allow 'operations'.
+  if (!scope && !allowed.includes('operations')) {
+    throw new Error('This action requires an explicit admin scope configuration.')
   }
 
   const effectiveScope: AdminScope = scope ?? 'operations'
-  if (!allowed.includes('full') && !allowed.includes(effectiveScope)) {
+  if (effectiveScope !== 'full' && !allowed.includes(effectiveScope)) {
     throw new Error(`This action requires ${allowed.join(' or ')} admin access`)
   }
   return user
@@ -54,19 +62,20 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     await requireAdmin()
     const db = serviceClient()
 
-    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] = await Promise.all([
-      db.from('profiles').select('*').order('created_at', { ascending: false }).limit(500),
-      db.from('accounts').select('*').limit(500),
-      db.from('kyc_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
-      db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
-      db.from('card_applications').select('*').order('created_at', { ascending: false }).limit(200),
-    ])
+    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] =
+      await Promise.all([
+        db.from('profiles').select('*').order('created_at', { ascending: false }).limit(500),
+        db.from('accounts').select('*').limit(500),
+        db.from('kyc_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
+        db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
+        db.from('card_applications').select('*').order('created_at', { ascending: false }).limit(200),
+      ])
 
     const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
     const emailMap = new Map((profiles ?? []).map((p) => [p.id, p.email]))
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
 
-    const users = (profiles ?? []).map((p) => {
+    const users: AdminUserRow[] = (profiles ?? []).map((p) => {
       const a = acctMap.get(p.id)
       return {
         id: p.id,
@@ -75,13 +84,17 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         username: p.username,
         role: p.role,
         kycStatus: p.kyc_status,
+        // FIX #5 — admin.tsx renders `u.kycVerified` to decide the
+        // Verified/Pending pill. It was never in the payload, so every user
+        // showed "Pending" regardless of their real KYC state.
+        kycVerified: p.kyc_status === 'verified',
         cash: Number(a?.cash_balance ?? 0),
         invested: Number(a?.invested_balance ?? 0),
         staked: Number(a?.staked_balance ?? 0),
         createdAt: new Date(p.created_at).getTime(),
         adminScope: p.admin_scope ?? null,
         managerId: p.managed_by ?? null,
-        isAdmin: p.role === 'admin',
+        isAdmin: p.role === 'admin' || p.role === 'super_admin',
       }
     })
 
@@ -92,7 +105,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     const totalInvested = (accounts ?? []).reduce((s, a) => s + Number(a.invested_balance ?? 0), 0)
     const totalStaked = (accounts ?? []).reduce((s, a) => s + Number(a.staked_balance ?? 0), 0)
 
-    const depositQueue = (txns ?? [])
+    const depositQueue: AdminTxnRow[] = (txns ?? [])
       .filter((t) => t.type === 'deposit' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -112,7 +125,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const withdrawalQueue = (txns ?? [])
+    const withdrawalQueue: AdminTxnRow[] = (txns ?? [])
       .filter((t) => t.type === 'withdrawal' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -126,14 +139,18 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
           status: t.status,
           reference: t.reference,
           createdAt: new Date(t.created_at).getTime(),
-          destinationAddress: (meta.wallet as string | null) ?? null,
+          // FIX #6 — requestWithdrawal() stores meta.destinationAddress, but
+          // this read meta.wallet, so the admin queue always showed "N/A" for
+          // the destination. Both keys are now accepted.
+          destinationAddress:
+            ((meta.destinationAddress as string | null) ?? (meta.wallet as string | null)) ?? null,
           walletName: (meta.walletName as string | null) ?? null,
           network: (meta.network as string | null) ?? null,
           broker: (meta.broker as string | null) ?? null,
         }
       })
 
-    const p2pQueue = (txns ?? [])
+    const p2pQueue: AdminP2PRow[] = (txns ?? [])
       .filter((t) => t.type === 'p2p_send' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -154,7 +171,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const recentTxns = (txns ?? []).slice(0, 40).map((t) => ({
+    const recentTxns: AdminTxnRow[] = (txns ?? []).slice(0, 40).map((t) => ({
       id: t.id,
       userId: t.user_id,
       email: emailMap.get(t.user_id) ?? null,
@@ -166,7 +183,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       createdAt: new Date(t.created_at).getTime(),
     }))
 
-    const cardQueue = (cardApps ?? [])
+    const cardQueue: AdminCardRow[] = (cardApps ?? [])
       .filter((c) => c.status === 'waitlisted')
       .map((c) => {
         const p = profileMap.get(c.user_id)
@@ -183,7 +200,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const kycQueue = (kyc ?? []).map((k) => ({
+    const kycQueue: AdminKycRow[] = (kyc ?? []).map((k) => ({
       id: k.id,
       userId: k.user_id,
       email: emailMap.get(k.user_id) ?? null,
@@ -207,6 +224,9 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       pendingCards: cardQueue.length,
       userCount: users.length,
       users,
+      // FIX #7 — admin.tsx maps over `snapshot.usersList`, which this action
+      // never returned. The Users tab rendered an empty table on every load.
+      usersList: users,
       kycQueue,
       withdrawalQueue,
       depositQueue,
@@ -250,9 +270,9 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
         .select('id')
         .eq('user_id', sub.user_id)
         .eq('type', 'yield')
-        .ilike('reference', 'welcome_bonus')
+        .eq('reference', 'welcome_bonus')
         .maybeSingle()
-      
+
       if (!alreadyBonused) {
         await adjustAccount(sub.user_id, { cash_balance: 35 })
         await recordTxn(sub.user_id, {
@@ -260,6 +280,10 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
           amount: 35,
           currency: 'USD',
           status: 'completed',
+          // FIX #8 — the duplicate guard above looks up reference ===
+          // 'welcome_bonus', but the insert never set a reference. Every KYC
+          // re-approval therefore paid the $35 bonus again.
+          reference: 'welcome_bonus',
           processedBy: admin.id,
           meta: { label: 'Welcome bonus' },
         })
@@ -268,9 +292,17 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
       await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
 
-      const { data: verifiedProfile } = await db.from('profiles').select('referred_by').eq('id', sub.user_id).maybeSingle()
+      const { data: verifiedProfile } = await db
+        .from('profiles')
+        .select('referred_by')
+        .eq('id', sub.user_id)
+        .maybeSingle()
       if (verifiedProfile?.referred_by) {
-        await db.rpc('award_points', { p_user_id: verifiedProfile.referred_by, p_amount: 100, p_reason: 'Your referral completed KYC' })
+        await db.rpc('award_points', {
+          p_user_id: verifiedProfile.referred_by,
+          p_amount: 100,
+          p_reason: 'Your referral completed KYC',
+        })
       }
     }
 
@@ -284,10 +316,7 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const { error: profErr } = await db
-      .from('profiles')
-      .update({ kyc_status: 'none' })
-      .eq('id', userId)
+    const { error: profErr } = await db.from('profiles').update({ kyc_status: 'none' }).eq('id', userId)
     if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
     return getAdminSnapshot()
   } catch (e) {
@@ -303,7 +332,7 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
   try {
     const admin = await requireAdminScope(['full', 'finance'])
     const db = serviceClient()
-    
+
     const newStatus = decision === 'approved' ? 'completed' : 'cancelled'
     const { data: txn, error: updateErr } = await db
       .from('transactions')
@@ -321,7 +350,7 @@ export async function reviewDeposit(id: string, decision: 'approved' | 'rejected
     if (decision === 'approved') {
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
     }
-    
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -347,10 +376,20 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
       return { ok: false, error: 'Withdrawal not found or already processed concurrently' }
     }
 
-    if (decision === 'rejected') {
-      await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
+    // FIX #9 — MONEY BUG. requestWithdrawal() never debits; it only logs a
+    // pending row. The old code refunded cash_balance on *rejection*, crediting
+    // money that was never taken. Approval is what must debit.
+    if (decision === 'approved') {
+      try {
+        await adjustAccount(txn.user_id, { cash_balance: -Number(txn.amount) })
+      } catch (err) {
+        // Roll the row back to pending so it is not silently marked paid
+        // when the account can no longer cover it.
+        await db.from('transactions').update({ status: 'pending', processed_by: null }).eq('id', id)
+        return { ok: false, error: `Cannot approve: ${(err as Error).message}` }
+      }
     }
-    
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -380,7 +419,10 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
     const recipientId = meta.recipientId as string | undefined
 
     if (decision === 'approved') {
-      if (!recipientId) return { ok: false, error: 'Transfer is missing a recipient — cannot approve' }
+      if (!recipientId) {
+        await db.from('transactions').update({ status: 'pending', processed_by: null }).eq('id', id)
+        return { ok: false, error: 'Transfer is missing a recipient — cannot approve' }
+      }
 
       await adjustAccount(recipientId, { cash_balance: Number(txn.amount) })
       await recordTxn(recipientId, {
@@ -392,6 +434,8 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
         meta: { label: 'Received transfer', senderId: txn.user_id },
       })
     } else {
+      // requestTransfer() debits the sender immediately, so a rejection is the
+      // one case here that genuinely needs a refund.
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
     }
 
@@ -418,7 +462,10 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
       }
     }
 
-    const cardRef = decision === 'approved' ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}` : null
+    const cardRef =
+      decision === 'approved'
+        ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
+        : null
 
     const { error } = await db
       .from('card_applications')
@@ -457,14 +504,33 @@ export async function disburseYield(userId: string, amount: number): Promise<Adm
   }
 }
 
-export async function addAdminByEmail(email: string): Promise<AdminResult> {
+// FIX #10 — admin.tsx calls addAdminByEmail(email, scope) with two arguments,
+// but this action only accepted one. The scope was silently dropped, so every
+// appointed admin ended up with admin_scope = null and then hit "requires an
+// explicit admin scope configuration" on almost every action.
+export async function addAdminByEmail(email: string, scope: AdminScope = 'operations'): Promise<AdminResult> {
   try {
     await requireAdminScope(['full'])
     const clean = email.trim().toLowerCase()
     if (!clean.includes('@')) return { ok: false, error: 'Enter a valid email' }
+
     const db = serviceClient()
     await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
-    await db.from('profiles').update({ role: 'admin' }).ilike('email', clean)
+
+    const { data: updated, error } = await db
+      .from('profiles')
+      .update({ role: 'admin', admin_scope: scope })
+      .ilike('email', clean)
+      .select('id')
+
+    if (error) return { ok: false, error: error.message }
+    if (!updated || updated.length === 0) {
+      return {
+        ok: false,
+        error: `No registered profile found for ${clean}. They must sign up first — the allowlist entry has been saved and will apply once they do.`,
+      }
+    }
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -487,7 +553,11 @@ export async function assignManager(userId: string, managerId: string): Promise<
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const { error } = await db.from('profiles').update({ managed_by: managerId }).eq('id', userId)
+    const clean = managerId.trim()
+    const { error } = await db
+      .from('profiles')
+      .update({ managed_by: clean.length > 0 ? clean : null })
+      .eq('id', userId)
     if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
@@ -497,7 +567,8 @@ export async function assignManager(userId: string, managerId: string): Promise<
 
 export async function deleteUser(userId: string): Promise<AdminResult> {
   try {
-    await requireAdminScope(['full'])
+    const admin = await requireAdminScope(['full'])
+    if (admin.id === userId) return { ok: false, error: 'You cannot delete your own admin account' }
     const db = serviceClient()
     const { error } = await db.from('profiles').delete().eq('id', userId)
     if (error) return { ok: false, error: error.message }
@@ -513,6 +584,7 @@ export async function deleteUser(userId: string): Promise<AdminResult> {
 
 export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project[]; error?: string }> {
   try {
+    await requireAdmin()
     const db = serviceClient()
     const { data, error } = await db.from('projects').select('*').order('created_at', { ascending: false })
     if (error) return { ok: false, error: error.message }
@@ -536,7 +608,11 @@ export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project
   }
 }
 
-export async function getProjectAdminStatuses(): Promise<{ ok: boolean; statuses?: Record<string, { status: 'Open' | 'Closed'; deadline: string | null }>; error?: string }> {
+export async function getProjectAdminStatuses(): Promise<{
+  ok: boolean
+  statuses?: Record<string, { status: 'Open' | 'Closed'; deadline: string | null }>
+  error?: string
+}> {
   try {
     await requireAdminScope(['full', 'operations', 'finance'])
     const db = serviceClient()
@@ -556,12 +632,18 @@ export async function getProjectAdminStatuses(): Promise<{ ok: boolean; statuses
   }
 }
 
-export async function setProjectStatus(projectId: string, closed: boolean, deadlineOverride?: string | null): Promise<{ ok: boolean; error?: string }> {
+export async function setProjectStatus(
+  projectId: string,
+  closed: boolean,
+  deadlineOverride?: string | null,
+): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
     const updatePayload: Record<string, unknown> = { status: closed ? 'Closed' : 'Open' }
-    if (deadlineOverride !== undefined) updatePayload.deadline = deadlineOverride
+    if (deadlineOverride !== undefined) {
+      updatePayload.deadline = deadlineOverride && deadlineOverride.length > 0 ? deadlineOverride : null
+    }
 
     const { error } = await db.from('projects').update(updatePayload).eq('id', projectId)
     if (error) return { ok: false, error: error.message }
@@ -589,7 +671,7 @@ export async function upsertProject(project: Project): Promise<{ ok: boolean; er
         status: project.status ?? 'Open',
         deadline: project.deadline ?? null,
       },
-      { onConflict: 'id' }
+      { onConflict: 'id' },
     )
     if (error) return { ok: false, error: error.message }
     return { ok: true }
@@ -616,6 +698,7 @@ export async function deleteProject(id: string): Promise<{ ok: boolean; error?: 
 
 export async function fetchSignals(): Promise<{ ok: boolean; signals?: Signal[]; error?: string }> {
   try {
+    await requireAdmin()
     const db = serviceClient()
     const { data, error } = await db.from('signals').select('*').order('created_at', { ascending: false })
     if (error) return { ok: false, error: error.message }
@@ -638,18 +721,21 @@ export async function fetchSignals(): Promise<{ ok: boolean; signals?: Signal[];
 export async function upsertSignal(signal: Signal): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminScope(['full', 'operations'])
+    if (!signal.id?.trim() || !signal.title?.trim()) {
+      return { ok: false, error: 'Signal ID and title are required' }
+    }
     const db = serviceClient()
     const { error } = await db.from('signals').upsert(
       {
-        id: signal.id,
-        project_id: signal.projectId,
+        id: signal.id.trim(),
+        project_id: signal.projectId || null,
         title: signal.title,
-        window_label: signal.window,
-        detail: signal.detail,
-        target_yield: signal.targetYield,
-        urgency: signal.urgency,
+        window_label: signal.window ?? '',
+        detail: signal.detail ?? '',
+        target_yield: signal.targetYield ?? '',
+        urgency: signal.urgency ?? 'Open',
       },
-      { onConflict: 'id' }
+      { onConflict: 'id' },
     )
     if (error) return { ok: false, error: error.message }
     return { ok: true }
@@ -674,19 +760,35 @@ export async function deleteSignal(id: string): Promise<{ ok: boolean; error?: s
 // BATCHED PROJECT PAYOUT
 // ==========================================
 
-export async function processProjectPayout(projectId: string, customYieldRate?: number): Promise<{ ok: boolean; error?: string }> {
+export async function processProjectPayout(
+  projectId: string,
+  customYieldRate?: number,
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const admin = await requireAdminScope(['full', 'operations', 'finance'])
     const db = serviceClient()
 
-    const { data: project, error: projErr } = await db.from('projects').select('target_yield').eq('id', projectId).single()
+    const { data: project, error: projErr } = await db
+      .from('projects')
+      .select('target_yield')
+      .eq('id', projectId)
+      .single()
     if (projErr) return { ok: false, error: `Failed to fetch project: ${projErr.message}` }
 
-    const yieldRate = customYieldRate ?? (project?.target_yield ? parseFloat(project.target_yield) / 100 : 0.10)
+    // target_yield is stored as a range string like "12–15%". parseFloat would
+    // silently take only the lower bound, so the midpoint is used instead.
+    const parseYield = (raw: string | null | undefined): number => {
+      if (!raw) return 0.1
+      const nums = raw.match(/\d+(\.\d+)?/g)?.map(Number) ?? []
+      if (nums.length === 0) return 0.1
+      const avg = nums.reduce((a, b) => a + b, 0) / nums.length
+      return avg / 100
+    }
+
+    const yieldRate = customYieldRate ?? parseYield(project?.target_yield)
 
     const { data: holdings, error: holdErr } = await db.from('holdings').select('*').eq('project_id', projectId)
     if (holdErr) return { ok: false, error: `Failed to fetch holdings: ${holdErr.message}` }
-
     if (!holdings || holdings.length === 0) return { ok: true }
 
     const errors: string[] = []
@@ -712,7 +814,7 @@ export async function processProjectPayout(projectId: string, customYieldRate?: 
           } catch (err) {
             errors.push(`User ${h.user_id}: ${(err as Error).message}`)
           }
-        })
+        }),
       )
     }
 
@@ -731,8 +833,18 @@ export async function processProjectPayout(projectId: string, customYieldRate?: 
 // ==========================================
 
 export async function getTeamVolumeReport(): Promise<
-  | { ok: true; scope: 'manager' | 'director'; rows: { userId: string; name: string | null; email: string | null; kycVerified: boolean; investedVolume: number }[] }
-  | AdminResult
+  | {
+      ok: true
+      scope: 'manager' | 'director'
+      rows: {
+        userId: string
+        name: string | null
+        email: string | null
+        kycVerified: boolean
+        investedVolume: number
+      }[]
+    }
+  | { ok: false; error: string }
 > {
   try {
     const user = await requireAdminScope(['manager', 'director', 'full'])
