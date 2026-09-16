@@ -1,458 +1,185 @@
-'server-only'
+import type { TierId } from '@/lib/pulse-data'
 
-import { serviceClient } from './service'
-import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-data'
-import type { Snapshot, SnapshotTxn } from './types'
+export type KycStatus = 'none' | 'pending' | 'verified' | 'rejected'
 
-export async function getLiveProjects(): Promise<Project[]> {
-  try {
-    const db = serviceClient()
-    const { data: rows, error } = await db
-      .from('holdings')
-      .select('project_id, amount')
-      .eq('status', 'active')
-
-    if (error) {
-      console.warn('[Data Access] Failed to fetch live holdings for projects:', error.message)
-      return PROJECTS
-    }
-
-    const liveByProject = new Map<string, number>()
-    for (const r of rows ?? []) {
-      liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
-    }
-
-    return PROJECTS.map((p) => ({
-      ...p,
-      funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
-    }))
-  } catch (err) {
-    console.warn('[Data Access] getLiveProjects fallback to static list:', err)
-    return PROJECTS
-  }
-}
-
-const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
-  deposit: 'deposit',
-  topup: 'deposit',
-  credit: 'deposit',
-  withdrawal: 'withdraw',
-  withdraw: 'withdraw',
-  investment: 'invest',
-  invest: 'invest',
-  buy: 'invest',
-  stake: 'stake',
-  unstake: 'unstake',
-  token_purchase: 'sale',
-  sale: 'sale',
-  yield: 'deposit',
-  payout: 'deposit',
-  project_payout: 'deposit',
-  p2p_send: 'p2p_send',
-  p2p_receive: 'p2p_receive',
-}
-
-const TXN_LABEL: Record<string, string> = {
-  deposit: 'Deposit',
-  topup: 'Deposit',
-  credit: 'Deposit',
-  withdrawal: 'Withdrawal to wallet',
-  withdraw: 'Withdrawal to wallet',
-  investment: 'Project share purchase',
-  invest: 'Project share purchase',
-  buy: 'Project share purchase',
-  stake: 'Staked PULSE',
-  unstake: 'Unstaked PULSE',
-  token_purchase: 'Private sale purchase',
-  sale: 'Private sale purchase',
-  yield: 'Yield disbursement',
-  payout: 'Project payout from float',
-  project_payout: 'Project payout from float',
-  p2p_send: 'Sent to another user',
-  p2p_receive: 'Received from another user',
-}
-
-export interface AccountRow {
-  user_id: string
-  cash_balance: number
-  invested_balance: number
-  staked_balance: number
-  token_balance: number
-  pending_yield: number
-  updated_at?: string
-}
-
-export async function ensureAccount(userId: string): Promise<AccountRow> {
-  const db = serviceClient()
-  const { data, error } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
-  if (error && error.code !== 'PGRST116') {
-    console.error('[Data Access] ensureAccount error:', error)
-  }
-  if (data) return data as AccountRow
-
-  const { data: created, error: createError } = await db
-    .from('accounts')
-    .insert({ user_id: userId })
-    .select('*')
-    .single()
-
-  if (createError) {
-    console.error('[Data Access] ensureAccount createError:', createError)
-    return {
-      user_id: userId,
-      cash_balance: 0,
-      invested_balance: 0,
-      staked_balance: 0,
-      token_balance: 0,
-      pending_yield: 0,
-    }
-  }
-
-  return created as AccountRow
-}
-
-export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
-  try {
-    const db = serviceClient()
-    const { data: txns, error } = await db
-      .from('transactions')
-      .select('type, amount, currency, status, meta')
-      .eq('user_id', userId)
-
-    if (error) return 0
-
-    let balance = 0
-    for (const txn of txns ?? []) {
-      const status = (txn.status || '').toLowerCase()
-      if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
-
-      const amount = Number(txn.amount) || 0
-      const currency = (txn.currency || 'USD').toUpperCase()
-      const type = (txn.type || '').toLowerCase()
-
-      if (currency === 'USD' || currency === 'USDT' || currency === 'USDC') {
-        switch (type) {
-          case 'deposit':
-          case 'topup':
-          case 'credit':
-          case 'yield':
-          case 'payout':
-          case 'project_payout':
-          case 'p2p_receive':
-          case 'refund':
-            balance += amount
-            break
-          case 'withdrawal':
-          case 'withdraw':
-          case 'investment':
-          case 'invest':
-          case 'buy':
-          case 'p2p_send':
-            balance -= amount
-            break
-        }
-      } else if (currency === 'PULSE' || currency === 'PLS') {
-        if (type === 'token_purchase' || type === 'sale') {
-          const meta = txn.meta as Record<string, unknown> | null
-          const usdCost = Number(meta?.usdCost) || 0
-          const hasDirectUsdTxn = (txns ?? []).some((t) => {
-            const tType = (t.type || '').toLowerCase()
-            const tCurr = (t.currency || '').toUpperCase()
-            const tStatus = (t.status || '').toLowerCase()
-            return (
-              (tType === 'token_purchase' || tType === 'sale') &&
-              (tCurr === 'USD' || tCurr === 'USDT' || tCurr === 'USDC') &&
-              !['failed', 'rejected', 'cancelled'].includes(tStatus)
-            )
-          })
-          if (usdCost > 0 && !hasDirectUsdTxn) {
-            balance -= usdCost
-          }
-        }
-      }
-    }
-    return Math.max(0, balance)
-  } catch {
-    return 0
-  }
-}
-
-export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
-  try {
-    const db = serviceClient()
-    const { data: txns, error } = await db
-      .from('transactions')
-      .select('type, amount, currency, status')
-      .eq('user_id', userId)
-
-    if (error) return 0
-
-    let balance = 0
-    for (const txn of txns ?? []) {
-      const status = (txn.status || '').toLowerCase()
-      if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
-
-      const amount = Number(txn.amount) || 0
-      const currency = (txn.currency || '').toUpperCase()
-      const type = (txn.type || '').toLowerCase()
-
-      if (currency === 'PULSE' || currency === 'PLS') {
-        if (['token_purchase', 'sale', 'unstake', 'p2p_receive'].includes(type)) {
-          balance += amount
-        } else if (['stake', 'p2p_send'].includes(type)) {
-          balance -= amount
-        }
-      }
-    }
-    return Math.max(0, balance)
-  } catch {
-    return 0
-  }
-}
-
-export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
-  try {
-    const db = serviceClient()
-    const { data: txns, error } = await db
-      .from('transactions')
-      .select('type, amount, currency, status')
-      .eq('user_id', userId)
-
-    if (error) return 0
-
-    let balance = 0
-    for (const txn of txns ?? []) {
-      const status = (txn.status || '').toLowerCase()
-      if (status === 'failed' || status === 'rejected' || status === 'cancelled') continue
-
-      const amount = Number(txn.amount) || 0
-      const currency = (txn.currency || '').toUpperCase()
-      const type = (txn.type || '').toLowerCase()
-
-      if (currency === 'PULSE' || currency === 'PLS') {
-        if (type === 'stake') balance += amount
-        else if (type === 'unstake') balance -= amount
-      }
-    }
-    return Math.max(0, balance)
-  } catch {
-    return 0
-  }
-}
-
-export async function adjustAccount(
-  userId: string,
-  deltas: Partial<Pick<AccountRow, 'cash_balance' | 'invested_balance' | 'staked_balance' | 'token_balance' | 'pending_yield'>>,
-): Promise<AccountRow> {
-  const db = serviceClient()
-  const acct = await ensureAccount(userId)
-  const next: Record<string, number> = {}
-
-  for (const [k, v] of Object.entries(deltas)) {
-    const currentVal = Number(acct[k as keyof AccountRow] ?? 0)
-    const newVal = currentVal + Number(v)
-    if (newVal < -0.0001) throw new Error(`Insufficient ${k.replace('_balance', '')} balance`)
-    next[k] = newVal
-  }
-
-  const { data, error } = await db
-    .from('accounts')
-    .update({ ...next, updated_at: new Date().toISOString() })
-    .eq('user_id', userId)
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return data as AccountRow
-}
-
-export async function recordTxn(
-  userId: string,
-  row: {
-    type: string
-    amount: number
-    currency?: string
-    status?: string
-    reference?: string | null
-    meta?: Record<string, unknown>
-    processedBy?: string | null
-  }
-) {
-  const db = serviceClient()
-  const { data, error } = await db
-    .from('transactions')
-    .insert({
-      user_id: userId,
-      type: row.type.toLowerCase(),
-      amount: row.amount,
-      currency: (row.currency ?? 'USD').toUpperCase(),
-      status: row.status ?? 'completed',
-      reference: row.reference ?? null,
-      meta: row.meta ?? {},
-      processed_by: row.processedBy ?? null,
-    })
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return data
-}
-
-export async function disburseProjectPayoutFromFloat(params: {
-  userId: string
+export interface SnapshotHolding {
+  id: string
   projectId: string
+  tierId: TierId
   amount: number
-  currency?: string
-  floatTxHash?: string
-  processedBy?: string
-}) {
-  const { userId, projectId, amount, currency = 'USD', floatTxHash, processedBy } = params
-
-  const txn = await recordTxn(userId, {
-    type: 'project_payout',
-    amount,
-    currency,
-    status: 'completed',
-    processedBy: processedBy ?? 'float-wallet-system',
-    meta: {
-      projectId,
-      source: 'float_wallet',
-      floatTxHash: floatTxHash ?? null,
-      label: `Project Payout (${projectId})`,
-    },
-  })
-
-  await adjustAccount(userId, { cash_balance: amount })
-  return txn
+  date: number
 }
 
-export async function getSnapshot(userId: string, userEmail?: string): Promise<Snapshot> {
-  const db = serviceClient()
-
-  const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> => {
-    try {
-      const res = await promise
-      return res.data
-    } catch {
-      return null
-    }
-  }
-
-  const [
-    profile,
-    acct,
-    holdings,
-    txns,
-    pointsRows,
-    referrals,
-    badgeRows,
-    cardApp,
-    wallets,
-  ] = await Promise.all([
-    safeQuery(db.from('profiles').select('*').eq('id', userId).maybeSingle()),
-    ensureAccount(userId),
-    safeQuery(db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
-    safeQuery(db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50)),
-    safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
-    safeQuery(db.from('profiles').select('kyc_status').eq('referred_by', userId)),
-    safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId)),
-    safeQuery(db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle()),
-    safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true })),
-  ])
-
-  const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
-  const isAdmin = (profile as { role?: string })?.role === 'admin' || (profile as { role?: string })?.role === 'super_admin' || email === 'lancegumunyu@gmail.com'
-  const rawKyc = (profile as { kyc_status?: string })?.kyc_status ?? 'none'
-
-  const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
-    calculateCashBalanceFromLedger(userId),
-    calculateTokenBalanceFromLedger(userId),
-    calculateStakedBalanceFromLedger(userId),
-  ])
-
-  let cashBalance = Number(acct.cash_balance ?? 0)
-  let tokenBalance = Number(acct.token_balance ?? 0)
-  let stakedBalance = Number(acct.staked_balance ?? 0)
-  let pendingYield = Number(acct.pending_yield ?? 0)
-
-  if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
-  if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
-  if (stakedBalance <= 0 && ledgerStaked > 0) stakedBalance = ledgerStaked
-
-  const hasExistingData =
-    cashBalance > 0 ||
-    tokenBalance > 0 ||
-    stakedBalance > 0 ||
-    ((holdings as unknown[]) ?? []).length > 0 ||
-    ((txns as unknown[]) ?? []).length > 0
-
-  const isVerified = isAdmin || rawKyc === 'verified' || (profile as { admin_approved?: boolean })?.admin_approved === true || hasExistingData
-
-  let activeHoldings = ((holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []).map((h) => ({
-    id: h.id,
-    projectId: h.project_id,
-    tierId: tierForAmount(Number(h.amount)).id as TierId,
-    amount: Number(h.amount),
-    date: new Date(h.created_at).getTime(),
-  }))
-
-  if (!isVerified) {
-    cashBalance = 0
-    tokenBalance = 0
-    stakedBalance = 0
-    pendingYield = 0
-    activeHoldings = []
-  }
-
-  const finalKycStatus: Snapshot['kyc'] = isVerified ? 'verified' : (rawKyc as Snapshot['kyc'])
-
-  return {
-    cash: cashBalance,
-    pulse: tokenBalance,
-    staked: stakedBalance,
-    pendingYield: pendingYield,
-    holdings: activeHoldings,
-    txns: ((txns as Array<{ id: string; type: string; currency: string; meta?: Record<string, unknown>; amount: number; status: string; processing_started_at?: string; created_at: string }>) ?? []).map((t) => {
-      const rawType = (t.type || '').toLowerCase()
-      const rawCurrency = (t.currency || '').toUpperCase()
-      return {
-        id: t.id,
-        type: TXN_TYPE_MAP[rawType] ?? 'deposit',
-        label: (t.meta?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
-        amount: Number(t.amount),
-        currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
-        status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
-        isProcessing: !!t.processing_started_at,
-        date: new Date(t.created_at).getTime(),
-      }
-    }),
-    kyc: finalKycStatus,
-    wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
-    referralCode: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? (profile as { referral_code?: string })?.referral_code ?? 'PLS-XXXX',
-    fullName: (profile as { full_name?: string })?.full_name ?? null,
-    email: email || null,
-    tier: (profile as { tier?: number })?.tier ?? 1,
-    isAdmin: isAdmin,
-    points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
-    founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
-    walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
-    username: (profile as { username?: string })?.username ?? null,
-    referralCount: ((referrals as unknown[]) ?? []).length,
-    referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter((r) => r.kyc_status === 'verified').length,
-    badges: ((badgeRows as Array<{ badge_key: string; earned_at: string }>) ?? []).map((b) => ({ key: b.badge_key, earnedAt: new Date(b.earned_at).getTime() })),
-    adminScope: ((profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope) ?? null,
-    cardStatus: ((cardApp as { status?: Snapshot['cardStatus'] })?.status) ?? 'none',
-    cardRef: (cardApp as { card_ref?: string })?.card_ref ?? null,
-    savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({ id: w.id, label: w.label, address: w.address })),
-  }
+export interface SnapshotTxn {
+  id: string
+  type: 'deposit' | 'withdraw' | 'invest' | 'stake' | 'unstake' | 'sale' | 'p2p_send' | 'p2p_receive'
+  label: string
+  amount: number
+  currency: 'USDT' | 'PULSE'
+  status: 'completed' | 'pending' | 'processing' | 'cancelled' | 'failed' | 'rejected'
+  /** True while an admin has picked the txn up but not yet finalised it. */
+  isProcessing?: boolean
+  date: number
 }
 
-export async function isUserAdmin(userId: string): Promise<boolean> {
-  try {
-    const db = serviceClient()
-    const { data } = await db.from('profiles').select('role, email').eq('id', userId).maybeSingle()
-    return data?.role === 'admin' || data?.role === 'super_admin' || data?.email?.toLowerCase() === 'lancegumunyu@gmail.com'
-  } catch {
-    return false
-  }
+export interface Snapshot {
+  cash: number
+  pulse: number
+  staked: number
+  pendingYield: number
+  holdings: SnapshotHolding[]
+  txns: SnapshotTxn[]
+  kyc: KycStatus
+  wallet: string | null
+  referralCode: string
+  fullName: string | null
+  email: string | null
+  tier: number
+  isAdmin: boolean
+  points: number
+  founderNumber: number | null
+  walletId: string | null
+  username: string | null
+  referralCount: number
+  referralVerifiedCount: number
+  badges: BadgeRow[]
+  adminScope: 'full' | 'finance' | 'operations' | null
+  cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  /** ADDED: data-access.ts has always returned this from card_applications.card_ref,
+   *  but it was missing from the type, so wallet.tsx could never read it and the
+   *  card face was permanently stuck on bullets. */
+  cardRef: string | null
+  savedWallets: SavedWallet[]
+}
+
+export interface SavedWallet {
+  id: string
+  label: string
+  address: string
+}
+
+export interface BadgeRow {
+  key: string
+  earnedAt: number
+}
+
+export interface MyReferralRow {
+  name: string
+  status: 'verified' | 'pending'
+  date: number
+}
+
+export interface LeaderboardRow {
+  rank: number
+  username: string
+  tier: number
+  points: number
+}
+
+export interface FounderRow {
+  founderNumber: number
+  name: string
+}
+
+// ==========================================
+// ADMIN DASHBOARD PAYLOAD
+// ==========================================
+
+export interface AdminUserRow {
+  id: string
+  email: string | null
+  fullName: string | null
+  username: string | null
+  role: string
+  kycStatus: string
+  cash: number
+  invested: number
+  staked: number
+  createdAt: number
+  adminScope: 'full' | 'finance' | 'operations' | 'manager' | 'director' | null
+  managerId: string | null
+  isAdmin: boolean
+  kycVerified?: boolean
+}
+
+export interface AdminKycRow {
+  id: string
+  userId: string
+  email: string | null
+  fullName: string
+  idNumber: string
+  dateOfBirth: string | null
+  nationality: string | null
+  country: string | null
+  status: string
+  createdAt: number
+}
+
+export interface AdminCardRow {
+  id: string
+  userId: string
+  email: string | null
+  fullName: string | null
+  cardType: string
+  shippingAddress: string | null
+  kycStatus: string
+  status: string
+  createdAt: number
+}
+
+export interface AdminTxnRow {
+  id: string
+  userId: string
+  email: string | null
+  type: string
+  amount: number
+  currency: string
+  status: string
+  reference: string | null
+  createdAt: number
+  settledStatus?: string | null
+  payCurrency?: string | null
+  userTxRef?: string | null
+  destinationAddress?: string | null
+  walletName?: string | null
+  network?: string | null
+  broker?: string | null
+  counterpartyLabel?: string | null
+}
+
+export interface AdminP2PRow {
+  id: string
+  senderId: string
+  senderEmail: string | null
+  recipientId: string
+  recipientEmail: string | null
+  type: string
+  amount: number
+  currency: string
+  status: string
+  reference: string | null
+  note: string | null
+  createdAt: number
+}
+
+export interface AdminSnapshot {
+  totalDeposits: number
+  totalInvested: number
+  totalStaked: number
+  pendingWithdrawals: number
+  pendingDeposits: number
+  pendingKyc: number
+  pendingP2P: number
+  pendingCards: number
+  userCount: number
+  users: AdminUserRow[]
+  /** admin.tsx renders `snapshot.usersList` — kept as an alias of `users`
+   *  so both names resolve instead of one silently rendering nothing. */
+  usersList: AdminUserRow[]
+  kycQueue: AdminKycRow[]
+  withdrawalQueue: AdminTxnRow[]
+  depositQueue: AdminTxnRow[]
+  p2pQueue: AdminP2PRow[]
+  cardQueue: AdminCardRow[]
+  recentTxns: AdminTxnRow[]
 }
