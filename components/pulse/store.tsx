@@ -4,7 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useTransition,
   useState,
   type ReactNode,
@@ -88,11 +90,14 @@ interface State {
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
   cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  /** Card reference issued by reviewCardApplication(). Source of the card's
+   *  displayed last-4. Null until an admin approves the application. */
+  cardRef: string | null
   savedWallets: SavedWallet[]
 }
 
 function fromSnapshot(s: Snapshot | null | undefined): State {
-  const data = s || {}
+  const data = s || ({} as Partial<Snapshot>)
   return {
     cash: data.cash ?? 0,
     pulse: data.pulse ?? 0,
@@ -116,6 +121,7 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
     badges: data.badges ?? [],
     adminScope: data.adminScope ?? null,
     cardStatus: data.cardStatus ?? 'none',
+    cardRef: data.cardRef ?? null,
     savedWallets: data.savedWallets ?? [],
   }
 }
@@ -147,6 +153,10 @@ interface StoreContext {
   totalInvested: number
   currentTier: (typeof TIERS)[number]
   portfolioValue: number
+  /** True while a background Supabase re-sync is in flight. */
+  syncing: boolean
+  /** Unix ms of the last successful snapshot refresh, or null before the first. */
+  lastSyncedAt: number | null
   refresh: () => Promise<void>
   signOut: () => Promise<void>
   api: {
@@ -159,7 +169,15 @@ interface StoreContext {
     unstake: (amount: number) => Promise<ActionResult>
     connectWallet: (address: string) => Promise<ActionResult>
     disconnectWallet: () => Promise<ActionResult>
-    submitKyc: (input: { fullName: string; idNumber: string; dateOfBirth?: string; country?: string; phone?: string; address?: string }) => Promise<ActionResult>
+    submitKyc: (input: {
+      fullName: string
+      idNumber: string
+      dateOfBirth?: string
+      nationality?: string
+      country?: string
+      phone?: string
+      address?: string
+    }) => Promise<ActionResult>
     vote: (proposalId: string, choice: 'for' | 'against' | 'abstain') => Promise<ActionResult>
     claimAdmin: () => Promise<ActionResult>
     setUsername: (username: string) => Promise<ActionResult>
@@ -179,6 +197,10 @@ interface StoreContext {
 
 const Ctx = createContext<StoreContext | null>(null)
 
+/** Background re-sync cadence. Realtime handles most updates; this is the
+ *  safety net for missed events, tab wake-ups, and dropped sockets. */
+const SYNC_INTERVAL_MS = 30_000
+
 export function PulseProvider({ children, initial }: { children: ReactNode; initial: Snapshot }) {
   const router = useRouter()
   const [state, setState] = useState<State>(() => fromSnapshot(initial))
@@ -187,6 +209,12 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const [toasts, setToasts] = useState<Toast[]>([])
   const [pending, startTransition] = useTransition()
   const [localBusy, setLocalBusy] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
+
+  // Guards against overlapping refreshes and against setting state after unmount.
+  const inFlight = useRef(false)
+  const mounted = useRef(true)
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
@@ -210,6 +238,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const applyResult = useCallback((res: ActionResult): ActionResult => {
     if (res.ok) {
       setState({ ...fromSnapshot(res.snapshot) })
+      setLastSyncedAt(Date.now())
     }
     return res
   }, [])
@@ -229,10 +258,106 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
     [applyResult],
   )
 
+  /**
+   * Pull a fresh server snapshot. Every balance shown in the UI comes from
+   * this call — nothing is ever computed or cached client-side, so what the
+   * user sees always matches the Supabase ledger.
+   */
   const refresh = useCallback(async () => {
-    const snap = await fetchSnapshot()
-    if (snap) setState({ ...fromSnapshot(snap) })
+    if (inFlight.current) return
+    inFlight.current = true
+    setSyncing(true)
+    try {
+      const snap = await fetchSnapshot()
+      if (snap && mounted.current) {
+        setState({ ...fromSnapshot(snap) })
+        setLastSyncedAt(Date.now())
+      }
+    } catch {
+      // Network blips are non-fatal: keep the last good snapshot on screen
+      // rather than flashing zeros at someone looking at their balance.
+    } finally {
+      inFlight.current = false
+      if (mounted.current) setSyncing(false)
+    }
   }, [])
+
+  // ---- LIVE SUPABASE SYNC ----------------------------------------------
+  // Three triggers, all funnelling into the same refresh():
+  //   1. Realtime postgres_changes on the four tables that move money
+  //   2. A 30s interval as a dropped-socket safety net
+  //   3. Tab focus / visibility change, so a backgrounded PWA is never stale
+  useEffect(() => {
+    mounted.current = true
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
+
+    const start = async () => {
+      let supabase: ReturnType<typeof createClient>
+      try {
+        supabase = createClient()
+      } catch {
+        return // Supabase not configured in this environment — skip live sync.
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user || !mounted.current) return
+
+      channel = supabase
+        .channel(`pulse-sync-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
+          () => refresh(),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${user.id}` },
+          () => refresh(),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${user.id}` },
+          () => refresh(),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+          () => refresh(),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` },
+          () => refresh(),
+        )
+        .subscribe()
+    }
+
+    start()
+
+    const interval = setInterval(refresh, SYNC_INTERVAL_MS)
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', refresh)
+
+    return () => {
+      mounted.current = false
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', refresh)
+      if (channel) {
+        try {
+          createClient().removeChannel(channel)
+        } catch {
+          // client unavailable at teardown — nothing to clean up
+        }
+      }
+    }
+  }, [refresh])
 
   const signOut = useCallback(async () => {
     const supabase = createClient()
@@ -246,7 +371,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const api = useMemo<StoreContext['api']>(
     () => ({
       deposit: (amount, currency, txReference) => run(() => submitDeposit(amount, currency, txReference)),
-      withdraw: (amount, destinationAddress, network, broker) => run(() => requestWithdrawal(amount, destinationAddress, network, broker)),
+      withdraw: (amount, destinationAddress, network, broker) =>
+        run(() => requestWithdrawal(amount, destinationAddress, network, broker)),
       invest: (amount, projectId) => run(() => investAction(amount, projectId)),
       buyToken: (cost, pulse) => run(() => buyTokenAction(cost, pulse)),
       sellToken: (pulseAmount) => run(() => sellTokenAction(pulseAmount)),
@@ -267,30 +393,36 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       transfer: (recipientIdentifier, amount) => run(() => requestTransferAction(recipientIdentifier, amount)),
       liveProjectFunding: () => getLiveProjectFunding(),
       closeInvestment: (holdingId) => run(() => closeInvestment(holdingId)),
-      
+
       notifications: async () => {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return { ok: true, rows: [] }
+        try {
+          const supabase = createClient()
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+          if (!user) return { ok: true, rows: [] }
 
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
 
-        if (error) return { ok: false, error: error.message }
-        return { ok: true, rows: (data || []) as NotificationRow[] }
+          if (error) return { ok: false, error: error.message }
+          return { ok: true, rows: (data || []) as NotificationRow[] }
+        } catch (e) {
+          return { ok: false, error: (e as Error).message }
+        }
       },
       markNotificationRead: async (id: string) => {
-        const supabase = createClient()
-        const { error } = await supabase
-          .from('notifications')
-          .update({ read: true })
-          .eq('id', id)
-
-        if (error) return { ok: false, error: error.message }
-        return { ok: true }
+        try {
+          const supabase = createClient()
+          const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id)
+          if (error) return { ok: false, error: error.message }
+          return { ok: true }
+        } catch (e) {
+          return { ok: false, error: (e as Error).message }
+        }
       },
     }),
     [run],
@@ -317,6 +449,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
     totalInvested,
     currentTier,
     portfolioValue,
+    syncing,
+    lastSyncedAt,
     refresh,
     signOut,
     api,
