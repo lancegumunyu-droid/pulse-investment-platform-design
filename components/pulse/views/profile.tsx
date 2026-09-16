@@ -18,9 +18,9 @@ const itemVariants = {
 }
 
 /**
- * Persistent-ref mouse glow, identical to dashboard.tsx / wallet.tsx.
+ * Persistent-ref mouse glow, identical to wallet.tsx.
  *
- * NOTE: the PointerEvent type is imported explicitly rather than written as
+ * The PointerEvent type is imported explicitly rather than written as
  * `React.PointerEvent`. This file is an ES module with no default React
  * import, so `React.X` would resolve to the UMD global and fail type-check.
  */
@@ -33,7 +33,13 @@ function useMouseGlow<T extends HTMLElement>() {
     el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
     el.style.setProperty('--my', `${e.clientY - rect.top}px`)
   }
-  return { ref, onMove }
+  const onLeave = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.removeProperty('--mx')
+    el.style.removeProperty('--my')
+  }
+  return { ref, onMove, onLeave }
 }
 
 export function ProfileView() {
@@ -139,9 +145,14 @@ export function ProfileView() {
         </div>
       </motion.div>
 
-      {/* PROFILE HERO CARD — live mouse-tracking glow */}
+      {/* PROFILE HERO CARD */}
       <motion.div variants={itemVariants}>
-        <div ref={heroGlow.ref} onPointerMove={heroGlow.onMove} className="pulse-hero-premium pulse-glow-track">
+        <div
+          ref={heroGlow.ref}
+          onPointerMove={heroGlow.onMove}
+          onPointerLeave={heroGlow.onLeave}
+          className="pulse-hero-premium pulse-glow-track"
+        >
           <div className="relative z-[3] p-6 md:p-8">
             <div className="flex items-center gap-4">
               <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/15 text-amber-400">
@@ -180,7 +191,7 @@ export function ProfileView() {
                 ) : (
                   <button onClick={() => setEditingUsername(true)} className="text-left">
                     <p className="pulse-value-md truncate text-lg transition-colors hover:text-amber-300">
-                      {state.username ? `@${state.username}` : 'Set a username →'}
+                      {state.username ? `@${state.username}` : 'Set a username \u2192'}
                     </p>
                   </button>
                 )}
@@ -237,7 +248,7 @@ export function ProfileView() {
           </motion.span>
         </button>
         {loadingReferrals && !myReferrals ? (
-          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading…</p>
+          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading&hellip;</p>
         ) : myReferrals ? (
           <div className="divide-y divide-white/[0.06]">
             {myReferrals.length === 0 ? (
@@ -268,7 +279,7 @@ export function ProfileView() {
           </motion.span>
         </button>
         {loadingBoard && !leaderboard ? (
-          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading…</p>
+          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading&hellip;</p>
         ) : leaderboard ? (
           <div className="divide-y divide-white/[0.06]">
             {leaderboard.length === 0 ? (
@@ -279,7 +290,7 @@ export function ProfileView() {
                   <span className="text-sm text-zinc-200">
                     #{row.rank} {row.username}
                   </span>
-                  <span className="pulse-value-accent text-xs">{row.tier}</span>
+                  <span className="pulse-value-accent text-xs">{row.points} pts</span>
                 </div>
               ))
             )}
@@ -299,7 +310,7 @@ export function ProfileView() {
           </motion.span>
         </button>
         {loadingFounders && !founders ? (
-          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading…</p>
+          <p className="pulse-label p-5 normal-case tracking-normal text-zinc-500">Loading&hellip;</p>
         ) : founders ? (
           <div className="divide-y divide-white/[0.06]">
             {founders.length === 0 ? (
@@ -317,11 +328,12 @@ export function ProfileView() {
         ) : null}
       </motion.div>
 
-      {/* ADMIN PANEL ACCESS — live mouse-tracking glow */}
+      {/* ADMIN PANEL ACCESS */}
       <motion.div variants={itemVariants}>
         <button
           ref={adminGlow.ref}
           onPointerMove={adminGlow.onMove}
+          onPointerLeave={adminGlow.onLeave}
           onClick={openAdmin}
           className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 text-sm font-semibold uppercase tracking-wide text-amber-300"
         >
@@ -343,7 +355,7 @@ export function ProfileView() {
       {/* RISK DISCLAIMER */}
       <motion.div variants={itemVariants} className="pulse-glass-card pulse-static space-y-2 p-4">
         <div className="pulse-disclaimer-title flex items-center gap-2">
-          <span>⚠️</span>
+          <span>&#9888;&#65039;</span>
           <span>Risk Disclaimer</span>
         </div>
         <p className="pulse-disclaimer">
