@@ -88,10 +88,8 @@ interface State {
   referralCount: number
   referralVerifiedCount: number
   badges: BadgeRow[]
-  adminScope: 'full' | 'finance' | 'operations' | null
+  adminScope: 'full' | 'finance' | 'operations' | 'manager' | 'director' | null
   cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
-  /** Card reference issued by reviewCardApplication(). Source of the card's
-   *  displayed last-4. Null until an admin approves the application. */
   cardRef: string | null
   savedWallets: SavedWallet[]
 }
@@ -153,9 +151,7 @@ interface StoreContext {
   totalInvested: number
   currentTier: (typeof TIERS)[number]
   portfolioValue: number
-  /** True while a background Supabase re-sync is in flight. */
   syncing: boolean
-  /** Unix ms of the last successful snapshot refresh, or null before the first. */
   lastSyncedAt: number | null
   refresh: () => Promise<void>
   signOut: () => Promise<void>
@@ -212,7 +208,6 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const [syncing, setSyncing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
 
-  // Guards against overlapping refreshes and against setting state after unmount.
   const inFlight = useRef(false)
   const mounted = useRef(true)
 
@@ -260,8 +255,8 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
   /**
    * Pull a fresh server snapshot. Every balance shown in the UI comes from
-   * this call — nothing is ever computed or cached client-side, so what the
-   * user sees always matches the Supabase ledger.
+   * this call — nothing is computed or cached client-side, so what the user
+   * sees always matches the Supabase ledger.
    */
   const refresh = useCallback(async () => {
     if (inFlight.current) return
@@ -275,7 +270,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       }
     } catch {
       // Network blips are non-fatal: keep the last good snapshot on screen
-      // rather than flashing zeros at someone looking at their balance.
+      // rather than flashing zeros at someone reading their balance.
     } finally {
       inFlight.current = false
       if (mounted.current) setSyncing(false)
@@ -283,16 +278,16 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   }, [])
 
   // ---- LIVE SUPABASE SYNC ----------------------------------------------
-  // Three triggers, all funnelling into the same refresh():
-  //   1. Realtime postgres_changes on the four tables that move money
+  // Three triggers, all funnelling into refresh():
+  //   1. Realtime postgres_changes on the tables that move money
   //   2. A 30s interval as a dropped-socket safety net
-  //   3. Tab focus / visibility change, so a backgrounded PWA is never stale
+  //   3. Tab focus / visibility, so a backgrounded PWA is never stale
   useEffect(() => {
     mounted.current = true
-    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
+    let supabase: ReturnType<typeof createClient> | null = null
+    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null
 
     const start = async () => {
-      let supabase: ReturnType<typeof createClient>
       try {
         supabase = createClient()
       } catch {
@@ -306,38 +301,21 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
       channel = supabase
         .channel(`pulse-sync-${user.id}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
-          () => refresh(),
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${user.id}` },
-          () => refresh(),
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${user.id}` },
-          () => refresh(),
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
-          () => refresh(),
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` },
-          () => refresh(),
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${user.id}` }, () => refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${user.id}` }, () => refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, () => refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` }, () => refresh())
         .subscribe()
     }
 
     start()
 
-    const interval = setInterval(refresh, SYNC_INTERVAL_MS)
+    // Pull once on mount so a server-rendered snapshot that is already a few
+    // seconds old is corrected immediately.
+    refresh()
 
+    const interval = setInterval(refresh, SYNC_INTERVAL_MS)
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh()
     }
@@ -349,19 +327,17 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', refresh)
-      if (channel) {
-        try {
-          createClient().removeChannel(channel)
-        } catch {
-          // client unavailable at teardown — nothing to clean up
-        }
-      }
+      if (supabase && channel) supabase.removeChannel(channel)
     }
   }, [refresh])
 
   const signOut = useCallback(async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch {
+      // Still navigate away even if the sign-out call itself fails.
+    }
     startTransition(() => {
       router.push('/auth/login')
       router.refresh()
