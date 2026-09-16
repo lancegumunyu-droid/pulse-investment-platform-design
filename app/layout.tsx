@@ -1,32 +1,28 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono, Plus_Jakarta_Sans, Space_Grotesk } from 'next/font/google'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { PWAInstaller } from '@/components/pulse/pwa-installer'
 import { GooglePiRuntime } from '@/components/pulse/google-pi'
 import './globals.css'
 
-const geistSans = Geist({
+/**
+ * ONE interface typeface for the entire application.
+ * Roboto is declared as the system fallback inside globals.css.
+ * No other font is loaded anywhere — adding one re-breaks the uniformity rule.
+ */
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-geist-sans',
+  variable: '--font-inter',
   display: 'swap',
+  weight: ['400', '500', '600', '700', '800'],
 })
 
-const geistMono = Geist_Mono({
+/** Numerals only: tabular figures for balances, amounts, APY, hashes. */
+const monoNum = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-geist-mono',
+  variable: '--font-mono-num',
   display: 'swap',
-})
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  variable: '--font-jakarta',
-  display: 'swap',
-})
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  display: 'swap',
+  weight: ['400', '500', '600', '700'],
 })
 
 export const viewport: Viewport = {
@@ -60,16 +56,8 @@ export const metadata: Metadata = {
       { url: '/icons/icon.svg', type: 'image/svg+xml' },
     ],
     shortcut: ['/favicon.ico'],
-    apple: [
-      { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
-    other: [
-      {
-        rel: 'mask-icon',
-        url: '/icons/mask-icon.svg',
-        color: '#f59e0b',
-      },
-    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    other: [{ rel: 'mask-icon', url: '/icons/mask-icon.svg', color: '#f59e0b' }],
   },
   verification: {
     google: 'googlec3f80f65cdb022b2',
@@ -83,38 +71,27 @@ export const metadata: Metadata = {
     siteName: 'Pulse Platform',
     title: 'Pulse — Invest in real African projects',
     description: 'Pulse is a transparent investment platform for real SADC projects.',
-    images: [
-      {
-        url: '/og',
-        width: 1200,
-        height: 630,
-        alt: 'Pulse Investment Platform',
-      },
-    ],
+    images: [{ url: '/og', width: 1200, height: 630, alt: 'Pulse Investment Platform' }],
   },
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} ${spaceGrotesk.variable} dark bg-[#060608] text-foreground h-full`}
+      className={`${inter.variable} ${monoNum.variable} dark bg-[#060608] text-foreground h-full`}
     >
       <body className="font-sans text-zinc-100 antialiased selection:bg-amber-500 selection:text-black min-h-screen min-h-[100dvh] flex flex-col relative overflow-x-hidden bg-background">
-        {/* Elite Ambient Backlighting with Gold & Emerald Harmonies */}
-        <div 
+        {/* Ambient gold & emerald backlighting */}
+        <div
           className="pointer-events-none fixed inset-0 z-0 opacity-45 mix-blend-screen transform-gpu"
           style={{
-            background: 'radial-gradient(circle 900px at 50% -200px, rgba(245,158,11,0.12), rgba(16,185,129,0.05) 50%, transparent 75%)'
+            background:
+              'radial-gradient(circle 900px at 50% -200px, rgba(245,158,11,0.12), rgba(16,185,129,0.05) 50%, transparent 75%)',
           }}
         />
 
-        {/* Main Application Container with Dynamic Screen Height Alignment */}
         <div className="relative z-10 flex flex-col min-h-screen min-h-[100dvh] flex-1 w-full max-w-full overflow-x-hidden">
           {children}
         </div>
