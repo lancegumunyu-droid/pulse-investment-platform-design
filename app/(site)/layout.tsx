@@ -1,19 +1,20 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import { SiteNav } from '@/components/site/nav'
 import { SiteFooter } from '@/components/site/footer'
 import { PWAInstaller } from '@/components/pulse/pwa-installer'
 import '@/app/globals.css'
 
 /**
- * Must match app/layout.tsx exactly. This layout previously loaded Geist
- * while globals.css resolved --font-sans to --font-jakarta, which was never
- * defined here — so every marketing page silently fell back to the system
- * font while the app shell used a different one. That was the mismatch.
+ * Must match app/layout.tsx exactly.
+ * This layout previously loaded Geist while globals.css resolved --font-sans
+ * to --font-jakarta, which was never defined here — so every marketing page
+ * silently fell back to the system font while /app rendered Plus Jakarta Sans.
+ * That was the font mismatch between screens.
  */
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-jakarta',
   display: 'swap',
   weight: ['400', '500', '600', '700', '800'],
 })
@@ -44,11 +45,7 @@ export const metadata: Metadata = {
     'Pulse is a transparent investment platform connecting capital to high-impact, real SADC projects across Southern Africa. Investments carry risk.',
   keywords: ['investment', 'Africa', 'SADC', 'private markets', 'Southern Africa'],
   manifest: '/manifest.webmanifest',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Pulse',
-  },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Pulse' },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -71,7 +68,7 @@ export const metadata: Metadata = {
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${monoNum.variable} dark`}>
+    <html lang="en" className={`${jakarta.variable} ${monoNum.variable} dark`}>
       <body className="bg-background text-foreground font-sans antialiased selection:bg-amber-500 selection:text-black min-h-screen flex flex-col pt-safe pb-safe pl-safe pr-safe">
         <div className="flex min-h-screen flex-col relative overflow-hidden">
           <SiteNav />
