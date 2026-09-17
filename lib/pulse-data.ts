@@ -1,460 +1,220 @@
-/**
- * This file does NOT import 'server-only' — see the comment in ./service.ts
- * for why that guard is removed rather than restored. Server confinement is
- * enforced there instead.
- */
-import { serviceClient } from './service'
-import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-data'
-import type { Snapshot, SnapshotTxn } from './types'
+export type TierId = 'starter' | 'growth' | 'builder' | 'leader' | 'ambassador'
 
-export async function getLiveProjects(): Promise<Project[]> {
-  try {
-    const db = serviceClient()
-    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
-
-    if (error) {
-      console.warn('[Data Access] Failed to fetch live holdings for projects:', error.message)
-      return PROJECTS
-    }
-
-    const liveByProject = new Map<string, number>()
-    for (const r of rows ?? []) {
-      liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
-    }
-
-    return PROJECTS.map((p) => ({
-      ...p,
-      funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
-    }))
-  } catch (err) {
-    console.warn('[Data Access] getLiveProjects fallback to static list:', err)
-    return PROJECTS
-  }
+export interface Tier {
+  id: TierId
+  name: string
+  minInvest: number
+  yieldLabel: string
+  yieldLow: number
+  yieldHigh: number
+  perks: string[]
+  highlight?: boolean
 }
 
-const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
-  deposit: 'deposit',
-  topup: 'deposit',
-  credit: 'deposit',
-  withdrawal: 'withdraw',
-  withdraw: 'withdraw',
-  investment: 'invest',
-  invest: 'invest',
-  buy: 'invest',
-  stake: 'stake',
-  unstake: 'unstake',
-  token_purchase: 'sale',
-  token_sale: 'sale',
-  sale: 'sale',
-  close_investment: 'invest',
-  yield: 'deposit',
-  payout: 'deposit',
-  project_payout: 'deposit',
-  p2p_send: 'p2p_send',
-  p2p_receive: 'p2p_receive',
-}
-
-const TXN_LABEL: Record<string, string> = {
-  deposit: 'Deposit',
-  topup: 'Deposit',
-  credit: 'Deposit',
-  withdrawal: 'Withdrawal to wallet',
-  withdraw: 'Withdrawal to wallet',
-  investment: 'Project share purchase',
-  invest: 'Project share purchase',
-  buy: 'Project share purchase',
-  stake: 'Staked PULSE',
-  unstake: 'Unstaked PULSE',
-  token_purchase: 'Private sale purchase',
-  token_sale: 'PULSE sold for cash',
-  sale: 'Private sale purchase',
-  close_investment: 'Investment liquidated',
-  yield: 'Yield disbursement',
-  payout: 'Project payout from float',
-  project_payout: 'Project payout from float',
-  p2p_send: 'Sent to another user',
-  p2p_receive: 'Received from another user',
-}
-
-export interface AccountRow {
-  user_id: string
-  cash_balance: number
-  invested_balance: number
-  staked_balance: number
-  token_balance: number
-  pending_yield: number
-  updated_at?: string
-}
-
-export async function ensureAccount(userId: string): Promise<AccountRow> {
-  const db = serviceClient()
-  const { data, error } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
-  if (error && error.code !== 'PGRST116') {
-    console.error('[Data Access] ensureAccount error:', error)
-  }
-  if (data) return data as AccountRow
-
-  const { data: created, error: createError } = await db
-    .from('accounts')
-    .insert({ user_id: userId })
-    .select('*')
-    .single()
-
-  if (createError) {
-    console.error('[Data Access] ensureAccount createError:', createError)
-    return {
-      user_id: userId,
-      cash_balance: 0,
-      invested_balance: 0,
-      staked_balance: 0,
-      token_balance: 0,
-      pending_yield: 0,
-    }
-  }
-
-  return created as AccountRow
-}
-
-const SETTLED_EXCLUDED = ['failed', 'rejected', 'cancelled', 'pending', 'processing']
-
-export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
-  try {
-    const db = serviceClient()
-    const { data: txns, error } = await db
-      .from('transactions')
-      .select('type, amount, currency, status, meta')
-      .eq('user_id', userId)
-
-    if (error) return 0
-
-    let balance = 0
-    for (const txn of txns ?? []) {
-      const status = (txn.status || '').toLowerCase()
-      if (SETTLED_EXCLUDED.includes(status)) continue
-
-      const amount = Number(txn.amount) || 0
-      const currency = (txn.currency || 'USD').toUpperCase()
-      const type = (txn.type || '').toLowerCase()
-
-      if (currency === 'USD' || currency === 'USDT' || currency === 'USDC') {
-        switch (type) {
-          case 'deposit':
-          case 'topup':
-          case 'credit':
-          case 'yield':
-          case 'payout':
-          case 'project_payout':
-          case 'p2p_receive':
-          case 'close_investment':
-          case 'refund':
-            balance += amount
-            break
-          case 'withdrawal':
-          case 'withdraw':
-          case 'investment':
-          case 'invest':
-          case 'buy':
-          case 'p2p_send':
-            balance -= amount
-            break
-        }
-      } else if (currency === 'PULSE' || currency === 'PLS') {
-        const meta = txn.meta as Record<string, unknown> | null
-        if (type === 'token_purchase') {
-          const usdCost = Number(meta?.usdCost) || 0
-          if (usdCost > 0) balance -= usdCost
-        } else if (type === 'token_sale') {
-          const usdValue = Number(meta?.usdValue) || 0
-          if (usdValue > 0) balance += usdValue
-        }
-      }
-    }
-    return Math.max(0, balance)
-  } catch {
-    return 0
-  }
-}
-
-export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
-  try {
-    const db = serviceClient()
-    const { data: txns, error } = await db
-      .from('transactions')
-      .select('type, amount, currency, status')
-      .eq('user_id', userId)
-
-    if (error) return 0
-
-    let balance = 0
-    for (const txn of txns ?? []) {
-      const status = (txn.status || '').toLowerCase()
-      if (SETTLED_EXCLUDED.includes(status)) continue
-
-      const amount = Number(txn.amount) || 0
-      const currency = (txn.currency || '').toUpperCase()
-      const type = (txn.type || '').toLowerCase()
-
-      if (currency === 'PULSE' || currency === 'PLS') {
-        if (['token_purchase', 'unstake', 'p2p_receive'].includes(type)) balance += amount
-        else if (['stake', 'p2p_send', 'token_sale'].includes(type)) balance -= amount
-      }
-    }
-    return Math.max(0, balance)
-  } catch {
-    return 0
-  }
-}
-
-export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
-  try {
-    const db = serviceClient()
-    const { data: txns, error } = await db
-      .from('transactions')
-      .select('type, amount, currency, status')
-      .eq('user_id', userId)
-
-    if (error) return 0
-
-    let balance = 0
-    for (const txn of txns ?? []) {
-      const status = (txn.status || '').toLowerCase()
-      if (SETTLED_EXCLUDED.includes(status)) continue
-
-      const amount = Number(txn.amount) || 0
-      const currency = (txn.currency || '').toUpperCase()
-      const type = (txn.type || '').toLowerCase()
-
-      if (currency === 'PULSE' || currency === 'PLS') {
-        if (type === 'stake') balance += amount
-        else if (type === 'unstake') balance -= amount
-      }
-    }
-    return Math.max(0, balance)
-  } catch {
-    return 0
-  }
-}
-
-export async function adjustAccount(
-  userId: string,
-  deltas: Partial<
-    Pick<AccountRow, 'cash_balance' | 'invested_balance' | 'staked_balance' | 'token_balance' | 'pending_yield'>
-  >,
-): Promise<AccountRow> {
-  const db = serviceClient()
-  const acct = await ensureAccount(userId)
-  const next: Record<string, number> = {}
-
-  for (const [k, v] of Object.entries(deltas)) {
-    const currentVal = Number(acct[k as keyof AccountRow] ?? 0)
-    const newVal = currentVal + Number(v)
-    if (newVal < -0.0001) throw new Error(`Insufficient ${k.replace('_balance', '')} balance`)
-    next[k] = newVal
-  }
-
-  const { data, error } = await db
-    .from('accounts')
-    .update({ ...next, updated_at: new Date().toISOString() })
-    .eq('user_id', userId)
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return data as AccountRow
-}
-
-export async function recordTxn(
-  userId: string,
-  row: {
-    type: string
-    amount: number
-    currency?: string
-    status?: string
-    reference?: string | null
-    meta?: Record<string, unknown>
-    processedBy?: string | null
+// Tiers are unlocked purely by the amount an investor allocates.
+// They are NOT tied to recruiting other people.
+export const TIERS: Tier[] = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    minInvest: 75,
+    yieldLabel: '11–13% target',
+    yieldLow: 11,
+    yieldHigh: 13,
+    perks: ['Access to entry-level project shares', 'Monthly performance reports', 'Standard support'],
   },
-) {
-  const db = serviceClient()
-  const { data, error } = await db
-    .from('transactions')
-    .insert({
-      user_id: userId,
-      type: row.type.toLowerCase(),
-      amount: row.amount,
-      currency: (row.currency ?? 'USD').toUpperCase(),
-      status: row.status ?? 'completed',
-      reference: row.reference ?? null,
-      meta: row.meta ?? {},
-      processed_by: row.processedBy ?? null,
-    })
-    .select('*')
-    .single()
+  {
+    id: 'growth',
+    name: 'Growth',
+    minInvest: 150,
+    yieldLabel: '13–16% target',
+    yieldLow: 13,
+    yieldHigh: 16,
+    perks: ['All Starter benefits', 'Diversified project basket', 'Quarterly strategy briefings'],
+  },
+  {
+    id: 'builder',
+    name: 'Builder',
+    minInvest: 300,
+    yieldLabel: '15–18% target',
+    yieldLow: 15,
+    yieldHigh: 18,
+    perks: ['All Growth benefits', 'Early access to new projects', 'Priority support'],
+    highlight: true,
+  },
+  {
+    id: 'leader',
+    name: 'Leader',
+    minInvest: 750,
+    yieldLabel: '17–20% target',
+    yieldLow: 17,
+    yieldHigh: 20,
+    perks: ['All Builder benefits', 'Dedicated portfolio review', 'Reduced platform fees'],
+  },
+  {
+    id: 'ambassador',
+    name: 'Ambassador',
+    minInvest: 1500,
+    yieldLabel: '19–22% target',
+    yieldLow: 19,
+    yieldHigh: 22,
+    perks: ['All Leader benefits', 'Governance weighting', 'Invitations to project site visits'],
+  },
+]
 
-  if (error) throw error
-  return data
+export function tierForAmount(totalInvested: number): Tier {
+  let current = TIERS[0]
+  for (const t of TIERS) {
+    if (totalInvested >= t.minInvest) current = t
+  }
+  return current
 }
 
-export async function disburseProjectPayoutFromFloat(params: {
-  userId: string
+export function nextTier(current: TierId): Tier | null {
+  const idx = TIERS.findIndex((t) => t.id === current)
+  return idx >= 0 && idx < TIERS.length - 1 ? TIERS[idx + 1] : null
+}
+
+export type ProjectSector = 'Renewable Energy' | 'Mining Royalties' | 'Agriculture' | 'Infrastructure'
+
+export interface Project {
+  id: string
+  name: string
+  country: string
+  sector: ProjectSector
+  targetYield: string
+  funded: number
+  goal: number
+  risk: 'Lower' | 'Moderate' | 'Higher'
+  summary: string
+  // FIX — dashboard.tsx renders p.image as the card cover photo, but this
+  // field never existed on the type. TypeScript would fail the build the
+  // moment pulse-data.ts compiled again. Optional so projects without a
+  // photo still render (dashboard.tsx already guards with `p.image &&`).
+  image?: string
+}
+
+export const PROJECTS: Project[] = [
+  {
+    id: 'kalahari-solar',
+    name: 'Kalahari Solar Field',
+    country: 'Botswana',
+    sector: 'Renewable Energy',
+    targetYield: '12–15%',
+    funded: 742_000,
+    goal: 1_000_000,
+    risk: 'Lower',
+    summary: '85 MW solar installation with a 20-year power purchase agreement with the national utility.',
+  },
+  {
+    id: 'copperbelt-royalty',
+    name: 'Copperbelt Royalty Note',
+    country: 'Zambia',
+    sector: 'Mining Royalties',
+    targetYield: '16–20%',
+    funded: 410_000,
+    goal: 750_000,
+    risk: 'Higher',
+    summary: 'Revenue royalty on an operating copper concession. Returns track commodity prices and output.',
+  },
+  {
+    id: 'zambezi-agri',
+    name: 'Zambezi Valley Agri',
+    country: 'Zimbabwe',
+    sector: 'Agriculture',
+    targetYield: '10–14%',
+    funded: 288_000,
+    goal: 500_000,
+    risk: 'Moderate',
+    summary: 'Irrigated macadamia and citrus estate with offtake contracts to EU distributors.',
+  },
+  {
+    id: 'maputo-logistics',
+    name: 'Maputo Logistics Hub',
+    country: 'Mozambique',
+    sector: 'Infrastructure',
+    targetYield: '13–16%',
+    funded: 560_000,
+    goal: 900_000,
+    risk: 'Moderate',
+    summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
+  },
+]
+
+export interface Signal {
+  id: string
   projectId: string
-  amount: number
-  currency?: string
-  floatTxHash?: string
-  processedBy?: string
-}) {
-  const { userId, projectId, amount, currency = 'USD', floatTxHash, processedBy } = params
-
-  const txn = await recordTxn(userId, {
-    type: 'project_payout',
-    amount,
-    currency,
-    status: 'completed',
-    processedBy: processedBy ?? null,
-    meta: {
-      projectId,
-      source: 'float_wallet',
-      floatTxHash: floatTxHash ?? null,
-      label: `Project Payout (${projectId})`,
-    },
-  })
-
-  await adjustAccount(userId, { cash_balance: amount })
-  return txn
+  title: string
+  window: string
+  detail: string
+  targetYield: string
+  urgency: 'New' | 'Closing soon' | 'Open'
 }
 
-export async function getSnapshot(userId: string, userEmail?: string): Promise<Snapshot> {
-  const db = serviceClient()
+export const SIGNALS: Signal[] = [
+  {
+    id: 'sig-1',
+    projectId: 'kalahari-solar',
+    title: 'Kalahari Solar — Phase 2 allocation',
+    window: 'Closes in 6 days',
+    detail: 'Utility signed an expanded PPA. Phase 2 shares are opening at the same entry terms as Phase 1.',
+    targetYield: '12–15%',
+    urgency: 'New',
+  },
+  {
+    id: 'sig-2',
+    projectId: 'copperbelt-royalty',
+    title: 'Copperbelt Royalty — higher output quarter',
+    window: 'Closes in 2 days',
+    detail: 'Mine reported a production uplift. Royalty note has limited remaining allocation this quarter.',
+    targetYield: '16–20%',
+    urgency: 'Closing soon',
+  },
+  {
+    id: 'sig-3',
+    projectId: 'maputo-logistics',
+    title: 'Maputo Hub — cold-chain expansion',
+    window: 'Open',
+    detail: 'New anchor tenant signed a 7-year lease, improving the projected occupancy profile.',
+    targetYield: '13–16%',
+    urgency: 'Open',
+  },
+]
 
-  const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> => {
-    try {
-      const res = await promise
-      return res.data
-    } catch {
-      return null
-    }
-  }
-
-  const [profile, acct, holdings, txns, pointsRows, referrals, badgeRows, cardApp, wallets] = await Promise.all([
-    safeQuery(db.from('profiles').select('*').eq('id', userId).maybeSingle()),
-    ensureAccount(userId),
-    safeQuery(db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
-    safeQuery(
-      db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
-    ),
-    safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
-    safeQuery(db.from('profiles').select('kyc_status').eq('referred_by', userId)),
-    safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId)),
-    safeQuery(db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle()),
-    safeQuery(
-      db
-        .from('saved_wallets')
-        .select('id, label, address')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true }),
-    ),
-  ])
-
-  const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
-  const role = (profile as { role?: string })?.role
-  const isAdmin = role === 'admin' || role === 'super_admin'
-  const rawKyc = ((profile as { kyc_status?: string })?.kyc_status ?? 'none') as Snapshot['kyc']
-
-  const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
-    calculateCashBalanceFromLedger(userId),
-    calculateTokenBalanceFromLedger(userId),
-    calculateStakedBalanceFromLedger(userId),
-  ])
-
-  let cashBalance = Number(acct.cash_balance ?? 0)
-  let tokenBalance = Number(acct.token_balance ?? 0)
-  let stakedBalance = Number(acct.staked_balance ?? 0)
-  const pendingYield = Number(acct.pending_yield ?? 0)
-
-  if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
-  if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
-  if (stakedBalance <= 0 && ledgerStaked > 0) stakedBalance = ledgerStaked
-
-  const activeHoldings = (
-    (holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []
-  ).map((h) => ({
-    id: h.id,
-    projectId: h.project_id,
-    tierId: tierForAmount(Number(h.amount)).id as TierId,
-    amount: Number(h.amount),
-    date: new Date(h.created_at).getTime(),
-  }))
-
-  return {
-    cash: cashBalance,
-    pulse: tokenBalance,
-    staked: stakedBalance,
-    pendingYield,
-    holdings: activeHoldings,
-    txns: (
-      (txns as Array<{
-        id: string
-        type: string
-        currency: string
-        meta?: Record<string, unknown>
-        amount: number
-        status: string
-        processing_started_at?: string
-        created_at: string
-      }>) ?? []
-    ).map((t) => {
-      const rawType = (t.type || '').toLowerCase()
-      const rawCurrency = (t.currency || '').toUpperCase()
-      return {
-        id: t.id,
-        type: TXN_TYPE_MAP[rawType] ?? 'deposit',
-        label: (t.meta?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
-        amount: Number(t.amount),
-        currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
-        status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
-        isProcessing: !!t.processing_started_at,
-        date: new Date(t.created_at).getTime(),
-      }
-    }),
-    kyc: rawKyc,
-    wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
-    referralCode:
-      (acct as AccountRow & { wallet_id?: string }).wallet_id ??
-      (profile as { referral_code?: string })?.referral_code ??
-      'PLS-XXXX',
-    fullName: (profile as { full_name?: string })?.full_name ?? null,
-    email: email || null,
-    tier: (profile as { tier?: number })?.tier ?? 1,
-    isAdmin,
-    points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
-    founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
-    walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
-    username: (profile as { username?: string })?.username ?? null,
-    referralCount: ((referrals as unknown[]) ?? []).length,
-    referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(
-      (r) => r.kyc_status === 'verified',
-    ).length,
-    badges: ((badgeRows as Array<{ badge_key: string; earned_at: string }>) ?? []).map((b) => ({
-      key: b.badge_key,
-      earnedAt: new Date(b.earned_at).getTime(),
-    })),
-    adminScope: (profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope ?? null,
-    cardStatus: (cardApp as { status?: Snapshot['cardStatus'] })?.status ?? 'none',
-    cardRef: (cardApp as { card_ref?: string })?.card_ref ?? null,
-    savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({
-      id: w.id,
-      label: w.label,
-      address: w.address,
-    })),
-  }
+// $PULSE is the platform's ecosystem token used for staking and governance.
+export const TOKEN = {
+  symbol: 'PULSE',
+  salePrice: 0.08,
+  bonusPct: 35,
+  stakingApy: 24.8,
 }
 
-export async function isUserAdmin(userId: string): Promise<boolean> {
-  try {
-    const db = serviceClient()
-    const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
-    return data?.role === 'admin' || data?.role === 'super_admin'
-  } catch {
-    return false
-  }
+export const RISK_DISCLAIMER =
+  "Risk Warning: Trading stocks, options, futures, and forex carries a high level of risk and may not be suitable for all investors. Leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, level of experience, and risk appetite. The possibility exists that you could sustain a loss of some or all of your initial investment and therefore you should not invest money that you cannot afford to lose."
+
+// Project deadlines — additive, doesn't touch the PROJECTS array above.
+// Status is computed live from these dates whenever displayed — no
+// scheduled job needed, no separate "status" field to keep in sync.
+export const PROJECT_DEADLINES: Record<string, string> = {
+  'kalahari-solar': '2026-09-15',
+  'copperbelt-royalty': '2026-08-30',
+  'zambezi-agri': '2026-10-01',
+  'maputo-logistics': '2026-09-20',
+}
+
+export function isProjectClosed(projectId: string): boolean {
+  const deadline = PROJECT_DEADLINES[projectId]
+  if (!deadline) return false
+  return new Date() > new Date(deadline)
+}
+
+export function projectStatusLabel(projectId: string): 'Open' | 'Closed' {
+  return isProjectClosed(projectId) ? 'Closed' : 'Open'
+}
+
+// Real receiving wallets — shown to users on the deposit screen. Luno BTC
+// and Binance USDT-TRC20, both confirmed real addresses.
+export const PLATFORM_WALLETS: Record<'usdttrc20' | 'btc', string> = {
+  usdttrc20: 'THB24HhGT515q2kT8qJRBdXMbGCu4uyAKZ',
+  btc: '35oZ6ywxKnhVA5r2EccdUb1Jy7qJrU2mH8',
 }
