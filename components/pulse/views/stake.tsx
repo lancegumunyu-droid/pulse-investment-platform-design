@@ -1,10 +1,10 @@
-'use client'
-
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Vote, CheckCircle2, AlertCircle, TrendingUp, Sparkles, ArrowRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { RiskNote } from '../ui-bits'
+import { motion } from 'framer-motion'
+import { Zap, Vote, CheckCircle2, AlertCircle, TrendingUp, ArrowRight, Loader2 } from 'lucide-react'
+import { money, usePulse } from '../store'
+import { TOKEN } from '@/lib/pulse-data'
+
+const STAKE_APY = TOKEN.stakingApy ?? 24.8
 
 interface GovernanceProposal {
   id: string
@@ -15,80 +15,91 @@ interface GovernanceProposal {
 }
 
 const GOVERNANCE_PROPOSALS: GovernanceProposal[] = [
-  {
-    id: 'gov-1',
-    title: 'Add Namibian green hydrogen project to the platform',
-    status: 'Active',
-    forPct: 72,
-    againstPct: 28,
-  },
-  {
-    id: 'gov-2',
-    title: 'Lower minimum entry for the Starter tier to $50',
-    status: 'Active',
-    forPct: 58,
-    againstPct: 42,
-  },
-  {
-    id: 'gov-3',
-    title: 'Allocate 5% of fees to a community reserve',
-    status: 'Passing',
-    forPct: 81,
-    againstPct: 19,
-  },
+  { id: 'gov-1', title: 'Add Namibian green hydrogen project to the platform', status: 'Active', forPct: 72, againstPct: 28 },
+  { id: 'gov-2', title: 'Lower minimum entry for the Starter tier to $50', status: 'Active', forPct: 58, againstPct: 42 },
+  { id: 'gov-3', title: 'Allocate 5% of fees to a community reserve', status: 'Passing', forPct: 81, againstPct: 19 },
 ]
 
-// Home Dashboard Motion Stagger Physics
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.04,
-    },
-  },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.04 } },
 }
-
 const itemVariants = {
   hidden: { opacity: 0, y: 20, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 24,
-    },
-  },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 300, damping: 24 } },
+}
+
+function useMouseGlow<T extends HTMLElement>() {
+  const ref = React.useRef<T | null>(null)
+  const onMove = (e: React.PointerEvent<T>) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
+    el.style.setProperty('--my', `${e.clientY - rect.top}px`)
+  }
+  const onLeave = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.removeProperty('--mx')
+    el.style.removeProperty('--my')
+  }
+  return { ref, onMove, onLeave }
 }
 
 export function StakeView() {
+  // FIX — this entire view was fake. APY, the staked figure (3,300) and the
+  // Max button (45,171) were hardcoded literals, and handleStakeSubmit ran a
+  // setTimeout then cleared the input. api.stake() was never called, so
+  // nothing was ever staked and no transaction was ever written. Everything
+  // below now reads state and calls the real server actions.
+  const { state, api, busy, toast, currentTier } = usePulse()
   const [activeTab, setActiveTab] = useState<'stake' | 'unstake'>('stake')
-  const [stakeAmount, setStakeAmount] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [amount, setAmount] = useState('')
   const [votedProposals, setVotedProposals] = useState<Record<string, 'for' | 'against'>>({})
-  const [mousePos, setMousePos] = useState({ x: 150, y: 50 })
+  const [votingId, setVotingId] = useState<string | null>(null)
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-  }
+  const heroGlow = useMouseGlow<HTMLDivElement>()
 
-  const handleStakeSubmit = (e: React.FormEvent) => {
+  const isStaking = activeTab === 'stake'
+  const available = isStaking ? state.pulse : state.staked
+  const amountNum = Number(amount) || 0
+  const exceeds = amountNum > available
+  const annualReward = (state.staked * STAKE_APY) / 100
+  const projectedReward = (amountNum * STAKE_APY) / 100
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!stakeAmount || Number(stakeAmount) <= 0) return
+    if (!amountNum || amountNum <= 0 || exceeds) return
 
-    setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
-      setStakeAmount('')
-    }, 1200)
+    const res = isStaking ? await api.stake(amountNum) : await api.unstake(amountNum)
+
+    if (res.ok) {
+      toast({
+        title: isStaking ? 'PULSE staked' : 'PULSE unstaked',
+        description: `${amountNum.toLocaleString()} PULSE ${isStaking ? 'moved into the vault' : 'returned to your liquid balance'}.`,
+        variant: 'success',
+      })
+      setAmount('')
+    } else {
+      toast({ title: isStaking ? 'Stake failed' : 'Unstake failed', description: res.error, variant: 'error' })
+    }
   }
 
-  const handleVote = (proposalId: string, choice: 'for' | 'against') => {
-    setVotedProposals((prev) => ({ ...prev, [proposalId]: choice }))
+  const handleVote = async (proposalId: string, choice: 'for' | 'against') => {
+    if (state.staked <= 0) {
+      toast({ title: 'Stake PULSE to vote', description: 'Governance weight comes from your staked balance.', variant: 'error' })
+      return
+    }
+    setVotingId(proposalId)
+    const res = await api.vote(proposalId, choice)
+    setVotingId(null)
+    if (res.ok) {
+      setVotedProposals((prev) => ({ ...prev, [proposalId]: choice }))
+      toast({ title: 'Vote recorded', variant: 'success' })
+    } else {
+      toast({ title: 'Could not record vote', description: res.error, variant: 'error' })
+    }
   }
 
   return (
@@ -96,265 +107,235 @@ export function StakeView() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-4 max-w-md mx-auto pb-28 pt-1 px-1.5 text-zinc-100 font-sans selection:bg-amber-500/30"
+      className="pulse-executive-shell mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl"
     >
-      {/* Header Section with Neon Glow Icon */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <motion.div 
-            whileHover={{ scale: 1.08, rotate: 5 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative p-2.5 rounded-2xl bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent border border-amber-500/40 text-amber-400 shrink-0 shadow-[0_0_25px_rgba(245,158,11,0.25)]"
-          >
-            <Zap className="size-5 fill-amber-400/30 animate-pulse" />
-          </motion.div>
-          <div>
-            <h2 className="text-base font-extrabold text-white leading-tight tracking-wide flex items-center gap-1.5">
-              Stake & earn
-            </h2>
-            <p className="text-[11px] text-zinc-400 leading-normal">
-              Stake $PULSE to earn rewards and vote on platform decisions.
-            </p>
-          </div>
+      {/* HEADER */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static flex items-center gap-3 p-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
+          <Zap className="h-4 w-4 text-amber-400" />
+        </span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Stake &amp; Earn</h2>
+          <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">
+            Stake $PULSE to earn rewards and vote on platform decisions.
+          </p>
         </div>
       </motion.div>
 
-      {/* Hero APY & Staked Banner with Spotlight Motion */}
+      {/* HERO — live APY and real staked balance */}
       <motion.div variants={itemVariants}>
-        <motion.div
-          whileHover={{ scale: 1.01 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          onPointerMove={handlePointerMove}
-          style={{
-            background: `radial-gradient(240px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 158, 11, 0.16), transparent 80%), linear-gradient(135deg, #1c170d 0%, #0a0a08 100%)`
-          }}
-          className="relative overflow-hidden rounded-2xl border border-amber-500/35 p-4 shadow-[0_0_30px_rgba(245,158,11,0.12)] transition-colors duration-300 hover:border-amber-500/60"
+        <div
+          ref={heroGlow.ref}
+          onPointerMove={heroGlow.onMove}
+          onPointerLeave={heroGlow.onLeave}
+          className="pulse-hero-premium pulse-hero-violet pulse-glow-track"
         >
-          {/* Animated Ambient Shimmer Sweep */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent -translate-x-full animate-[shimmer_3.5s_infinite]" />
-
-          <div className="flex justify-between items-start relative z-10">
+          <div className="relative z-[3] flex items-start justify-between gap-4 p-6 md:p-8">
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-black uppercase tracking-widest text-amber-400/90 font-mono">
-                  CURRENT APY
-                </span>
-                <Sparkles className="size-3 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
-              </div>
-              <motion.div 
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                className="text-3xl font-black font-mono text-amber-400 tracking-tight mt-0.5 drop-shadow-[0_0_15px_rgba(245,158,11,0.45)]"
-              >
-                24.8%
-              </motion.div>
+              <span className="pulse-label">Current APY</span>
+              <div className="pulse-value-xl mt-2 text-amber-400">{STAKE_APY}%</div>
+              <p className="pulse-label mt-1.5 normal-case tracking-normal text-zinc-400">
+                Variable — not a guaranteed rate
+              </p>
             </div>
             <div className="text-right">
-              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 font-mono">
-                STAKED
-              </span>
-              <div className="text-xl font-bold font-mono text-white mt-0.5">
-                3,300
-              </div>
-              <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center justify-end gap-1">
-                <TrendingUp className="size-3" /> ≈ $65.47/yr rewards
+              <span className="pulse-label">Staked</span>
+              <div className="pulse-value-md mt-2 text-xl">{money(state.staked, 0)}</div>
+              <span className="mt-1 flex items-center justify-end gap-1 pulse-value-accent text-xs text-emerald-400">
+                <TrendingUp className="h-3 w-3" /> ~${money(annualReward)}/yr
               </span>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
 
-      {/* Stake / Unstake Interactive Box with Animated Spring Tabs */}
-      <motion.div variants={itemVariants}>
-        <div className="relative rounded-2xl border border-white/10 bg-[#111111]/90 backdrop-blur-md p-4 shadow-2xl space-y-3.5">
-          
-          {/* Interactive Spring Pill Tabs */}
-          <div className="relative grid grid-cols-2 gap-1 p-1.5 rounded-xl bg-black/70 border border-white/10">
-            <button
-              type="button"
-              onClick={() => setActiveTab('stake')}
-              className={`relative z-10 py-2 text-xs font-black uppercase tracking-wider transition-colors duration-200 ${
-                activeTab === 'stake' ? 'text-black' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Stake
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('unstake')}
-              className={`relative z-10 py-2 text-xs font-black uppercase tracking-wider transition-colors duration-200 ${
-                activeTab === 'unstake' ? 'text-black' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Unstake
-            </button>
-
-            {/* Sliding Pill Background with Layout Animation */}
-            <AnimatePresence>
-              <motion.div
-                layoutId="activeTabPill"
-                className="absolute inset-y-1.5 rounded-lg bg-gradient-to-r from-amber-400 via-amber-400 to-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.5)]"
-                style={{
-                  left: activeTab === 'stake' ? '0.375rem' : 'calc(50% + 0.1875rem)',
-                  width: 'calc(50% - 0.5625rem)'
-                }}
-                transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-              />
-            </AnimatePresence>
-          </div>
-
-          <form onSubmit={handleStakeSubmit} className="space-y-3">
+          <div className="pulse-hero-telemetry relative z-[3] grid grid-cols-3 px-6 py-4 text-center md:px-8">
             <div>
-              <div className="flex justify-between text-[11px] font-semibold text-zinc-400 mb-1.5">
-                <span>Amount (PULSE)</span>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                  onClick={() => setStakeAmount('45171')}
-                  className="text-amber-400 hover:text-amber-300 font-mono text-[10px] font-black uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/25 transition-all hover:bg-amber-500/20"
-                >
-                  Max 45,171
-                </motion.button>
-              </div>
-              <div className="relative">
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={stakeAmount}
-                  onChange={(e) => setStakeAmount(e.target.value)}
-                  className="w-full bg-black/80 border border-white/10 text-white placeholder:text-zinc-600 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 focus:outline-none h-12 text-base rounded-xl font-mono px-3.5 transition-all shadow-inner"
-                />
-              </div>
+              <span className="pulse-label block">Liquid</span>
+              <div className="pulse-value-sm mt-1">{money(state.pulse, 0)}</div>
             </div>
-
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
-              <Button
-                type="submit"
-                disabled={isSubmitting || !stakeAmount || Number(stakeAmount) <= 0}
-                className="w-full h-12 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:brightness-110 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_25px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Zap className="size-4 fill-black" />
-                    <span>{activeTab === 'stake' ? 'Stake PULSE' : 'Unstake PULSE'}</span>
-                    <ArrowRight className="size-4" />
-                  </>
-                )}
-              </Button>
-            </motion.div>
-          </form>
+            <div>
+              <span className="pulse-label block">Staked</span>
+              <div className="pulse-value-accent mt-1">{money(state.staked, 0)}</div>
+            </div>
+            <div>
+              <span className="pulse-label block">Tier</span>
+              <div className="pulse-value-sm mt-1">{currentTier.name}</div>
+            </div>
+          </div>
         </div>
       </motion.div>
 
-      {/* Governance Section */}
-      <motion.div variants={itemVariants} className="space-y-3 pt-1">
-        <div className="flex items-center gap-2.5">
-          <motion.div 
-            whileHover={{ scale: 1.1 }}
-            className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
-          >
-            <Vote className="size-4" />
-          </motion.div>
-          <div>
-            <h3 className="text-sm font-extrabold text-white leading-tight">Governance</h3>
-            <p className="text-[11px] text-zinc-400">Staked holders shape the platform.</p>
-          </div>
+      {/* STAKE / UNSTAKE */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static space-y-4 p-5">
+        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/10 bg-black/50 p-1.5">
+          {(['stake', 'unstake'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab)
+                setAmount('')
+              }}
+              className={`rounded-lg py-2 text-xs font-semibold uppercase tracking-wide transition-all ${
+                activeTab === tab
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.45)]'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
-        {/* Governance Proposal Cards with Spring Hover Physics */}
-        <div className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="pulse-label">Amount (PULSE)</span>
+              <button
+                type="button"
+                onClick={() => setAmount(available > 0 ? String(Math.floor(available)) : '')}
+                className="rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-400 transition hover:bg-amber-500/20"
+              >
+                Max {money(available, 0)}
+              </button>
+            </div>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="pulse-input h-12 text-base"
+            />
+            {exceeds && (
+              <p className="pulse-label mt-1.5 normal-case tracking-normal text-rose-400">
+                Amount exceeds your {isStaking ? 'liquid' : 'staked'} balance of {money(available, 0)} PULSE.
+              </p>
+            )}
+          </div>
+
+          {amountNum > 0 && !exceeds && isStaking && (
+            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5">
+              <span className="pulse-label normal-case tracking-normal text-zinc-400">Projected annual reward</span>
+              <span className="pulse-value-accent">~${money(projectedReward)}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy || !amountNum || amountNum <= 0 || exceeds}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 text-xs font-semibold uppercase tracking-wide text-black shadow-[0_0_25px_rgba(245,158,11,0.35)] transition hover:brightness-110 disabled:opacity-50"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Zap className="h-4 w-4" />
+                <span>{isStaking ? 'Stake PULSE' : 'Unstake PULSE'}</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </form>
+      </motion.div>
+
+      {/* GOVERNANCE */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static overflow-hidden">
+        <div className="pulse-vault-header">
+          <div>
+            <p className="pulse-value-md flex items-center gap-1.5">
+              <Vote className="h-4 w-4 text-amber-400" /> Governance
+            </p>
+            <p className="pulse-label mt-0.5 normal-case tracking-normal text-zinc-400">
+              Staked holders shape the platform.
+            </p>
+          </div>
+          <span className={state.staked > 0 ? 'pulse-chip pulse-chip-green' : 'pulse-chip pulse-chip-muted'}>
+            {state.staked > 0 ? `${money(state.staked, 0)} weight` : 'No weight'}
+          </span>
+        </div>
+
+        <div className="divide-y divide-white/[0.06]">
           {GOVERNANCE_PROPOSALS.map((prop) => {
             const hasVoted = votedProposals[prop.id]
             return (
-              <motion.div
-                key={prop.id}
-                whileHover={{ y: -3, scale: 1.01 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#141414] to-[#0a0a0a] p-4 shadow-xl space-y-3 transition-colors duration-300 hover:border-amber-500/40"
-              >
-                {/* Header Shimmer Bar */}
-                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/40 to-transparent -translate-x-full animate-[shimmer_4s_infinite]" />
-
+              <div key={prop.id} className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <h4 className="text-xs font-bold text-white leading-snug pr-2">{prop.title}</h4>
-                  <span
-                    className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border shrink-0 ${
-                      prop.status === 'Active'
-                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
-                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                    }`}
-                  >
+                  <h4 className="pr-2 text-xs font-semibold leading-snug text-white">{prop.title}</h4>
+                  <span className={prop.status === 'Active' ? 'pulse-chip pulse-chip-gold' : 'pulse-chip pulse-chip-green'}>
                     {prop.status}
                   </span>
                 </div>
 
-                {/* Animated Dynamic Progress Indicator */}
                 <div className="space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono font-bold">
+                  <div className="flex justify-between font-mono text-[10px] font-semibold tabular-nums">
                     <span className="text-emerald-400">For {prop.forPct}%</span>
                     <span className="text-zinc-400">Against {prop.againstPct}%</span>
                   </div>
-                  <div className="h-2 w-full bg-black/70 rounded-full overflow-hidden border border-white/5 flex p-0.5">
+                  <div className="flex h-2 w-full overflow-hidden rounded-full border border-white/5 bg-black/70 p-0.5">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${prop.forPct}%` }}
                       transition={{ duration: 1, ease: 'easeOut' }}
-                      className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]"
                     />
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${prop.againstPct}%` }}
                       transition={{ duration: 1, ease: 'easeOut', delay: 0.1 }}
-                      className="bg-zinc-700 h-full rounded-full ml-0.5"
+                      className="ml-0.5 h-full rounded-full bg-zinc-700"
                     />
                   </div>
                 </div>
 
-                {/* Interactive Motion Voting Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.96 }}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
                     type="button"
+                    disabled={busy || votingId === prop.id}
                     onClick={() => handleVote(prop.id, 'for')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all disabled:opacity-50 ${
                       hasVoted === 'for'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.25)]'
-                        : 'bg-black/50 text-zinc-300 border-white/10 hover:bg-white/5 hover:border-white/20'
+                        ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                        : 'border-white/10 bg-black/50 text-zinc-300 hover:border-white/20 hover:bg-white/5'
                     }`}
                   >
-                    {hasVoted === 'for' && <CheckCircle2 className="size-3.5 text-emerald-400" />}
+                    {votingId === prop.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      hasVoted === 'for' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                    )}
                     <span>Vote for</span>
-                  </motion.button>
+                  </button>
 
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.96 }}
+                  <button
                     type="button"
+                    disabled={busy || votingId === prop.id}
                     onClick={() => handleVote(prop.id, 'against')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all disabled:opacity-50 ${
                       hasVoted === 'against'
-                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.25)]'
-                        : 'bg-black/50 text-zinc-300 border-white/10 hover:bg-white/5 hover:border-white/20'
+                        ? 'border-rose-500/50 bg-rose-500/20 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                        : 'border-white/10 bg-black/50 text-zinc-300 hover:border-white/20 hover:bg-white/5'
                     }`}
                   >
-                    {hasVoted === 'against' && <AlertCircle className="size-3.5 text-rose-400" />}
+                    {hasVoted === 'against' && <AlertCircle className="h-3.5 w-3.5 text-rose-400" />}
                     <span>Against</span>
-                  </motion.button>
+                  </button>
                 </div>
-              </motion.div>
+              </div>
             )
           })}
         </div>
       </motion.div>
 
-      {/* Risk Disclaimer */}
-      <motion.div variants={itemVariants}>
-        <RiskNote />
+      {/* RISK DISCLAIMER */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static space-y-2 p-4">
+        <div className="pulse-disclaimer-title flex items-center gap-2">
+          <span>&#9888;&#65039;</span>
+          <span>Risk Disclaimer</span>
+        </div>
+        <p className="pulse-disclaimer">
+          Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
+          does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
+        </p>
       </motion.div>
     </motion.div>
   )
