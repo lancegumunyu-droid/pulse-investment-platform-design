@@ -272,7 +272,11 @@ export function DashboardView() {
             // FIX — the pipeline let you tap "Deploy Capital" on projects that
             // are closed or past their deadline. isProjectClosed() already
             // existed in lib/pulse-data.ts but was never called here.
-            const closed = isProjectClosed(p)
+            // FIX #2 — isProjectClosed(projectId: string) takes the project's
+            // id, not the whole Project object. Passing `p` here compiles to
+            // false in some setups and a hard type error in strict mode
+            // ("Argument of type 'Project' is not assignable to 'string'").
+            const closed = isProjectClosed(p.id)
 
             return (
               <motion.div
