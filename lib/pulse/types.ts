@@ -17,6 +17,7 @@ export interface SnapshotTxn {
   amount: number
   currency: 'USDT' | 'PULSE'
   status: 'completed' | 'pending' | 'cancelled' | 'failed'
+  isProcessing?: boolean
   date: number
 }
 
@@ -43,6 +44,7 @@ export interface Snapshot {
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
   cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  cardRef?: string | null
   savedWallets: SavedWallet[]
 }
 
