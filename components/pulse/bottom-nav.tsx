@@ -25,7 +25,7 @@ export function BottomNav() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       aria-label="Syndicate Navigation"
-      className="relative z-10 mt-8 w-full border-t border-amber-500/40 bg-zinc-950/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-20px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl"
+      className="relative z-10 mt-2 w-full border-t border-amber-500/40 bg-zinc-950/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-20px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl"
     >
       {/* Top Gold Shimmer Border Accent */}
       <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent pointer-events-none shadow-[0_0_20px_rgba(245,158,11,0.9)]" />
