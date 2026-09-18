@@ -428,6 +428,11 @@ export async function getSnapshot(
     wallet_id?: string
   } | null
   const dashboardSummary = (dashboardSummaryResult as { data?: Record<string, unknown> | null; error?: { message?: string } | null } | null)?.data
+  const databaseTier = dashboardSummary?.overall_tier
+  const validTierIds: TierId[] = ['starter', 'growth', 'builder', 'leader', 'ambassador']
+  const canonicalTier = typeof databaseTier === 'string' && validTierIds.includes(databaseTier as TierId)
+    ? (databaseTier as TierId)
+    : null
   if ((dashboardSummaryResult as { error?: { message?: string } } | null)?.error) {
     console.warn('[v0] Dashboard summary RPC unavailable; using compatibility reads', (dashboardSummaryResult as { error?: { message?: string } }).error)
   }
@@ -504,7 +509,7 @@ export async function getSnapshot(
     referralCode: account?.wallet_id ?? '',
     fullName: kycRow?.full_name ?? null,
     email: email || null,
-    tier: (dashboardSummary?.overall_tier as Snapshot['tier'] | undefined) ?? tierForAmount(totalInvested).id,
+    tier: canonicalTier ?? 'starter',
     isAdmin,
     points: 0,
     founderNumber: null,
