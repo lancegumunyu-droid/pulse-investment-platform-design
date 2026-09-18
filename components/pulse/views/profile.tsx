@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Copy, Gift, Lock, LogOut, User, ChevronDown } from 'lucide-react'
 import { usePulse } from '../store'
@@ -24,24 +24,6 @@ const itemVariants = {
  * `React.PointerEvent`. This file is an ES module with no default React
  * import, so `React.X` would resolve to the UMD global and fail type-check.
  */
-function useMouseGlow<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null)
-  const onMove = (e: ReactPointerEvent<T>) => {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
-    el.style.setProperty('--my', `${e.clientY - rect.top}px`)
-  }
-  const onLeave = () => {
-    const el = ref.current
-    if (!el) return
-    el.style.removeProperty('--mx')
-    el.style.removeProperty('--my')
-  }
-  return { ref, onMove, onLeave }
-}
-
 export function ProfileView() {
   const { state, currentTier, setView, toast, signOut, api } = usePulse()
   const referralCode = state.referralCode
@@ -55,9 +37,6 @@ export function ProfileView() {
   const [usernameInput, setUsernameInput] = useState(state.username ?? '')
   const [savingUsername, setSavingUsername] = useState(false)
 
-  const heroGlow = useMouseGlow<HTMLDivElement>()
-  const adminGlow = useMouseGlow<HTMLButtonElement>()
-
   const saveUsername = async () => {
     setSavingUsername(true)
     const res = await api.setUsername(usernameInput)
@@ -70,7 +49,7 @@ export function ProfileView() {
     setSavingUsername(false)
   }
 
-  const referralLink = `https://pulseinvest.uk/?ref=${encodeURIComponent(referralCode)}`
+  const referralLink = `${typeof window !== 'undefined' ? window.location.origin : 'https://pulseinvest.uk'}/auth/sign-up?ref=${encodeURIComponent(referralCode)}`
 
   const copyRef = () => {
     navigator.clipboard?.writeText(referralLink)
@@ -148,9 +127,6 @@ export function ProfileView() {
       {/* PROFILE HERO CARD */}
       <motion.div variants={itemVariants}>
         <div
-          ref={heroGlow.ref}
-          onPointerMove={heroGlow.onMove}
-          onPointerLeave={heroGlow.onLeave}
           className="pulse-hero-premium pulse-glow-track"
         >
           <div className="relative z-[3] p-6 md:p-8">
@@ -331,9 +307,6 @@ export function ProfileView() {
       {/* ADMIN PANEL ACCESS */}
       <motion.div variants={itemVariants}>
         <button
-          ref={adminGlow.ref}
-          onPointerMove={adminGlow.onMove}
-          onPointerLeave={adminGlow.onLeave}
           onClick={openAdmin}
           className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 text-sm font-semibold uppercase tracking-wide text-amber-300"
         >

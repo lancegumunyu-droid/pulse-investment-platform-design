@@ -96,13 +96,19 @@ export async function validateReferralCode(code: string): Promise<{ ok: boolean;
   try {
     const db = serviceClient()
 
-    const { data: byCode } = await db.from('profiles').select('id').eq('referral_code', clean).maybeSingle()
-    if (byCode) return { ok: true, valid: true }
+  const { data: byWallet } = await db.from('accounts').select('user_id').eq('wallet_id', clean).maybeSingle()
+  if (byWallet) {
+    const { data: verifiedKyc } = await db
+      .from('kyc_submissions')
+      .select('id')
+      .eq('user_id', byWallet.user_id)
+      .eq('status', 'verified')
+      .maybeSingle()
+    if (verifiedKyc) return { ok: true, valid: true }
+  }
 
-    const { data: byWallet } = await db.from('accounts').select('user_id').eq('wallet_id', clean).maybeSingle()
-    if (byWallet) return { ok: true, valid: true }
+  if (clean.toUpperCase() === 'PULSE-PUBLIC') return { ok: true, valid: true }
 
-    if (clean.toUpperCase() === 'PULSE-PUBLIC') return { ok: true, valid: true }
 
     return { ok: false, valid: false, error: 'Invalid or expired referral code' }
   } catch (e) {

@@ -359,13 +359,7 @@ export async function getSnapshot(
   }
 
   const [profile, acct, holdings, txns, cardApplication] = await Promise.all([
-    safeQuery(
-      db
-        .from('users')
-        .select('id, email, full_name, kyc_status, referral_code, status, country_code, created_at')
-        .eq('id', userId)
-        .maybeSingle(),
-    ),
+    Promise.resolve({ email: userEmail ?? null }),
     safeQuery(
       db
         .from('accounts')
@@ -408,13 +402,16 @@ export async function getSnapshot(
       .eq('user_id', userId)
       .eq('active', true),
   )) as Array<{ amount?: number }> | null
+  const kycRows = (await safeQuery(
+    db.from('kyc_submissions').select('status').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
+  )) as Array<{ status?: string }> | null
   const badgeRows: unknown[] = []
   const wallets: unknown[] = []
 
   const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
   const role = (profile as { role?: string })?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
-  const rawKyc = ((profile as { kyc_status?: string })?.kyc_status ?? 'none') as Snapshot['kyc']
+  const rawKyc = (kycRows?.[0]?.status ?? 'none') as Snapshot['kyc']
 
   const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
 
@@ -476,9 +473,8 @@ export async function getSnapshot(
     }),
     kyc: rawKyc,
     wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
-    referralCode:
-      (profile as { referral_code?: string })?.referral_code ??
-      'PLS-XXXX',
+  referralCode: account?.wallet_id ?? 'PLS-XXXX',
+
     fullName: (profile as { full_name?: string })?.full_name ?? null,
     email: email || null,
     tier: (profile as { tier?: number })?.tier ?? 1,
@@ -515,12 +511,9 @@ export async function getSnapshot(
 export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const db = serviceClient()
-    const { data } = await db
-      .from('admin_users')
-      .select('role, is_active')
-      .eq('user_id', userId)
-      .maybeSingle()
-    return data?.is_active === true && ['admin', 'super_admin'].includes(data.role)
+  const { data: roleRow } = await db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()
+  return roleRow?.role === 'admin'
+
   } catch {
     return false
   }
