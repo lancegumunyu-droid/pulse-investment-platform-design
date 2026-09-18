@@ -368,16 +368,22 @@ export async function getSnapshot(
     ),
     safeQuery(
       db
-        .from('wallets')
-        .select('user_id, balance, available_balance, pending_balance, updated_at')
+        .from('accounts')
+        .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
         .eq('user_id', userId)
         .maybeSingle(),
     ),
-    Promise.resolve([]),
+    safeQuery(
+      db
+        .from('holdings')
+        .select('id, project_id, amount, created_at, status')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+    ),
     safeQuery(
       db
         .from('transactions')
-        .select('id, type, amount, currency, status, metadata, reference_id, created_at, updated_at, description')
+        .select('id, type, amount, currency, status, meta, reference, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50),
@@ -395,6 +401,13 @@ export async function getSnapshot(
 
   const pointsRows: unknown[] = []
   const referrals: unknown[] = []
+  const stakingRows = (await safeQuery(
+    db
+      .from('staking_positions')
+      .select('amount, active')
+      .eq('user_id', userId)
+      .eq('active', true),
+  )) as Array<{ amount?: number }> | null
   const badgeRows: unknown[] = []
   const wallets: unknown[] = []
 
@@ -403,21 +416,22 @@ export async function getSnapshot(
   const isAdmin = role === 'admin' || role === 'super_admin'
   const rawKyc = ((profile as { kyc_status?: string })?.kyc_status ?? 'none') as Snapshot['kyc']
 
-  const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
-    calculateCashBalanceFromLedger(userId, db),
-    calculateTokenBalanceFromLedger(userId, db),
-    calculateStakedBalanceFromLedger(userId, db),
-  ])
+  const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
 
-  const wallet = acct as { balance?: number; available_balance?: number; pending_balance?: number } | null
-  let cashBalance = Number(wallet?.available_balance ?? wallet?.balance ?? 0)
-  let tokenBalance = 0
-  let stakedBalance = 0
-  const pendingYield = Number(wallet?.pending_balance ?? 0)
+  const account = acct as {
+    cash_balance?: number
+    invested_balance?: number
+    staked_balance?: number
+    token_balance?: number
+    pending_yield?: number
+    wallet_id?: string
+  } | null
+  let cashBalance = Number(account?.cash_balance ?? 0)
+  const tokenBalance = Number(account?.token_balance ?? 0)
+  const stakedBalance = Number(account?.staked_balance ?? 0) || Number((stakingRows ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0))
+  const pendingYield = Number(account?.pending_yield ?? 0)
 
   if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
-  if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
-  if (stakedBalance <= 0 && ledgerStaked > 0) stakedBalance = ledgerStaked
 
   const activeHoldings = (
     (holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []
@@ -440,10 +454,10 @@ export async function getSnapshot(
         id: string
         type: string
         currency: string
-        metadata?: Record<string, unknown>
+        meta?: Record<string, unknown>
+        reference?: string
         amount: number
         status: string
-        processing_started_at?: string
         created_at: string
       }>) ?? []
     ).map((t) => {
@@ -452,11 +466,11 @@ export async function getSnapshot(
       return {
         id: t.id,
         type: TXN_TYPE_MAP[rawType] ?? 'deposit',
-        label: (t.metadata?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
+        label: (t.meta?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
         amount: Number(t.amount),
         currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
         status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
-        isProcessing: !!t.processing_started_at,
+        isProcessing: (t.status || '').toLowerCase() === 'pending',
         date: new Date(t.created_at).getTime(),
       }
     }),
@@ -471,7 +485,7 @@ export async function getSnapshot(
     isAdmin,
     points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
     founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
-    walletId: null,
+    walletId: account?.wallet_id ?? null,
     username: (profile as { username?: string })?.username ?? null,
     referralCount: ((referrals as unknown[]) ?? []).length,
     referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(
