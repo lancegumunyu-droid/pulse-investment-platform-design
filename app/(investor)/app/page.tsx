@@ -2,59 +2,19 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSnapshot } from '@/lib/pulse/data-access'
 import { PulseApp } from '@/components/pulse/app'
-import { ShieldAlert, RefreshCcw } from 'lucide-react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-
 // Force per-request evaluation (prevents static prerender build failures)
 export const dynamic = 'force-dynamic'
 
-function RecoveryState({ message }: { message: string }) {
-  return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-background px-5 py-12 text-center text-foreground">
-      <div className="relative z-10 mx-auto w-full max-w-md rounded-3xl border border-gold/30 bg-background/95 p-8 shadow-2xl backdrop-blur-xl">
-        <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/10 text-destructive shadow-sm">
-          <ShieldAlert className="size-8" />
-        </div>
-        <h1 className="text-xl font-bold tracking-tight">Portfolio Sync Interrupted</h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
-        <div className="mt-6 flex flex-col gap-3">
-          <Button asChild variant="gold" size="lg" className="w-full"><a href="/app">Reconnect Portfolio</a></Button>
-          <Button asChild variant="glass" size="sm" className="w-full"><Link href="/contact">Contact Support</Link></Button>
-        </div>
-      </div>
-    </main>
-  )
-}
-
 export default async function AppPage() {
-  // Check environment variables first
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return (
-      <RecoveryState 
-        message={`Missing Supabase configuration. URL: ${SUPABASE_URL ? '✓' : '✗'}, Key: ${SUPABASE_KEY ? '✓' : '✗'}. Please check Vercel environment variables.`}
-      />
-    )
-  }
-
   let supabase: Awaited<ReturnType<typeof createClient>> | null = null
   try {
     supabase = await createClient()
   } catch (err) {
     console.error('[Pulse App Page] Supabase initialization failed:', err)
-    return (
-      <RecoveryState 
-        message={`Failed to initialize Supabase: ${(err as Error).message}. Check environment variables in Vercel settings.`}
-      />
-    )
+    redirect('/auth/login')
   }
 
-  if (!supabase) {
-    return <RecoveryState message="Supabase client is unavailable. Please check environment variables in Vercel project settings." />
-  }
+  if (!supabase) redirect('/auth/login')
 
   const {
     data: { user },
@@ -104,43 +64,6 @@ export default async function AppPage() {
     cardStatus: 'none',
     cardRef: null,
     savedWallets: [],
-  }
-
-  // If snapshot loading catastrophically failed, render a gorgeous recovery state
-  if (fetchError && !initial) {
-    return (
-      <main className="relative flex min-h-dvh flex-col items-center justify-center bg-background px-5 py-12 text-center text-foreground selection:bg-gold/30">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 size-96 rounded-full bg-gold/10 blur-[120px]" />
-        </div>
-
-        <div className="relative z-10 mx-auto max-w-md w-full glass-gold rounded-3xl border border-gold/30 bg-background/95 p-8 shadow-2xl backdrop-blur-xl">
-          <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/10 text-destructive shadow-sm">
-            <ShieldAlert className="size-8" />
-          </div>
-
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Portfolio Sync Interrupted</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
-            We encountered a temporary connection issue while securely loading your SADC investment ledger.
-          </p>
-          <p className="mt-2 text-xs font-mono text-muted-foreground break-all">
-            Error: {fetchError}
-          </p>
-
-          <div className="mt-6 flex flex-col gap-3">
-            <Button asChild variant="gold" size="lg" className="w-full">
-              <a href="/app" className="inline-flex items-center justify-center gap-2">
-                <RefreshCcw className="size-4" />
-                Reconnect Portfolio
-              </a>
-            </Button>
-            <Button asChild variant="glass" size="sm" className="w-full">
-              <Link href="/contact">Contact Support</Link>
-            </Button>
-          </div>
-        </div>
-      </main>
-    )
   }
 
   return <PulseApp initial={safeInitial} />
