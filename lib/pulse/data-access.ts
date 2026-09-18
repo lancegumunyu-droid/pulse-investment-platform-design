@@ -11,8 +11,8 @@ export async function getLiveProjects(): Promise<Project[]> {
   try {
     const db = serviceClient()
     const { data: rows, error } = await db
-      .from('investments')
-      .select('plan_id, amount')
+      .from('holdings')
+      .select('project_id, amount')
       .in('status', ['active', 'approved', 'completed'])
 
     if (error) {
@@ -22,7 +22,7 @@ export async function getLiveProjects(): Promise<Project[]> {
 
     const liveByProject = new Map<string, number>()
     for (const r of rows ?? []) {
-      liveByProject.set(r.plan_id, (liveByProject.get(r.plan_id) ?? 0) + Number(r.amount))
+      liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
     }
 
     return PROJECTS.map((p) => ({
@@ -93,8 +93,8 @@ export interface AccountRow {
 export async function ensureAccount(userId: string): Promise<AccountRow> {
   const db = serviceClient()
   const { data, error } = await db
-    .from('wallets')
-    .select('id, user_id, balance, available_balance, pending_balance, total_earnings, currency, updated_at')
+    .from('accounts')
+    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
     .eq('user_id', userId)
     .maybeSingle()
   if (error && error.code !== 'PGRST116') {
@@ -103,20 +103,20 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
   if (data) {
     return {
       user_id: data.user_id,
-      cash_balance: Number(data.available_balance ?? data.balance ?? 0),
+      cash_balance: Number(data.cash_balance ?? 0),
       invested_balance: 0,
       staked_balance: 0,
       token_balance: 0,
-      pending_yield: Number(data.pending_balance ?? 0),
+      pending_yield: Number(data.pending_yield ?? 0),
       updated_at: data.updated_at,
-      wallet_id: data.id,
+      wallet_id: data.wallet_id ?? undefined,
     } as unknown as AccountRow & { wallet_id: string }
   }
 
   const { data: created, error: createError } = await db
-    .from('wallets')
+    .from('accounts')
     .insert({ user_id: userId, currency: 'USD' })
-    .select('id, user_id, balance, available_balance, pending_balance, total_earnings, currency, updated_at')
+    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
     .single()
 
   if (createError) {
@@ -141,7 +141,7 @@ export async function calculateCashBalanceFromLedger(userId: string, authenticat
     const db = authenticatedDb ?? serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
-      .select('type, amount, currency, status, metadata')
+      .select('type, amount, currency, status, meta')
       .eq('user_id', userId)
 
     if (error) return 0
@@ -178,7 +178,7 @@ export async function calculateCashBalanceFromLedger(userId: string, authenticat
             break
         }
       } else if (currency === 'PULSE' || currency === 'PLS') {
-        const meta = txn.metadata as Record<string, unknown> | null
+        const meta = txn.meta as Record<string, unknown> | null
         if (type === 'token_purchase') {
           const usdCost = Number(meta?.usdCost) || 0
           if (usdCost > 0) balance -= usdCost
@@ -272,15 +272,17 @@ export async function adjustAccount(
   }
 
   const { data, error } = await db
-    .from('wallets')
+    .from('accounts')
     .update({
-      balance: next.cash_balance,
-      available_balance: next.cash_balance,
-      pending_balance: next.pending_yield,
+      cash_balance: next.cash_balance,
+      invested_balance: next.invested_balance,
+      staked_balance: next.staked_balance,
+      token_balance: next.token_balance,
+      pending_yield: next.pending_yield,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
-    .select('id, user_id, balance, available_balance, pending_balance, total_earnings, currency, updated_at')
+    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
     .single()
 
   if (error) throw error
@@ -308,8 +310,8 @@ export async function recordTxn(
       amount: row.amount,
       currency: (row.currency ?? 'USD').toUpperCase(),
       status: row.status ?? 'completed',
-      reference_id: row.reference ?? null,
-      metadata: row.meta ?? {},
+      reference: row.reference ?? null,
+      meta: row.meta ?? {},
     })
     .select('*')
     .single()
@@ -365,15 +367,15 @@ export async function getSnapshot(
   const [acct, holdings, txns, cardApplication, issuedCard, roleRow, referralRows, wallets] = await Promise.all([
     safeQuery(
       db
-        .from('wallets')
-        .select('user_id, balance, available_balance, pending_balance, total_earnings, id, updated_at')
+        .from('accounts')
+        .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
         .eq('user_id', userId)
         .maybeSingle(),
     ),
     safeQuery(
       db
-        .from('investments')
-        .select('id, plan_id, amount, created_at, status, expected_return, actual_return, roi_percentage')
+        .from('holdings')
+        .select('id, project_id, amount, created_at, status, expected_return, actual_return, roi_percentage')
         .eq('user_id', userId)
         .in('status', ['active', 'approved', 'completed', 'pending'])
         .order('created_at', { ascending: false }),
@@ -381,28 +383,34 @@ export async function getSnapshot(
     safeQuery(
       db
         .from('transactions')
-        .select('id, type, amount, currency, status, metadata, reference_id, created_at')
+        .select('id, type, amount, currency, status, meta, reference, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50),
     ),
-    Promise.resolve(null),
-    Promise.resolve(null),
-    safeQuery(db.from('admin_users').select('role').eq('user_id', userId).eq('is_active', true).maybeSingle()),
+    safeQuery(
+      db.from('card_applications').select('status, card_ref, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    ),
+    safeQuery(
+      db.from('pulse_cards').select('status, card_number_last4, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    ),
+    safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
     safeQuery(
       db.from('referrals').select('id, referred_user_id, status, bonus_awarded').eq('referrer_id', userId),
     ),
-    Promise.resolve(null),
+    safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: false })),
   ])
 
-  const stakingRows: Array<{ amount?: number }> = []
+  const stakingRows = (await safeQuery(
+    db.from('staking_positions').select('amount').eq('user_id', userId).eq('active', true),
+  )) as Array<{ amount?: number }> | null
   const kycRow = (await safeQuery(
-    db.from('users').select('kyc_status, full_name, referral_code').eq('id', userId).maybeSingle(),
-   )) as { kyc_status?: string; full_name?: string; referral_code?: string } | null
+    db.from('kyc_submissions').select('status, full_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+  )) as { status?: string; full_name?: string } | null
   const email = (userEmail || '').toLowerCase()
   const role = (roleRow as { role?: string } | null)?.role
   const isAdmin = role === 'admin'
-  const rawKycStatus = String(kycRow?.kyc_status ?? 'none').toLowerCase()
+  const rawKycStatus = String(kycRow?.status ?? 'none').toLowerCase()
   const rawKyc: Snapshot['kyc'] = rawKycStatus === 'approved' || rawKycStatus === 'verified' ? 'verified' : rawKycStatus === 'rejected' ? 'rejected' : rawKycStatus === 'pending' ? 'pending' : 'none'
 
   const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
@@ -410,26 +418,27 @@ export async function getSnapshot(
   const badgeRows: unknown[] = []
 
   const account = acct as {
-    balance?: number
-    available_balance?: number
-    pending_balance?: number
-    id?: string
+    cash_balance?: number
     invested_balance?: number
+    staked_balance?: number
+    token_balance?: number
+    pending_yield?: number
+    wallet_id?: string
   } | null
-  const cashBalance = Number(account?.balance ?? account?.available_balance ?? 0)
-  const tokenBalance = 0
-  const stakedBalance = Number((stakingRows ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0))
-  const pendingYield = Number(account?.pending_balance ?? 0)
+  const cashBalance = Number(account?.cash_balance ?? 0)
+  const tokenBalance = Number(account?.token_balance ?? 0)
+  const stakedBalance = Number(account?.staked_balance ?? 0)
+  const pendingYield = Number(account?.pending_yield ?? 0)
 
   if (ledgerCash > 0 && cashBalance !== ledgerCash) {
     console.warn('[v0] Cash ledger differs from accounts.cash_balance', { userId, accountCash: cashBalance, ledgerCash })
   }
 
   const activeHoldings = (
-    (holdings as unknown as Array<{ id: string; plan_id: string; amount: number; created_at: string }> | null) ?? []
+    (holdings as unknown as Array<{ id: string; project_id: string; amount: number; created_at: string }> | null) ?? []
   ).map((h) => ({
     id: h.id,
-    projectId: h.plan_id,
+    projectId: h.project_id,
     tierId: tierForAmount(Number(h.amount)).id as TierId,
     amount: Number(h.amount),
     date: new Date(h.created_at).getTime(),
@@ -446,8 +455,8 @@ export async function getSnapshot(
         id: string
         type: string
         currency: string
-        metadata?: Record<string, unknown>
-        reference_id?: string
+        meta?: Record<string, unknown>
+        reference?: string
         amount: number
         status: string
         created_at: string
@@ -458,7 +467,7 @@ export async function getSnapshot(
       return {
         id: t.id,
         type: TXN_TYPE_MAP[rawType] ?? 'deposit',
-        label: (t.metadata?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
+        label: (t.meta?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
         amount: Number(t.amount),
         currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
         status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
@@ -467,15 +476,15 @@ export async function getSnapshot(
       }
     }),
     kyc: rawKyc,
-    wallet: account?.id ?? null,
-    referralCode: kycRow?.referral_code ?? 'PULSE-USER',
+    wallet: account?.wallet_id ?? null,
+    referralCode: '',
     fullName: kycRow?.full_name ?? null,
     email: email || null,
     tier: tierForAmount(Number(account?.invested_balance ?? 0)).id,
     isAdmin,
     points: 0,
     founderNumber: null,
-    walletId: account?.id ?? null,
+    walletId: account?.wallet_id ?? null,
     username: null,
     referralCount: ((referrals as unknown[]) ?? []).length,
     referralVerifiedCount: ((referrals as Array<{ status?: string }>) ?? []).filter(
@@ -505,7 +514,7 @@ export async function getSnapshot(
 export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const db = serviceClient()
-  const { data: roleRow } = await db.from('admin_users').select('role').eq('user_id', userId).eq('is_active', true).maybeSingle()
+  const { data: roleRow } = await db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()
   return roleRow?.role === 'admin' || roleRow?.role === 'super_admin'
 
   } catch {

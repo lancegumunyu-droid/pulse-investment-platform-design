@@ -1,7 +1,5 @@
 @import 'tailwindcss';
 
-/* The authenticated shell owns one disclaimer, positioned above bottom navigation. */
-.pulse-glass-card:has(> .pulse-disclaimer-title) { display: none; }
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
