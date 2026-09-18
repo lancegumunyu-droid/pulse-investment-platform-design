@@ -251,16 +251,10 @@
     color: var(--foreground);
   }
   .pulse-loading-content { position: relative; z-index: 1; display: grid; justify-items: center; gap: 1rem; }
-  .pulse-loading-mark {
-    display: grid;
-    place-items: center;
-    width: 3.5rem;
-    height: 3.5rem;
-    border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
-    border-radius: 1rem;
-    color: var(--gold);
-    font-weight: 800;
-    box-shadow: 0 0 32px color-mix(in srgb, var(--gold) 22%, transparent);
+  .pulse-loading-logo {
+    width: 4rem;
+    height: 4rem;
+    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--gold) 42%, transparent));
     animation: pulse-loading-breathe 1.5s ease-in-out infinite;
   }
   .pulse-loading-orb {
@@ -274,7 +268,7 @@
   }
   @keyframes pulse-loading-breathe { 50% { transform: scale(1.06); opacity: .72; } }
   @keyframes pulse-loading-drift { 50% { transform: translate3d(0, -14px, 0) scale(1.08); } }
-  @media (prefers-reduced-motion: reduce) { .pulse-loading-mark, .pulse-loading-orb { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .pulse-loading-logo, .pulse-loading-orb { animation: none; } }
 
   .pulse-scroll { scrollbar-width: thin; scrollbar-color: rgba(245,158,11,.6) transparent; }
   .pulse-home ::-webkit-scrollbar, .pulse-signals ::-webkit-scrollbar { width: 5px; height: 5px; }
