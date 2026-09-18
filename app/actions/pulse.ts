@@ -554,7 +554,7 @@ export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow
   try {
     const db = serviceClient()
     const [{ data: profiles }, { data: points }] = await Promise.all([
-      db.from('profiles').select('id, username, full_name, tier').limit(200),
+      db.from('profiles').select('id, username, full_name, founder_number').limit(200),
       db.from('points_ledger').select('user_id, amount'),
     ])
 
@@ -567,8 +567,8 @@ export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow
       .map((p) => ({
         rank: 0,
         username: p.username ?? p.full_name ?? 'Anonymous',
-        tier: p.tier ?? 0,
-        points: totals.get(p.id) ?? 0,
+    founderNumber: p.founder_number ?? null,
+    points: totals.get(p.id) ?? 0,
       }))
       .sort((a, b) => b.points - a.points)
       .slice(0, 20)

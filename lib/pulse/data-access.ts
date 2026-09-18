@@ -364,7 +364,7 @@ export async function getSnapshot(
     return res.data
   }
 
-  const [dashboardSummaryResult, acct, holdings, txns, cardApplication, issuedCard, roleRow, referralRows, wallets] = await Promise.all([
+  const [dashboardSummaryResult, acct, profileRow, holdings, txns, cardApplication, issuedCard, roleRow, referralRows, wallets] = await Promise.all([
     authenticatedDb
       ? authenticatedDb.rpc('get_user_dashboard_summary')
       : Promise.resolve({ data: null, error: null }),
@@ -375,6 +375,7 @@ export async function getSnapshot(
         .eq('user_id', userId)
         .maybeSingle(),
     ),
+    safeQuery(db.from('profiles').select('id, email, username, full_name, founder_number, referral_code, referred_by, pulse_id, kyc_status, created_at').eq('id', userId).maybeSingle()),
     safeQuery(
       db
         .from('holdings')
@@ -395,7 +396,7 @@ export async function getSnapshot(
       db.from('card_applications').select('status, card_ref, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ),
     Promise.resolve(null),
-    safeQuery(db.from('admin_users').select('role, is_active').eq('user_id', userId).eq('is_active', true).maybeSingle()),
+    safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
     safeQuery(
       db.from('referrals').select('id, referred_user_id, status, bonus_awarded').eq('referrer_id', userId),
     ),
@@ -405,19 +406,29 @@ export async function getSnapshot(
   const stakingRows = (await safeQuery(
     db.from('staking_positions').select('amount').eq('user_id', userId).eq('active', true),
   )) as Array<{ amount?: number }> | null
+  const pointsRows = (await safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId))) as Array<{ amount?: number }> | null
+  const badgeRows = (await safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId))) as Array<{ badge_key: string; earned_at: string }> | null
   const kycRow = (await safeQuery(
     db.from('kyc_submissions').select('status, full_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   )) as { status?: string; full_name?: string } | null
   const email = (userEmail || '').toLowerCase()
-  const adminRecord = roleRow as { role?: string; is_active?: boolean } | null
+  const adminRecord = roleRow as { role?: string } | null
   const role = adminRecord?.role
-  const isAdmin = Boolean(adminRecord?.is_active && ['admin', 'super_admin', 'director', 'manager'].includes(role ?? ''))
+  const isAdmin = ['admin', 'super_admin', 'director', 'manager'].includes(String(role ?? '').toLowerCase())
   const rawKycStatus = String(kycRow?.status ?? 'none').toLowerCase()
   const rawKyc: Snapshot['kyc'] = rawKycStatus === 'approved' || rawKycStatus === 'verified' ? 'verified' : rawKycStatus === 'rejected' ? 'rejected' : rawKycStatus === 'pending' ? 'pending' : 'none'
 
   const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
   const referrals = (referralRows as unknown[]) ?? []
-  const badgeRows: unknown[] = []
+  const profile = profileRow as {
+    email?: string | null
+    username?: string | null
+    full_name?: string | null
+    founder_number?: number | null
+    referral_code?: string | null
+    pulse_id?: string | null
+    kyc_status?: string | null
+  } | null
 
   const account = acct as {
     cash_balance?: number
@@ -506,21 +517,21 @@ export async function getSnapshot(
     }),
     kyc: rawKyc,
     wallet: account?.wallet_id ?? null,
-  referralCode: account?.wallet_id ?? '',
-  pulseId: (account as { pulse_id?: string | null } | null)?.pulse_id ?? null,
-  fullName: kycRow?.full_name ?? null,
-    email: email || null,
+    referralCode: profile?.referral_code ?? profile?.pulse_id ?? account?.wallet_id ?? '',
+    pulseId: profile?.pulse_id ?? (account as { pulse_id?: string | null } | null)?.pulse_id ?? null,
+    fullName: profile?.full_name ?? kycRow?.full_name ?? null,
+    email: profile?.email ?? (email || null),
     tier: canonicalTier ?? 'starter',
     isAdmin,
-    points: 0,
-    founderNumber: null,
+    points: (pointsRows ?? []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+    founderNumber: profile?.founder_number ?? null,
     walletId: account?.wallet_id ?? null,
-    username: null,
+    username: profile?.username ?? null,
     referralCount: ((referrals as unknown[]) ?? []).length,
     referralVerifiedCount: ((referrals as Array<{ status?: string }>) ?? []).filter(
-      (r) => r.status === 'verified' || r.status === 'completed',
+      (r) => ['verified', 'approved', 'completed'].includes(String(r.status).toLowerCase()),
     ).length,
-    badges: ((badgeRows as Array<{ badge_key: string; earned_at: string }>) ?? []).map((b) => ({
+    badges: ((badgeRows ?? []) as Array<{ badge_key: string; earned_at: string }>).map((b) => ({
       key: b.badge_key,
       earnedAt: new Date(b.earned_at).getTime(),
     })),
