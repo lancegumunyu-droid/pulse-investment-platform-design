@@ -298,8 +298,20 @@ export async function submitKyc(input: {
   const user = await requireUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
-    const { error: subErr } = await db.from('kyc_submissions').insert({
+  const db = serviceClient()
+  const { data: latestSubmission, error: latestError } = await db
+    .from('kyc_submissions')
+    .select('status')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (latestError) return { ok: false as const, error: `Could not check existing verification: ${latestError.message}` }
+  const latestStatus = String(latestSubmission?.status ?? '').toLowerCase()
+  if (latestStatus === 'approved' || latestStatus === 'verified') {
+    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
+  }
+  const { error: subErr } = await db.from('kyc_submissions').insert({
       user_id: user.id,
       full_name: input.fullName,
       id_number: input.idNumber,

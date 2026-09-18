@@ -361,17 +361,17 @@ export async function getSnapshot(
   const [acct, holdings, txns, cardApplication, issuedCard, roleRow, pointsRows, wallets] = await Promise.all([
     safeQuery(
       db
-        .from('accounts')
-        .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
+        .from('wallets')
+        .select('user_id, balance, available_balance, pending_balance, total_earnings, id, updated_at')
         .eq('user_id', userId)
         .single(),
     ),
     safeQuery(
       db
-        .from('holdings')
-        .select('id, project_id, amount, created_at, status')
+        .from('investments')
+        .select('id, plan_id, amount, created_at, status')
         .eq('user_id', userId)
-        .eq('status', 'active')
+        .in('status', ['active', 'approved', 'completed'])
         .order('created_at', { ascending: false }),
     ),
     safeQuery(
@@ -382,62 +382,47 @@ export async function getSnapshot(
         .order('created_at', { ascending: false })
         .limit(50),
     ),
-    safeQuery(
-      db
-        .from('card_applications')
-        .select('id, status, card_ref, card_number_last4, expiry_month, expiry_year, cardholder_name')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ),
-    safeQuery(db.from('pulse_cards').select('id, status, card_number_last4').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()),
-    safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
-    safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
-    safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: false })),
+    Promise.resolve(null),
+    Promise.resolve(null),
+    safeQuery(db.from('admin_users').select('role').eq('user_id', userId).eq('is_active', true).maybeSingle()),
+    Promise.resolve(null),
+    Promise.resolve(null),
   ])
 
-  const stakingRows = (await safeQuery(
-    db
-      .from('staking_positions')
-      .select('amount, active')
-      .eq('user_id', userId)
-      .eq('active', true),
-  )) as Array<{ amount?: number }> | null
-  const kycRows = (await safeQuery(
-    db.from('kyc_submissions').select('status, full_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
-  )) as Array<{ status?: string }> | null
+  const stakingRows: Array<{ amount?: number }> = []
+  const kycRow = (await safeQuery(
+    db.from('users').select('kyc_status, full_name').eq('id', userId).maybeSingle(),
+  )) as { kyc_status?: string; full_name?: string } | null
   const email = (userEmail || '').toLowerCase()
   const role = (roleRow as { role?: string } | null)?.role
   const isAdmin = role === 'admin'
-  const rawKyc = (kycRows?.[0]?.status ?? 'none') as Snapshot['kyc']
+  const rawKycStatus = String(kycRow?.kyc_status ?? 'none').toLowerCase()
+  const rawKyc: Snapshot['kyc'] = rawKycStatus === 'approved' || rawKycStatus === 'verified' ? 'verified' : rawKycStatus === 'rejected' ? 'rejected' : rawKycStatus === 'pending' ? 'pending' : 'none'
 
   const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
   const referrals: unknown[] = []
   const badgeRows: unknown[] = []
 
   const account = acct as {
-    cash_balance?: number
-    invested_balance?: number
-    staked_balance?: number
-    token_balance?: number
-    pending_yield?: number
-    wallet_id?: string
+    balance?: number
+    available_balance?: number
+    pending_balance?: number
+    id?: string
   } | null
-  const cashBalance = Number(account?.cash_balance ?? 0)
-  const tokenBalance = Number(account?.token_balance ?? 0)
-  const stakedBalance = Number(account?.staked_balance ?? 0) || Number((stakingRows ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0))
-  const pendingYield = Number(account?.pending_yield ?? 0)
+  const cashBalance = Number(account?.balance ?? account?.available_balance ?? 0)
+  const tokenBalance = 0
+  const stakedBalance = Number((stakingRows ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0))
+  const pendingYield = Number(account?.pending_balance ?? 0)
 
   if (ledgerCash > 0 && cashBalance !== ledgerCash) {
     console.warn('[v0] Cash ledger differs from accounts.cash_balance', { userId, accountCash: cashBalance, ledgerCash })
   }
 
   const activeHoldings = (
-    (holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []
+    (holdings as Array<{ id: string; plan_id: string; amount: number; created_at: string }>) ?? []
   ).map((h) => ({
     id: h.id,
-    projectId: h.project_id,
+    projectId: h.plan_id,
     tierId: tierForAmount(Number(h.amount)).id as TierId,
     amount: Number(h.amount),
     date: new Date(h.created_at).getTime(),
@@ -475,15 +460,15 @@ export async function getSnapshot(
       }
     }),
     kyc: rawKyc,
-    wallet: account?.wallet_id ?? null,
-    referralCode: account?.wallet_id ?? 'PLS-XXXX',
-    fullName: (kycRows?.[0] as { full_name?: string } | undefined)?.full_name ?? null,
+    wallet: account?.id ?? null,
+    referralCode: account?.id ?? 'PLS-XXXX',
+    fullName: kycRow?.full_name ?? null,
     email: email || null,
     tier: tierForAmount(Number(account?.invested_balance ?? 0)).id,
     isAdmin,
     points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
     founderNumber: null,
-    walletId: account?.wallet_id ?? null,
+    walletId: account?.id ?? null,
     username: null,
     referralCount: ((referrals as unknown[]) ?? []).length,
     referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(
@@ -513,8 +498,8 @@ export async function getSnapshot(
 export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const db = serviceClient()
-  const { data: roleRow } = await db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()
-  return roleRow?.role === 'admin'
+  const { data: roleRow } = await db.from('admin_users').select('role').eq('user_id', userId).eq('is_active', true).maybeSingle()
+  return roleRow?.role === 'admin' || roleRow?.role === 'super_admin'
 
   } catch {
     return false

@@ -35,7 +35,7 @@ async function requireAdmin() {
 async function requireAdminScope(allowed: AdminScope[]) {
   const user = await requireAdmin()
   const db = serviceClient()
-  const { data } = await db.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+  const { data } = await db.from('admin_users').select('role').eq('user_id', user.id).eq('is_active', true).maybeSingle()
 
   const scope = data?.role === 'admin' ? ('full' as AdminScope) : null
 
@@ -54,6 +54,14 @@ async function requireAdminScope(allowed: AdminScope[]) {
 
 type AdminResult = { ok: true; snapshot: AdminSnapshot } | { ok: false; error: string }
 
+function normalizeKycStatus(value: unknown): 'none' | 'pending' | 'verified' | 'rejected' {
+  const status = String(value ?? 'none').toLowerCase()
+  if (status === 'approved' || status === 'verified') return 'verified'
+  if (status === 'pending') return 'pending'
+  if (status === 'rejected' || status === 'declined') return 'rejected'
+  return 'none'
+}
+
 // ==========================================
 // SNAPSHOT & CORE DASHBOARD
 // ==========================================
@@ -64,11 +72,11 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     const db = serviceClient()
 
     const results = await Promise.all([
-      db.from('accounts').select('*').limit(500),
-      db.from('kyc_submissions').select('*').order('created_at', { ascending: false }).limit(500),
-      db.from('user_roles').select('*').limit(500),
+      db.from('wallets').select('user_id, cash_balance:balance, invested_balance:total_deposits, staked_balance:total_withdrawals, created_at, updated_at').limit(500),
+      db.from('users').select('user_id:id, full_name, status:kyc_status, id_number:verification_token, country:country_code, created_at').order('created_at', { ascending: false }).limit(500),
+      db.from('admin_users').select('user_id, role').eq('is_active', true).limit(500),
       db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
-      db.from('card_applications').select('id, user_id, status, card_ref, card_number_last4, cardholder_name, created_at').order('created_at', { ascending: false }).limit(200),
+      Promise.resolve({ data: [], error: null }),
     ])
     const failed = results.find((result) => result.error)
     if (failed?.error) throw new Error(`Admin data load failed: ${failed.error.message}`)
@@ -92,8 +100,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         fullName: k?.full_name ?? null,
         username: null,
         role,
-        kycStatus: k?.status ?? 'none',
-        kycVerified: k?.status === 'verified',
+        kycStatus: normalizeKycStatus(k?.status),
+        kycVerified: normalizeKycStatus(k?.status) === 'verified',
         cash: Number(a?.cash_balance ?? 0),
         invested: Number(a?.invested_balance ?? 0),
         staked: Number(a?.staked_balance ?? 0),
@@ -200,13 +208,13 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
           fullName: p?.full_name ?? null,
           cardType: c.card_type ?? 'virtual',
           shippingAddress: c.shipping_address ?? null,
-          kycStatus: p?.kyc_status ?? 'none',
+          kycStatus: normalizeKycStatus(p?.status),
           status: c.status,
           createdAt: new Date(c.created_at).getTime(),
         }
       })
 
-    const kycQueue: AdminKycRow[] = (kyc ?? []).map((k) => ({
+    const kycQueue: AdminKycRow[] = (kyc ?? []).filter((k) => normalizeKycStatus(k.status) === 'pending').map((k) => ({
       id: k.id,
       userId: k.user_id,
       email: emailMap.get(k.user_id) ?? null,
