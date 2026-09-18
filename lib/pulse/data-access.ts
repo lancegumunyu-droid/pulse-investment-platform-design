@@ -377,7 +377,7 @@ export async function getSnapshot(
         .from('holdings')
         .select('id, project_id, amount, created_at, status, expected_return, actual_return, roi_percentage')
         .eq('user_id', userId)
-        .in('status', ['active', 'approved', 'completed', 'pending'])
+        .in('status', ['active', 'approved', 'pending'])
         .order('created_at', { ascending: false }),
     ),
     safeQuery(
@@ -392,7 +392,7 @@ export async function getSnapshot(
       db.from('card_applications').select('status, card_ref, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ),
     Promise.resolve(null),
-    safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
+    safeQuery(db.from('admin_users').select('role, is_active').eq('user_id', userId).eq('is_active', true).maybeSingle()),
     safeQuery(
       db.from('referrals').select('id, referred_user_id, status, bonus_awarded').eq('referrer_id', userId),
     ),
@@ -406,8 +406,9 @@ export async function getSnapshot(
     db.from('kyc_submissions').select('status, full_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   )) as { status?: string; full_name?: string } | null
   const email = (userEmail || '').toLowerCase()
-  const role = (roleRow as { role?: string } | null)?.role
-  const isAdmin = role === 'admin'
+  const adminRecord = roleRow as { role?: string; is_active?: boolean } | null
+  const role = adminRecord?.role
+  const isAdmin = Boolean(adminRecord?.is_active && ['admin', 'super_admin', 'director', 'manager'].includes(role ?? ''))
   const rawKycStatus = String(kycRow?.status ?? 'none').toLowerCase()
   const rawKyc: Snapshot['kyc'] = rawKycStatus === 'approved' || rawKycStatus === 'verified' ? 'verified' : rawKycStatus === 'rejected' ? 'rejected' : rawKycStatus === 'pending' ? 'pending' : 'none'
 
@@ -426,19 +427,34 @@ export async function getSnapshot(
   const cashBalance = Number(account?.cash_balance ?? 0)
   const tokenBalance = Number(account?.token_balance ?? 0)
   const stakedBalance = Number(account?.staked_balance ?? 0)
-  const pendingYield = Number(account?.pending_yield ?? 0)
+  const accountPendingYield = Number(account?.pending_yield ?? 0)
 
   if (ledgerCash > 0 && cashBalance !== ledgerCash) {
     console.warn('[v0] Cash ledger differs from accounts.cash_balance', { userId, accountCash: cashBalance, ledgerCash })
   }
 
-  const activeHoldings = (
-    (holdings as unknown as Array<{ id: string; project_id: string; amount: number; created_at: string }> | null) ?? []
-  ).map((h) => ({
+  const activeHoldingRows = (
+    (holdings as unknown as Array<{
+      id: string
+      project_id: string
+      amount: number
+      expected_return?: number | null
+      actual_return?: number | null
+      created_at: string
+    }> | null) ?? []
+  )
+  const totalInvested = activeHoldingRows.reduce((sum, holding) => sum + Math.max(0, Number(holding.amount) || 0), 0)
+  const holdingsPendingYield = activeHoldingRows.reduce((sum, holding) => {
+    const expected = Number(holding.expected_return) || 0
+    const actual = Number(holding.actual_return) || 0
+    return sum + Math.max(0, expected - actual)
+  }, 0)
+  const pendingYield = holdingsPendingYield > 0 ? holdingsPendingYield : accountPendingYield
+  const activeHoldings = activeHoldingRows.map((h) => ({
     id: h.id,
     projectId: h.project_id,
-    tierId: tierForAmount(Number(h.amount)).id as TierId,
-    amount: Number(h.amount),
+    tierId: tierForAmount(Number(h.amount) || 0).id as TierId,
+    amount: Number(h.amount) || 0,
     date: new Date(h.created_at).getTime(),
   }))
 
@@ -478,7 +494,7 @@ export async function getSnapshot(
     referralCode: account?.wallet_id ?? '',
     fullName: kycRow?.full_name ?? null,
     email: email || null,
-    tier: tierForAmount(Number(account?.invested_balance ?? 0)).id,
+    tier: tierForAmount(totalInvested).id,
     isAdmin,
     points: 0,
     founderNumber: null,
