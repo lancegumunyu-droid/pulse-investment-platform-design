@@ -318,14 +318,17 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       } = await supabase.auth.getUser()
       if (!user || !mounted.current) return
 
-      channel = supabase
-        .channel(`pulse-sync-${user.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles', filter: `user_id=eq.${user.id}` }, () => refresh())
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .subscribe()
+      const nextChannel = supabase.channel(`pulse-sync-${user.id}-${crypto.randomUUID()}`)
+
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => void refresh())
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, () => void refresh())
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, () => void refresh())
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles', filter: `user_id=eq.${user.id}` }, () => void refresh())
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` }, () => void refresh())
+
+      if (!mounted.current) return
+      channel = nextChannel
+      channel.subscribe()
     }
 
     start()
