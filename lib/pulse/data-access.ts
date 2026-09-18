@@ -94,7 +94,7 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
   const db = serviceClient()
   const { data, error } = await db
     .from('accounts')
-    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
+    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
     .eq('user_id', userId)
     .maybeSingle()
   if (error && error.code !== 'PGRST116') {
@@ -116,7 +116,7 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
   const { data: created, error: createError } = await db
     .from('accounts')
     .insert({ user_id: userId, currency: 'USD' })
-    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
+    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
     .single()
 
   if (createError) {
@@ -282,7 +282,7 @@ export async function adjustAccount(
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
-    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
+    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
     .single()
 
   if (error) throw error
@@ -371,7 +371,7 @@ export async function getSnapshot(
     safeQuery(
       db
         .from('accounts')
-        .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
+        .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
         .eq('user_id', userId)
         .maybeSingle(),
     ),
@@ -506,8 +506,9 @@ export async function getSnapshot(
     }),
     kyc: rawKyc,
     wallet: account?.wallet_id ?? null,
-    referralCode: account?.wallet_id ?? '',
-    fullName: kycRow?.full_name ?? null,
+  referralCode: account?.wallet_id ?? '',
+  pulseId: (account as { pulse_id?: string | null } | null)?.pulse_id ?? null,
+  fullName: kycRow?.full_name ?? null,
     email: email || null,
     tier: canonicalTier ?? 'starter',
     isAdmin,

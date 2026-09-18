@@ -80,6 +80,7 @@ interface State {
   kyc: KycStatus
   wallet: string | null
   referralCode: string
+  pulseId: string | null
   fullName: string | null
   email: string | null
   tier: import('@/lib/pulse-data').TierId
@@ -115,6 +116,7 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
     kyc: data.kyc ?? 'none',
     wallet: data.wallet ?? null,
     referralCode: data.referralCode ?? 'PULSE-USER',
+    pulseId: data.pulseId ?? null,
     fullName: data.fullName ?? null,
     email: data.email ?? null,
     tier: data.tier ?? 'starter',

@@ -49,9 +49,10 @@ export function ProfileView() {
     setSavingUsername(false)
   }
 
-  const referralLink = referralCode
-    ? `https://pulseinvest.uk/auth/sign-up?ref=${encodeURIComponent(referralCode)}`
-    : 'https://pulseinvest.uk/auth/sign-up'
+  const pulseId = state.pulseId
+  const referralLink = pulseId
+    ? `https://pulseinvest.uk/auth/sign-up?ref=${encodeURIComponent(pulseId)}`
+    : ''
 
   const copyRef = () => {
     navigator.clipboard?.writeText(referralLink)
@@ -165,6 +166,11 @@ export function ProfileView() {
                     </p>
                   </button>
                 )}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="pulse-label normal-case tracking-normal text-zinc-400">Pulse ID:</span>
+                  <span className="font-mono text-xs font-semibold text-amber-300">{pulseId ?? 'Assigning securely...'}</span>
+                  {pulseId && <button onClick={() => { navigator.clipboard?.writeText(pulseId); toast({ title: 'Pulse ID copied', variant: 'info' }) }} className="text-amber-400" aria-label="Copy Pulse ID"><Copy className="size-3.5" /></button>}
+                </div>
                 <p className="pulse-label mt-1 truncate normal-case tracking-normal text-zinc-400">
                   {displayName} &middot; <span className="pulse-value-accent">{currentTier.name} tier</span>
                 </p>
@@ -214,7 +220,7 @@ export function ProfileView() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-black/40 px-3.5 py-2.5">
+        {referralLink ? <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-black/40 px-3.5 py-2.5">
           <span className="flex-1 truncate font-mono text-sm text-amber-300">{referralLink}</span>
           <button
             onClick={copyRef}
@@ -223,7 +229,7 @@ export function ProfileView() {
           >
             <Copy className="h-4 w-4" />
           </button>
-        </div>
+        </div> : <p className="rounded-xl border border-amber-500/20 bg-black/30 px-3.5 py-3 text-sm text-zinc-400">Your verified Pulse ID will generate your referral link here.</p>}
       </motion.div>
 
       {/* MY REFERRALS */}

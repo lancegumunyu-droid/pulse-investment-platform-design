@@ -61,7 +61,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     if (fromUrl) {
       setRefCode(fromUrl.toUpperCase())
     } else if (isSignUp) {
-      setRefCode('PULSE-PUBLIC')
+      setRefCode('')
+      setRefStatus('idle')
     } else {
       setRefStatus('valid')
     }

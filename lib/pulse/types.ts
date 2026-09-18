@@ -31,6 +31,7 @@ export interface Snapshot {
   kyc: KycStatus
   wallet: string | null
   referralCode: string
+  pulseId: string | null
   fullName: string | null
   email: string | null
   tier: TierId

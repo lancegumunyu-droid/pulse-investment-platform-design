@@ -105,22 +105,9 @@ export async function validateReferralCode(code: string): Promise<{ ok: boolean;
   if (!clean) return { ok: false, valid: false, error: 'Code cannot be empty' }
   try {
     const db = serviceClient()
-
-  const { data: byWallet } = await db.from('accounts').select('user_id, wallet_id').eq('wallet_id', clean).maybeSingle()
-  if (byWallet) {
-    const { data: verifiedKyc } = await db
-      .from('kyc_submissions')
-      .select('id')
-      .eq('user_id', byWallet.user_id)
-      .eq('status', 'verified')
-      .maybeSingle()
-    if (verifiedKyc) return { ok: true, valid: true }
-  }
-
-  if (clean.toUpperCase() === 'PULSE-PUBLIC') return { ok: true, valid: true }
-
-
-    return { ok: false, valid: false, error: 'Invalid or expired referral code' }
+    const { data, error } = await db.rpc('validate_pulse_referral', { ref_code: clean })
+    if (!error && data === true) return { ok: true, valid: true }
+    return { ok: false, valid: false, error: 'A verified Pulse ID is required to join.' }
   } catch (e) {
     return { ok: false, valid: false, error: (e as Error).message }
   }
