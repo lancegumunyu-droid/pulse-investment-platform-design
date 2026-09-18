@@ -342,8 +342,12 @@ export async function disburseProjectPayoutFromFloat(params: {
   return txn
 }
 
-export async function getSnapshot(userId: string, userEmail?: string): Promise<Snapshot> {
-  const db = serviceClient()
+export async function getSnapshot(
+  userId: string,
+  userEmail?: string,
+  authenticatedDb?: ReturnType<typeof serviceClient>,
+): Promise<Snapshot> {
+  const db = authenticatedDb ?? serviceClient()
 
   const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> => {
     try {
@@ -354,7 +358,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     }
   }
 
-  const [profile, acct, holdings, txns, cardApplication, pulseCard] = await Promise.all([
+  const [profile, acct, holdings, txns, cardApplication] = await Promise.all([
     safeQuery(
       db
         .from('users')
@@ -362,7 +366,13 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
         .eq('id', userId)
         .maybeSingle(),
     ),
-    ensureAccount(userId),
+    safeQuery(
+      db
+        .from('wallets')
+        .select('user_id, balance, available_balance, pending_balance, updated_at')
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ),
     Promise.resolve([]),
     safeQuery(
       db
@@ -381,7 +391,6 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
         .limit(1)
         .maybeSingle(),
     ),
-    Promise.resolve(null),
   ])
 
   const pointsRows: unknown[] = []
@@ -400,10 +409,11 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     calculateStakedBalanceFromLedger(userId),
   ])
 
-  let cashBalance = Number(acct.cash_balance ?? 0)
-  let tokenBalance = Number(acct.token_balance ?? 0)
-  let stakedBalance = Number(acct.staked_balance ?? 0)
-  const pendingYield = Number(acct.pending_yield ?? 0)
+  const wallet = acct as { balance?: number; available_balance?: number; pending_balance?: number } | null
+  let cashBalance = Number(wallet?.available_balance ?? wallet?.balance ?? 0)
+  let tokenBalance = 0
+  let stakedBalance = 0
+  const pendingYield = Number(wallet?.pending_balance ?? 0)
 
   if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
   if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
@@ -453,7 +463,6 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     kyc: rawKyc,
     wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
     referralCode:
-      (acct as AccountRow & { wallet_id?: string }).wallet_id ??
       (profile as { referral_code?: string })?.referral_code ??
       'PLS-XXXX',
     fullName: (profile as { full_name?: string })?.full_name ?? null,
@@ -462,7 +471,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     isAdmin,
     points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
     founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
-    walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
+    walletId: null,
     username: (profile as { username?: string })?.username ?? null,
     referralCount: ((referrals as unknown[]) ?? []).length,
     referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(

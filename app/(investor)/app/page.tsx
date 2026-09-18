@@ -32,7 +32,7 @@ export default async function AppPage() {
   let fetchError = null
 
   try {
-    initial = await getSnapshot(user.id)
+    initial = await getSnapshot(user.id, user.email ?? undefined, supabase)
   } catch (err) {
     fetchError = (err as Error).message
     console.error('[Pulse App Page] Failed to fetch user snapshot:', fetchError)

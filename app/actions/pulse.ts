@@ -52,7 +52,8 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
 export async function fetchSnapshot(): Promise<Snapshot | null> {
   const user = await requireUser()
   if (!user) return null
-  return getSnapshotFromDb(user.id, user.email ?? undefined)
+  const supabase = await getSupabase()
+  return getSnapshotFromDb(user.id, user.email ?? undefined, supabase)
 }
 
 // NEW — backs sale.tsx. The private-sale progress bar previously showed a
