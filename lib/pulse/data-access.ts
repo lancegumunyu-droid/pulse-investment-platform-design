@@ -391,7 +391,7 @@ export async function getSnapshot(
         .limit(1)
         .maybeSingle(),
     ),
-    safeQuery(db.from('pulse_cards').select('id, status, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()),
+    safeQuery(db.from('pulse_cards').select('id, status, card_number_last4').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()),
     safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
     safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
     safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: false })),
