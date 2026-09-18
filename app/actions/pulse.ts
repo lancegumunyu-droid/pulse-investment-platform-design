@@ -173,8 +173,11 @@ export async function invest(amount: number, projectId: string) {
   try {
     const db = serviceClient()
 
-    const snap = await getSnapshotFromDb(user.id)
-    if (amount > 500 && snap.kyc !== 'verified') {
+  const snap = await getSnapshotFromDb(user.id)
+  if (snap.holdings.length >= 2) {
+    return { ok: false as const, error: 'You can only hold two active positions at a time.' }
+  }
+  if (amount > 500 && snap.kyc !== 'verified') {
       return { ok: false as const, error: 'KYC verification is required for investments over $500' }
     }
 
@@ -513,15 +516,18 @@ export async function closeInvestment(holdingId: string) {
       .maybeSingle()
     if (!holding) return { ok: false as const, error: 'Holding not found' }
 
-    const amount = Number(holding.amount)
-    await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount })
-    await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
+  const amount = Number(holding.amount)
+  const openedAt = new Date(holding.created_at ?? 0).getTime()
+  const earlyClose = Number.isFinite(openedAt) && Date.now() - openedAt < 14 * 24 * 60 * 60 * 1000
+  const earlyCloseFee = earlyClose ? 15 : 0
+  await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount - earlyCloseFee })
+  await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
     await recordTxn(user.id, {
       type: 'close_investment',
       amount,
       currency: 'USD',
-      meta: { holdingId, label: 'Investment liquidated' },
-    })
+    meta: { holdingId, label: earlyClose ? 'Investment liquidated — $15 early close fee' : 'Investment liquidated', earlyCloseFee },
+  })
 
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {

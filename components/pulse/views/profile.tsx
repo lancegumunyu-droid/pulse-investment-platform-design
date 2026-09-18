@@ -49,7 +49,7 @@ export function ProfileView() {
     setSavingUsername(false)
   }
 
-  const referralLink = `${typeof window !== 'undefined' ? window.location.origin : 'https://pulseinvest.uk'}/auth/sign-up?ref=${encodeURIComponent(referralCode)}`
+  const referralLink = `https://pulseinvest.uk/auth/sign-up?ref=${encodeURIComponent(referralCode)}`
 
   const copyRef = () => {
     navigator.clipboard?.writeText(referralLink)

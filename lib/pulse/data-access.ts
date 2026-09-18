@@ -359,7 +359,13 @@ export async function getSnapshot(
   }
 
   const [profile, acct, holdings, txns, cardApplication] = await Promise.all([
-    Promise.resolve({ email: userEmail ?? null }),
+    safeQuery(
+      db
+        .from('profiles')
+        .select('id, email, full_name, username, role, tier, founder_number, wallet_address, admin_scope')
+        .eq('id', userId)
+        .maybeSingle(),
+    ),
     safeQuery(
       db
         .from('accounts')

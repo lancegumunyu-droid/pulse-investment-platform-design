@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Pickaxe, Radio, Rocket, ShieldCheck, Sprout, Sun, Zap, Building2, Layers } from 'lucide-react'
+import { Folder, Gift, Lock, Pickaxe, Radio, Rocket, ShieldCheck, Sprout, Sun, Zap, Building2, Layers } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { PROJECTS, nextTier, isProjectClosed, type Project } from '@/lib/pulse-data'
 
@@ -196,8 +196,13 @@ export function DashboardView() {
       {/* ACTIVE HOLDINGS */}
       <div className="pulse-glass-card pulse-static overflow-hidden">
         <div className="pulse-vault-header">
-          <span className="pulse-label">Active Holdings ({state.holdings.length})</span>
-          <span className="pulse-chip pulse-chip-muted">${money(totalInvested, 0)} deployed</span>
+          <button onClick={() => setView('invest')} className="flex min-w-0 items-center gap-2 text-left transition-colors hover:text-amber-300">
+            <Folder className="h-4 w-4 shrink-0 text-amber-400" />
+            <span className="pulse-label">Active Holdings ({state.holdings.length})</span>
+          </button>
+          <button onClick={() => setView('invest')} className="pulse-chip pulse-chip-muted transition-colors hover:border-amber-400/50 hover:text-amber-300">
+            Explore <span aria-hidden="true">›</span>
+          </button>
         </div>
 
         {state.holdings.length === 0 ? (
@@ -248,6 +253,13 @@ export function DashboardView() {
           <ActionTile icon={<Rocket className="h-4 w-4 text-amber-300" />} label="Buy $PULSE" detail="Private sale round" badge="Private" onClick={() => setView('sale')} />
           <ActionTile icon={<Zap className="h-4 w-4 text-amber-300" />} label="Stake Vault" detail="High yield pool" badge={`${money(state.staked, 0)} staked`} onClick={() => setView('stake')} />
           <ActionTile icon={<Radio className="h-4 w-4 text-amber-300" />} label="Signals Feed" detail="Institutional deals" badge="Live" onClick={() => setView('signals')} />
+          <ActionTile
+            icon={<Gift className="h-4 w-4 text-amber-300" />}
+            label="Send Ref Code"
+            detail="Invite a verified holder"
+            badge={`${state.referralCount} joined`}
+            onClick={() => setView('profile')}
+          />
           <ActionTile
             icon={<ShieldCheck className="h-4 w-4 text-amber-300" />}
             label="Verify KYC"
