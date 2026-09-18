@@ -278,7 +278,8 @@ export async function setWallet(address: string | null) {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = serviceClient()
-    await db.from('profiles').update({ wallet_address: address }).eq('id', user.id)
+    const { error } = await db.from('accounts').update({ wallet_id: address }).eq('user_id', user.id)
+    if (error) throw error
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }
@@ -311,7 +312,6 @@ export async function submitKyc(input: {
     })
     if (subErr) return { ok: false as const, error: `Could not file submission: ${subErr.message}` }
 
-    await db.from('profiles').update({ kyc_status: 'pending', full_name: input.fullName }).eq('id', user.id)
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }

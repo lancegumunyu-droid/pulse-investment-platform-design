@@ -262,12 +262,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .eq('status', 'pending')
     if (kycErr) return { ok: false, error: `kyc_submissions update failed: ${kycErr.message}` }
 
-    const { error: profErr } = await db
-      .from('profiles')
-      .update({ kyc_status: decision === 'approved' ? 'verified' : 'rejected' })
-      .eq('id', sub.user_id)
-    if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
-
     if (decision === 'approved') {
       const { data: alreadyBonused } = await db
         .from('transactions')
@@ -296,14 +290,14 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
       await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
 
-      const { data: verifiedProfile } = await db
-        .from('profiles')
-        .select('referred_by')
-        .eq('id', sub.user_id)
+      const { data: referral } = await db
+        .from('referrals')
+        .select('referrer_id')
+        .eq('referred_user_id', sub.user_id)
         .maybeSingle()
-      if (verifiedProfile?.referred_by) {
+      if (referral?.referrer_id) {
         await db.rpc('award_points', {
-          p_user_id: verifiedProfile.referred_by,
+          p_user_id: referral.referrer_id,
           p_amount: 100,
           p_reason: 'Your referral completed KYC',
         })
@@ -320,8 +314,11 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const { error: profErr } = await db.from('profiles').update({ kyc_status: 'none' }).eq('id', userId)
-    if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
+    const { data: submission, error: findError } = await db.from('kyc_submissions').select('id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (findError) return { ok: false, error: findError.message }
+    if (!submission) return { ok: false, error: 'No KYC submission found for this user.' }
+    const { error } = await db.from('kyc_submissions').update({ status: 'pending', reviewed_by: null, reviewed_at: null }).eq('id', submission.id)
+    if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -530,6 +527,7 @@ export async function disburseYield(userId: string, amount: number): Promise<Adm
 // explicit admin scope configuration" on almost every action.
 export async function addAdminByEmail(email: string, scope: AdminScope = 'operations'): Promise<AdminResult> {
   try {
+    void scope
     await requireAdminScope(['full'])
     const clean = email.trim().toLowerCase()
     if (!clean.includes('@')) return { ok: false, error: 'Enter a valid email' }
@@ -537,20 +535,18 @@ export async function addAdminByEmail(email: string, scope: AdminScope = 'operat
     const db = serviceClient()
     await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
 
-    const { data: updated, error } = await db
-      .from('profiles')
-      .update({ role: 'admin', admin_scope: scope })
-      .ilike('email', clean)
-      .select('id')
-
-    if (error) return { ok: false, error: error.message }
-    if (!updated || updated.length === 0) {
+    const { data: authData, error: authError } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    if (authError) return { ok: false, error: authError.message }
+    const target = authData.users.find((candidate) => candidate.email?.toLowerCase() === clean)
+    if (!target) {
       return {
         ok: false,
         error: `No registered profile found for ${clean}. They must sign up first — the allowlist entry has been saved and will apply once they do.`,
       }
     }
 
+    const { error: roleError } = await db.from('user_roles').upsert({ user_id: target.id, role: 'admin' }, { onConflict: 'user_id' })
+    if (roleError) return { ok: false, error: roleError.message }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -561,7 +557,8 @@ export async function appointAdminScope(userId: string, scope: AdminScope): Prom
   try {
     await requireAdminScope(['full'])
     const db = serviceClient()
-    const { error } = await db.from('profiles').update({ admin_scope: scope, role: 'admin' }).eq('id', userId)
+    if (!['full', 'operations', 'finance', 'compliance'].includes(scope)) return { ok: false, error: 'Unsupported admin scope for the current schema.' }
+    const { error } = await db.from('user_roles').upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id' })
     if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
@@ -570,29 +567,17 @@ export async function appointAdminScope(userId: string, scope: AdminScope): Prom
 }
 
 export async function assignManager(userId: string, managerId: string): Promise<AdminResult> {
-  try {
-    await requireAdminScope(['full', 'operations'])
-    const db = serviceClient()
-    const clean = managerId.trim()
-    const { error } = await db
-      .from('profiles')
-      .update({ managed_by: clean.length > 0 ? clean : null })
-      .eq('id', userId)
-    if (error) return { ok: false, error: error.message }
-    return getAdminSnapshot()
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
+  void userId
+  void managerId
+  await requireAdminScope(['full', 'operations'])
+  return { ok: false, error: 'Manager assignment is unavailable until admin_memberships is added to the production schema.' }
 }
 
 export async function deleteUser(userId: string): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full'])
     if (admin.id === userId) return { ok: false, error: 'You cannot delete your own admin account' }
-    const db = serviceClient()
-    const { error } = await db.from('profiles').delete().eq('id', userId)
-    if (error) return { ok: false, error: error.message }
-    return getAdminSnapshot()
+    return { ok: false, error: 'User deletion is disabled until the production deletion/audit policy is implemented.' }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
@@ -867,10 +852,14 @@ export async function getTeamVolumeReport(): Promise<
   | { ok: false; error: string }
 > {
   try {
+    await requireAdminScope(['manager', 'director', 'full'])
+    return { ok: false, error: 'Team access is unavailable until admin_memberships is added to the production schema.' }
+
+    /*
     const user = await requireAdminScope(['manager', 'director', 'full'])
     const db = serviceClient()
-    const { data: me } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
-    const scope: 'manager' | 'director' = me?.admin_scope === 'director' ? 'director' : 'manager'
+    const { data: me } = await db.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    const scope: 'manager' | 'director' = me?.role === 'admin' ? 'director' : 'manager'
 
     let teamIds: string[] = []
     if (scope === 'director') {
@@ -907,6 +896,7 @@ export async function getTeamVolumeReport(): Promise<
     }))
 
     return { ok: true, scope, rows }
+    */
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }

@@ -358,7 +358,7 @@ export async function getSnapshot(
     return res.data
   }
 
-  const [acct, holdings, txns, cardApplication, roleRow] = await Promise.all([
+  const [acct, holdings, txns, cardApplication, issuedCard, roleRow, pointsRows, referrals, wallets] = await Promise.all([
     safeQuery(
       db
         .from('accounts')
@@ -385,17 +385,19 @@ export async function getSnapshot(
     safeQuery(
       db
         .from('card_applications')
-        .select('id, status, card_ref, card_number, card_number_last4, cvv, expiry_month, expiry_year, cardholder_name, pin_hash')
+        .select('id, status, card_ref, card_number_last4, expiry_month, expiry_year, cardholder_name')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
     ),
+    safeQuery(db.from('pulse_cards').select('id, status, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()),
     safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
+    safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
+    safeQuery(db.from('referrals').select('id, referred_user_id, status').eq('referrer_id', userId)),
+    safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: false })),
   ])
 
-  const pointsRows: unknown[] = []
-  const referrals: unknown[] = []
   const stakingRows = (await safeQuery(
     db
       .from('staking_positions')
@@ -406,9 +408,6 @@ export async function getSnapshot(
   const kycRows = (await safeQuery(
     db.from('kyc_submissions').select('status, full_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
   )) as Array<{ status?: string }> | null
-  const badgeRows: unknown[] = []
-  const wallets: unknown[] = []
-
   const email = (userEmail || '').toLowerCase()
   const role = (roleRow as { role?: string } | null)?.role
   const isAdmin = role === 'admin'
@@ -494,14 +493,14 @@ export async function getSnapshot(
       earnedAt: new Date(b.earned_at).getTime(),
     })),
     adminScope: isAdmin ? 'full' : null,
-    cardStatus: ((cardApplication as { status?: string })?.status ?? 'none') as Snapshot['cardStatus'],
-    cardRef: (cardApplication as { card_ref?: string })?.card_ref ?? (cardApplication as { card_number?: string })?.card_number ?? null,
-    cardLast4: (cardApplication as { card_number_last4?: string })?.card_number_last4 ?? null,
-    cardCvv: (cardApplication as { cvv?: string })?.cvv ?? null,
-    cardExpiryMonth: (cardApplication as { expiry_month?: number })?.expiry_month ?? null,
-    cardExpiryYear: (cardApplication as { expiry_year?: number })?.expiry_year ?? null,
-    cardholderName: (cardApplication as { cardholder_name?: string })?.cardholder_name ?? null,
-    pinRequired: Boolean(cardApplication && !(cardApplication as { pin_hash?: string | null }).pin_hash),
+    cardStatus: ((issuedCard as { status?: string } | null)?.status ?? (cardApplication as { status?: string } | null)?.status ?? 'none') as Snapshot['cardStatus'],
+    cardRef: (cardApplication as { card_ref?: string } | null)?.card_ref ?? null,
+    cardLast4: (issuedCard as { card_number_last4?: string } | null)?.card_number_last4 ?? (cardApplication as { card_number_last4?: string } | null)?.card_number_last4 ?? null,
+    cardCvv: null,
+    cardExpiryMonth: (issuedCard as { expiry_month?: number } | null)?.expiry_month ?? (cardApplication as { expiry_month?: number } | null)?.expiry_month ?? null,
+    cardExpiryYear: (issuedCard as { expiry_year?: number } | null)?.expiry_year ?? (cardApplication as { expiry_year?: number } | null)?.expiry_year ?? null,
+    cardholderName: (issuedCard as { cardholder_name?: string } | null)?.cardholder_name ?? (cardApplication as { cardholder_name?: string } | null)?.cardholder_name ?? null,
+    pinRequired: Boolean(cardApplication && !issuedCard),
     savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({
       id: w.id,
       label: w.label,
