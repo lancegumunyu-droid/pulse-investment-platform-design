@@ -94,15 +94,7 @@ export function ProfileView() {
     setLoadingReferrals(false)
   }
 
-  // Admin button is always visible; claimAdmin() checks profiles.role server-side.
-  const openAdmin = async () => {
-    const res = await api.claimAdmin()
-    if (res.ok) {
-      setView('admin')
-    } else {
-      toast({ title: 'Admin access unavailable', description: res.error, variant: 'error' })
-    }
-  }
+  const openAdmin = () => setView('admin')
 
   const displayName = state.fullName || state.username || 'Investor'
 
@@ -326,16 +318,17 @@ export function ProfileView() {
         ) : null}
       </motion.div>
 
-      {/* ADMIN PANEL ACCESS */}
-      <motion.div variants={itemVariants}>
-        <button
-          onClick={openAdmin}
-          className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 text-sm font-semibold uppercase tracking-wide text-amber-300"
-        >
-          <Lock className="h-4 w-4" />
-          Admin Dashboard
-        </button>
-      </motion.div>
+      {state.isAdmin ? (
+        <motion.div variants={itemVariants}>
+          <button
+            onClick={openAdmin}
+            className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 text-sm font-semibold uppercase tracking-wide text-amber-300"
+          >
+            <Lock className="h-4 w-4" />
+            Admin Dashboard
+          </button>
+        </motion.div>
+      ) : null}
 
       {/* SIGN OUT */}
       <motion.div variants={itemVariants}>

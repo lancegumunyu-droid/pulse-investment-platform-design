@@ -388,7 +388,13 @@ export async function applyForCard() {
     .in('status', ['waitlisted', 'approved'])
     .maybeSingle()
   if (!existing) {
-    const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
+    const cardRef = `PULSE-${randomBytes(10).toString('hex').toUpperCase()}`
+    const { error } = await db.from('card_applications').insert({
+      user_id: user.id,
+      status: 'waitlisted',
+      card_ref: cardRef,
+      card_number_last4: cardRef.slice(-4),
+    })
     if (error) throw error
   }
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }

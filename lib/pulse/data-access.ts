@@ -391,9 +391,7 @@ export async function getSnapshot(
     safeQuery(
       db.from('card_applications').select('status, card_ref, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ),
-    safeQuery(
-      db.from('pulse_cards').select('status, card_number_last4, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    ),
+    Promise.resolve(null),
     safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
     safeQuery(
       db.from('referrals').select('id, referred_user_id, status, bonus_awarded').eq('referrer_id', userId),
@@ -495,14 +493,14 @@ export async function getSnapshot(
       earnedAt: new Date(b.earned_at).getTime(),
     })),
     adminScope: isAdmin ? 'full' : null,
-    cardStatus: ((issuedCard as { status?: string } | null)?.status ?? (cardApplication as { status?: string } | null)?.status ?? 'none') as Snapshot['cardStatus'],
+    cardStatus: ((cardApplication as { status?: string } | null)?.status ?? 'none') as Snapshot['cardStatus'],
     cardRef: (cardApplication as { card_ref?: string } | null)?.card_ref ?? null,
-    cardLast4: (issuedCard as { card_number_last4?: string } | null)?.card_number_last4 ?? (cardApplication as { card_number_last4?: string } | null)?.card_number_last4 ?? null,
+    cardLast4: (cardApplication as { card_number_last4?: string } | null)?.card_number_last4 ?? null,
     cardCvv: null,
-    cardExpiryMonth: (issuedCard as { expiry_month?: number } | null)?.expiry_month ?? (cardApplication as { expiry_month?: number } | null)?.expiry_month ?? null,
-    cardExpiryYear: (issuedCard as { expiry_year?: number } | null)?.expiry_year ?? (cardApplication as { expiry_year?: number } | null)?.expiry_year ?? null,
-    cardholderName: (issuedCard as { cardholder_name?: string } | null)?.cardholder_name ?? (cardApplication as { cardholder_name?: string } | null)?.cardholder_name ?? null,
-    pinRequired: Boolean(cardApplication && !issuedCard),
+    cardExpiryMonth: (cardApplication as { expiry_month?: number } | null)?.expiry_month ?? null,
+    cardExpiryYear: (cardApplication as { expiry_year?: number } | null)?.expiry_year ?? null,
+    cardholderName: (cardApplication as { cardholder_name?: string } | null)?.cardholder_name ?? null,
+    pinRequired: Boolean(cardApplication && !(cardApplication as { pin_set_at?: string | null }).pin_set_at),
     savedWallets: ((wallets ?? []) as Array<{ id: string; label: string; address: string }>).map((w) => ({
       id: w.id,
       label: w.label,
@@ -514,8 +512,13 @@ export async function getSnapshot(
 export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const db = serviceClient()
-  const { data: roleRow } = await db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()
-  return roleRow?.role === 'admin' || roleRow?.role === 'super_admin'
+    const { data: adminRow } = await db
+      .from('admin_users')
+      .select('role, is_active')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .maybeSingle()
+    return Boolean(adminRow?.is_active && ['admin', 'super_admin', 'director', 'manager'].includes(adminRow.role))
 
   } catch {
     return false
