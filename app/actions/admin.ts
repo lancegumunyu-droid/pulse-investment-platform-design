@@ -452,13 +452,13 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
     const db = serviceClient()
 
     const { data: app } = await db.from('card_applications').select('*').eq('id', id).single()
-    if (!app || app.status !== 'pending') {
+    if (!app || app.status !== 'waitlisted') {
       return { ok: false, error: 'Application not found or already processed' }
     }
 
     if (decision === 'approved') {
       const { data: profile } = await db.from('kyc_submissions').select('status').eq('user_id', app.user_id).eq('status', 'verified').maybeSingle()
-      if (profile?.kyc_status !== 'verified') {
+      if (!profile) {
         return { ok: false, error: 'Applicant has not completed KYC verification' }
       }
     }
@@ -470,31 +470,31 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
   const cvv = decision === 'approved' ? String(randomInt(100, 1000)) : null
   const cvvSalt = cvv ? randomBytes(16).toString('hex') : null
   const cvvHash = cvv && cvvSalt ? `${cvvSalt}:${scryptSync(cvv, cvvSalt, 32).toString('hex')}` : null
+  const { data: authUser } = decision === 'approved' ? await db.auth.admin.getUserById(app.user_id) : { data: { user: null } }
+  const cardholderName = authUser.user?.user_metadata?.full_name ?? authUser.user?.user_metadata?.name ?? authUser.user?.email?.split('@')[0] ?? 'Pulse Member'
 
   const { error } = await db
+
 
       .from('card_applications')
       .update({
         status: decision === 'approved' ? 'approved' : 'rejected',
         reviewed_by: admin.id,
         reviewed_at: new Date().toISOString(),
-            })
+        ...(decision === 'approved' ? {
+          card_number: cardNumber,
+          card_number_last4: cardNumber?.slice(-4),
+          cvv,
+          expiry_month: new Date().getMonth() + 1,
+          expiry_year: new Date().getFullYear() + 5,
+          cardholder_name: cardholderName,
+          updated_at: new Date().toISOString(),
+        } : {}),
+      })
       .eq('id', id)
   .eq('status', 'pending')
 
   if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
-
-  if (decision === 'approved' && cardNumber && cvvHash) {
-    const { error: cardError } = await db.from('pulse_cards').upsert({
-      user_id: app.user_id,
-      application_id: app.id,
-      card_number: cardNumber,
-      card_number_last4: cardNumber.slice(-4),
-      cvv_hash: cvvHash,
-      status: 'pending_pin',
-    }, { onConflict: 'user_id' })
-    if (cardError) return { ok: false, error: `Pulse card issuance failed: ${cardError.message}` }
-  }
 
     return getAdminSnapshot()
   } catch (e) {

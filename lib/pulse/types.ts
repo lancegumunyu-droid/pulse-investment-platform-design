@@ -47,6 +47,10 @@ export interface Snapshot {
   cardRef?: string | null
   cardLast4?: string | null
   pinRequired?: boolean
+  cardCvv?: string | null
+  cardExpiryMonth?: number | null
+  cardExpiryYear?: number | null
+  cardholderName?: string | null
   savedWallets: SavedWallet[]
 }
 

@@ -96,6 +96,10 @@ interface State {
   cardRef: string | null
   cardLast4: string | null
   pinRequired: boolean
+  cardCvv: string | null
+  cardExpiryMonth: number | null
+  cardExpiryYear: number | null
+  cardholderName: string | null
   savedWallets: SavedWallet[]
 }
 
@@ -127,6 +131,10 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
   cardRef: data.cardRef ?? null,
   cardLast4: data.cardLast4 ?? null,
   pinRequired: data.pinRequired ?? false,
+  cardCvv: data.cardCvv ?? null,
+  cardExpiryMonth: data.cardExpiryMonth ?? null,
+  cardExpiryYear: data.cardExpiryYear ?? null,
+  cardholderName: data.cardholderName ?? null,
 
     savedWallets: data.savedWallets ?? [],
   }

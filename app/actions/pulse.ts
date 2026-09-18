@@ -353,10 +353,10 @@ export async function applyForCard() {
     .from('card_applications')
     .select('id, status')
     .eq('user_id', user.id)
-    .in('status', ['pending', 'approved'])
+    .in('status', ['waitlisted', 'approved'])
     .maybeSingle()
   if (!existing) {
-    const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'pending' })
+    const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'waitlisted' })
     if (error) throw error
   }
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
@@ -385,11 +385,11 @@ export async function setPulsePin(pin: string) {
   if (!validPin(pin)) return { ok: false as const, error: 'Use a unique 4–6 digit PIN.' }
   try {
     const db = serviceClient()
-    const { data: card } = await db.from('pulse_cards').select('id, status').eq('user_id', user.id).maybeSingle()
+    const { data: card } = await db.from('card_applications').select('id, status').eq('user_id', user.id).in('status', ['approved', 'free_card_earned']).order('created_at', { ascending: false }).limit(1).maybeSingle()
     if (!card || !['pending_pin', 'active'].includes(card.status)) {
       return { ok: false as const, error: 'Your Pulse card is not ready for PIN setup.' }
     }
-    const { error } = await db.from('pulse_cards').update({ pin_hash: hashPin(pin), status: 'active', pin_failed_attempts: 0, pin_locked_until: null, pin_set_at: new Date().toISOString(), last_pin_changed_at: new Date().toISOString() }).eq('id', card.id)
+    const { error } = await db.from('card_applications').update({ pin_hash: hashPin(pin), status: 'approved', pin_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', card.id)
     if (error) throw error
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
@@ -402,7 +402,7 @@ export async function requestPulsePinReset() {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = serviceClient()
-    const { data: card } = await db.from('pulse_cards').select('id').eq('user_id', user.id).maybeSingle()
+    const { data: card } = await db.from('card_applications').select('id').eq('user_id', user.id).in('status', ['approved', 'free_card_earned']).order('created_at', { ascending: false }).limit(1).maybeSingle()
     if (!card) return { ok: false as const, error: 'No Pulse card found.' }
     const token = randomBytes(32).toString('base64url')
     const { error } = await db.from('pulse_card_pin_resets').insert({ card_id: card.id, user_id: user.id, token_hash: hashResetToken(token), expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
@@ -421,7 +421,7 @@ export async function resetPulsePin(token: string, pin: string) {
     const db = serviceClient()
     const { data: reset } = await db.from('pulse_card_pin_resets').select('id, card_id, expires_at, consumed_at').eq('user_id', user.id).eq('token_hash', hashResetToken(token)).maybeSingle()
     if (!reset || reset.consumed_at || new Date(reset.expires_at) < new Date()) return { ok: false as const, error: 'That reset request has expired. Start again.' }
-    const { error: cardError } = await db.from('pulse_cards').update({ pin_hash: hashPin(pin), status: 'active', pin_failed_attempts: 0, pin_locked_until: null, pin_set_at: new Date().toISOString(), last_pin_changed_at: new Date().toISOString() }).eq('id', reset.card_id).eq('user_id', user.id)
+    const { error: cardError } = await db.from('card_applications').update({ pin_hash: hashPin(pin), status: 'approved', pin_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', reset.card_id).eq('user_id', user.id)
     if (cardError) throw cardError
     const { error } = await db.from('pulse_card_pin_resets').update({ consumed_at: new Date().toISOString() }).eq('id', reset.id)
     if (error) throw error

@@ -372,8 +372,16 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
         .order('created_at', { ascending: false })
         .limit(50),
     ),
-    safeQuery(db.from('card_applications').select('id, status').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()),
-    safeQuery(db.from('pulse_cards').select('card_number, card_number_last4, status, pin_hash').eq('user_id', userId).maybeSingle()),
+    safeQuery(
+      db
+        .from('card_applications')
+        .select('id, status, card_number, card_number_last4, cvv, expiry_month, expiry_year, cardholder_name, pin_hash')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ),
+    Promise.resolve(null),
   ])
 
   const pointsRows: unknown[] = []
@@ -465,10 +473,14 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
       earnedAt: new Date(b.earned_at).getTime(),
     })),
     adminScope: (profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope ?? null,
-    cardStatus: ((pulseCard as { status?: string })?.status ?? (cardApplication as { status?: string })?.status ?? 'none') as Snapshot['cardStatus'],
-    cardRef: (pulseCard as { card_number?: string })?.card_number ?? null,
-    cardLast4: (pulseCard as { card_number_last4?: string })?.card_number_last4 ?? null,
-    pinRequired: Boolean(pulseCard && !(pulseCard as { pin_hash?: string | null }).pin_hash),
+    cardStatus: ((cardApplication as { status?: string })?.status ?? 'none') as Snapshot['cardStatus'],
+    cardRef: (cardApplication as { card_number?: string })?.card_number ?? null,
+    cardLast4: (cardApplication as { card_number_last4?: string })?.card_number_last4 ?? null,
+    cardCvv: (cardApplication as { cvv?: string })?.cvv ?? null,
+    cardExpiryMonth: (cardApplication as { expiry_month?: number })?.expiry_month ?? null,
+    cardExpiryYear: (cardApplication as { expiry_year?: number })?.expiry_year ?? null,
+    cardholderName: (cardApplication as { cardholder_name?: string })?.cardholder_name ?? null,
+    pinRequired: Boolean(cardApplication && !(cardApplication as { pin_hash?: string | null }).pin_hash),
     savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({
       id: w.id,
       label: w.label,

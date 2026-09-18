@@ -432,10 +432,11 @@ export function WalletView() {
             >
               <div className="h-9 w-full bg-black" />
               <div className="mt-5 flex items-center justify-between rounded-md bg-zinc-200/90 px-3 py-2">
-                <span className="text-xs italic text-zinc-500">Authorized signature</span>
-                <span className="font-mono text-xs font-semibold text-black">
-                  {cardIssued ? '\u2022\u2022\u2022' : '\u2014'}
-                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-[9px] uppercase tracking-wider text-zinc-500">Authorized signature</span>
+                  <span className="truncate font-serif text-lg italic text-black">{state.cardholderName || state.fullName || 'Pulse Member'}</span>
+                </div>
+                <span className="font-mono text-xs font-semibold text-black">{cardIssued ? (state.cardCvv || '•••') : '—'}</span>
               </div>
               <p className="mt-4 text-[9px] leading-relaxed text-zinc-500">
                 This card is issued subject to Pulse Card Terms. Report loss or unauthorized use immediately via
@@ -443,7 +444,7 @@ export function WalletView() {
               </p>
               <p className="pulse-label mt-3 normal-case tracking-normal text-zinc-600">
                 {cardIssued
-                  ? `Card active${state.cardRef ? ` \u00b7 ${state.cardRef}` : ''}`
+                  ? `Valid thru ${state.cardExpiryMonth ? String(state.cardExpiryMonth).padStart(2, '0') : '--'}/${state.cardExpiryYear ? String(state.cardExpiryYear).slice(-2) : '--'}${state.cardRef ? ` \u00b7 ${state.cardRef}` : ''}`
                   : 'Card inactive — pending issuance'}
               </p>
             </div>
