@@ -63,7 +63,7 @@ export default function RiskPage() {
             </Section>
 
             <Section title="Crypto deposit risk">
-              Depositing funds via cryptocurrency (through NOWPayments) carries additional risk including price
+              Depositing funds through supported payment rails carries additional risk including price
               volatility, transaction irreversibility, and network failure. Pulse credits USD equivalent value based
               on settled payment amounts and is not responsible for crypto price movements during deposit processing.
             </Section>

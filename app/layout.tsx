@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { PWAInstaller } from '@/components/pulse/pwa-installer'
-import { GooglePiRuntime } from '@/components/pulse/google-pi'
 import './globals.css'
 
 /**
@@ -87,7 +86,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <div className="relative z-10 flex flex-col min-h-screen min-h-[100dvh] flex-1 w-full max-w-full overflow-x-hidden">
           {children}
         </div>
-        <GooglePiRuntime />
         <PWAInstaller />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

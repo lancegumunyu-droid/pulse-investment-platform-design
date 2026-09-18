@@ -30,7 +30,7 @@ const FEATURES = [
   {
     icon: <Zap className="size-5" />,
     title: 'Crypto-native deposits',
-    body: 'Fund your account with USDT or BTC via NOWPayments. Instant, borderless, and low-fee — built for the African diaspora.',
+    body: 'Fund your account through Pulse-supported rails with clear fees, transparent status, and investor-first controls.',
   },
   {
     icon: <TrendingUp className="size-5" />,

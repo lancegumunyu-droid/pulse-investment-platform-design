@@ -47,7 +47,7 @@ export default function TermsPage() {
             </Section>
 
             <Section title="5. Deposits and withdrawals">
-              Deposits are accepted via the NOWPayments crypto payment gateway. Pulse processes withdrawal requests
+              Deposits are accepted only through payment rails explicitly enabled by Pulse. Pulse processes withdrawal requests
               within a reasonable review period. Withdrawal approval is subject to completed KYC and compliance checks.
               Pulse does not guarantee a specific processing time.
             </Section>

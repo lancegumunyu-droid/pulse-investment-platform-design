@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Activity, Loader2, MailCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -63,9 +63,9 @@ export default function ForgotPasswordPage() {
             We&apos;ve sent a password reset link to <span className="font-medium text-foreground">{email}</span>.
             Open it on this device to set a new password.
           </p>
-          <Button asChild variant="gold" size="lg" className="mt-6 w-full">
-            <Link href="/auth/login">Back to sign in</Link>
-          </Button>
+          <Link href="/auth/login" className={`${buttonVariants({ variant: 'gold', size: 'lg' })} mt-6 w-full`}>
+            Back to sign in
+          </Link>
         </div>
       </div>
     )

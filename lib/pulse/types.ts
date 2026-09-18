@@ -131,8 +131,6 @@ export interface AdminTxnRow {
   status: string
   reference: string | null
   createdAt: number
-  // NEW: lets the admin dashboard show "payment confirmed by NOWPayments,
-  // awaiting your approval" vs. "awaiting payment" for deposits.
   settledStatus?: string | null
   payCurrency?: string | null
   userTxRef?: string | null

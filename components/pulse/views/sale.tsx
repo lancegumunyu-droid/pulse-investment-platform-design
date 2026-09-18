@@ -211,7 +211,7 @@ export function SaleView() {
 
         <div className="relative z-[3] flex items-center justify-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5 text-amber-400/80" />
-          <span className="pulse-label normal-case tracking-normal text-zinc-500">Settled via NOWPayments</span>
+          <span className="pulse-label normal-case tracking-normal text-zinc-500">Settlement handled by Pulse</span>
         </div>
       </div>
 
