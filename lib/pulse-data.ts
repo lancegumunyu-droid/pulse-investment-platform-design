@@ -122,6 +122,7 @@ export const PROJECTS: Project[] = [
     goal: 1_000_000,
     risk: 'Lower',
     summary: '85 MW solar installation with a 20-year power purchase agreement with the national utility.',
+    image: '/projects/kalahari-solar.png',
   },
   {
     id: 'copperbelt-royalty',
@@ -133,6 +134,7 @@ export const PROJECTS: Project[] = [
     goal: 750_000,
     risk: 'Higher',
     summary: 'Revenue royalty on an operating copper concession. Returns track commodity prices and output.',
+    image: '/projects/copperbelt-royalty.png',
   },
   {
     id: 'zambezi-agri',
@@ -144,6 +146,7 @@ export const PROJECTS: Project[] = [
     goal: 500_000,
     risk: 'Moderate',
     summary: 'Irrigated macadamia and citrus estate with offtake contracts to EU distributors.',
+    image: '/projects/zambezi-agri.png',
   },
   {
     id: 'maputo-logistics',
@@ -155,6 +158,7 @@ export const PROJECTS: Project[] = [
     goal: 900_000,
     risk: 'Moderate',
     summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
+    image: '/projects/maputo-logistics.png',
   },
 ]
 

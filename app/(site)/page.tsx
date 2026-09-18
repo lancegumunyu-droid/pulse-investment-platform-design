@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Globe, ShieldCheck, TrendingUp, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { PROJECTS } from '@/lib/pulse-data'
 
 const STATS = [
   { label: 'Active projects', value: '12' },
@@ -41,33 +42,6 @@ const FEATURES = [
     icon: <BadgeCheck className="size-5" />,
     title: 'PULSE token',
     body: 'Earn PULSE tokens through the private sale and stake them for additional yield, governance participation, and platform perks.',
-  },
-]
-
-const PROJECTS = [
-  {
-    name: 'Kalahari Solar Farm',
-    location: 'Botswana',
-    sector: 'Energy',
-    target: '24–28%',
-    funded: 78,
-    image: '/projects/kalahari-solar.png',
-  },
-  {
-    name: 'Limpopo AgriHub',
-    location: 'South Africa',
-    sector: 'Agriculture',
-    target: '18–22%',
-    funded: 91,
-    image: '/projects/limpopo-agri.png',
-  },
-  {
-    name: 'Harare Fintech Bridge',
-    location: 'Zimbabwe',
-    sector: 'Fintech',
-    target: '28–34%',
-    funded: 55,
-    image: '/projects/harare-fintech.png',
   },
 ]
 

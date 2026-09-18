@@ -271,7 +271,7 @@ export function DashboardView() {
                 {p.image && (
                   <div className="relative h-40 w-full overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                    <img src={p.image} alt={p.name} className="project-image-drift h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <span className="pulse-chip pulse-chip-gold absolute left-3 top-3">
                       {closed ? 'Closed' : 'Verified Project'}

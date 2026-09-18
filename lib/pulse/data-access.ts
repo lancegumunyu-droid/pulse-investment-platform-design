@@ -368,7 +368,7 @@ export async function getSnapshot(
         .from('wallets')
         .select('user_id, balance, available_balance, pending_balance, total_earnings, id, updated_at')
         .eq('user_id', userId)
-        .single(),
+        .maybeSingle(),
     ),
     safeQuery(
       db

@@ -341,6 +341,16 @@ PULSE THEME v3 — Obsidian & Deep Space
   }
   .animate-rise { animation: pulse-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+  @keyframes project-image-drift {
+    0%, 100% { transform: scale(1.04) translate3d(0, 0, 0); }
+    50% { transform: scale(1.1) translate3d(-1.5%, -1%, 0); }
+  }
+  .project-image-drift { animation: project-image-drift 10s ease-in-out infinite; }
+  .group:hover .project-image-drift { animation-play-state: paused; transform: scale(1.1); }
+  @media (prefers-reduced-motion: reduce) {
+    .project-image-drift, .group:hover .project-image-drift { animation: none; transform: none; }
+  }
+
   @keyframes toast-in {
     from { opacity: 0; transform: translate3d(0, -18px, 0) scale(0.95); }
     to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
