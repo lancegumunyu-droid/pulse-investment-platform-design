@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
+import { randomInt, randomBytes, scryptSync } from 'node:crypto'
 import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type {
   AdminSnapshot,
@@ -451,34 +452,50 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
     const db = serviceClient()
 
     const { data: app } = await db.from('card_applications').select('*').eq('id', id).single()
-    if (!app || app.status !== 'waitlisted') {
+    if (!app || app.status !== 'pending') {
       return { ok: false, error: 'Application not found or already processed' }
     }
 
     if (decision === 'approved') {
-      const { data: profile } = await db.from('profiles').select('kyc_status').eq('id', app.user_id).maybeSingle()
+      const { data: profile } = await db.from('kyc_submissions').select('status').eq('user_id', app.user_id).eq('status', 'verified').maybeSingle()
       if (profile?.kyc_status !== 'verified') {
         return { ok: false, error: 'Applicant has not completed KYC verification' }
       }
     }
 
-    const cardRef =
-      decision === 'approved'
-        ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
-        : null
+  const cardNumber =
+  decision === 'approved'
+  ? `PULSE-${Array.from({ length: 4 }, () => randomInt(1000, 10000)).join('-')}`
+  : null
+  const cvv = decision === 'approved' ? String(randomInt(100, 1000)) : null
+  const cvvSalt = cvv ? randomBytes(16).toString('hex') : null
+  const cvvHash = cvv && cvvSalt ? `${cvvSalt}:${scryptSync(cvv, cvvSalt, 32).toString('hex')}` : null
 
-    const { error } = await db
+  const { error } = await db
+
       .from('card_applications')
       .update({
         status: decision === 'approved' ? 'approved' : 'rejected',
         reviewed_by: admin.id,
         reviewed_at: new Date().toISOString(),
-        ...(cardRef ? { card_ref: cardRef } : {}),
-      })
+            })
       .eq('id', id)
-      .eq('status', 'waitlisted')
+  .eq('status', 'pending')
 
-    if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
+  if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
+
+  if (decision === 'approved' && cardNumber && cvvHash) {
+    const { error: cardError } = await db.from('pulse_cards').upsert({
+      user_id: app.user_id,
+      application_id: app.id,
+      card_number: cardNumber,
+      card_number_last4: cardNumber.slice(-4),
+      cvv_hash: cvvHash,
+      status: 'pending_pin',
+    }, { onConflict: 'user_id' })
+    if (cardError) return { ok: false, error: `Pulse card issuance failed: ${cardError.message}` }
+  }
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }

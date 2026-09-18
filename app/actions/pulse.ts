@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { TOKEN } from '@/lib/pulse-data'
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
 import {
   getSnapshot as getSnapshotFromDb,
@@ -348,7 +349,82 @@ export async function applyForCard() {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = serviceClient()
-    await db.from('card_applications').upsert({ user_id: user.id, status: 'waitlisted' }, { onConflict: 'user_id' })
+    const { data: existing } = await db
+    .from('card_applications')
+    .select('id, status')
+    .eq('user_id', user.id)
+    .in('status', ['pending', 'approved'])
+    .maybeSingle()
+  if (!existing) {
+    const { error } = await db.from('card_applications').insert({ user_id: user.id, status: 'pending' })
+    if (error) throw error
+  }
+    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+function hashPin(pin: string) {
+  const salt = randomBytes(16).toString('hex')
+  const digest = scryptSync(pin, salt, 32).toString('hex')
+  return `${salt}:${digest}`
+}
+
+function hashResetToken(token: string) {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+function validPin(pin: string) {
+  return /^(?!([0-9])\\1{3,5}$)(?!0123$|1234$|4321$)[0-9]{4,6}$/.test(pin)
+}
+
+export async function setPulsePin(pin: string) {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  if (!validPin(pin)) return { ok: false as const, error: 'Use a unique 4–6 digit PIN.' }
+  try {
+    const db = serviceClient()
+    const { data: card } = await db.from('pulse_cards').select('id, status').eq('user_id', user.id).maybeSingle()
+    if (!card || !['pending_pin', 'active'].includes(card.status)) {
+      return { ok: false as const, error: 'Your Pulse card is not ready for PIN setup.' }
+    }
+    const { error } = await db.from('pulse_cards').update({ pin_hash: hashPin(pin), status: 'active', pin_failed_attempts: 0, pin_locked_until: null, pin_set_at: new Date().toISOString(), last_pin_changed_at: new Date().toISOString() }).eq('id', card.id)
+    if (error) throw error
+    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function requestPulsePinReset() {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    const { data: card } = await db.from('pulse_cards').select('id').eq('user_id', user.id).maybeSingle()
+    if (!card) return { ok: false as const, error: 'No Pulse card found.' }
+    const token = randomBytes(32).toString('base64url')
+    const { error } = await db.from('pulse_card_pin_resets').insert({ card_id: card.id, user_id: user.id, token_hash: hashResetToken(token), expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
+    if (error) throw error
+    return { ok: true as const, token }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function resetPulsePin(token: string, pin: string) {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  if (!validPin(pin)) return { ok: false as const, error: 'Use a unique 4–6 digit PIN.' }
+  try {
+    const db = serviceClient()
+    const { data: reset } = await db.from('pulse_card_pin_resets').select('id, card_id, expires_at, consumed_at').eq('user_id', user.id).eq('token_hash', hashResetToken(token)).maybeSingle()
+    if (!reset || reset.consumed_at || new Date(reset.expires_at) < new Date()) return { ok: false as const, error: 'That reset request has expired. Start again.' }
+    const { error: cardError } = await db.from('pulse_cards').update({ pin_hash: hashPin(pin), status: 'active', pin_failed_attempts: 0, pin_locked_until: null, pin_set_at: new Date().toISOString(), last_pin_changed_at: new Date().toISOString() }).eq('id', reset.card_id).eq('user_id', user.id)
+    if (cardError) throw cardError
+    const { error } = await db.from('pulse_card_pin_resets').update({ consumed_at: new Date().toISOString() }).eq('id', reset.id)
+    if (error) throw error
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }

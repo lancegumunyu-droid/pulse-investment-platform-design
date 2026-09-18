@@ -106,7 +106,7 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
       pending_yield: Number(data.pending_balance ?? 0),
       updated_at: data.updated_at,
       wallet_id: data.id,
-    } as AccountRow & { wallet_id: string }
+    } as unknown as AccountRow & { wallet_id: string }
   }
 
   const { data: created, error: createError } = await db
@@ -354,7 +354,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     }
   }
 
-  const [profile, acct, holdings, txns] = await Promise.all([
+  const [profile, acct, holdings, txns, cardApplication, pulseCard] = await Promise.all([
     safeQuery(
       db
         .from('users')
@@ -372,12 +372,13 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
         .order('created_at', { ascending: false })
         .limit(50),
     ),
+    safeQuery(db.from('card_applications').select('id, status').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()),
+    safeQuery(db.from('pulse_cards').select('card_number, card_number_last4, status, pin_hash').eq('user_id', userId).maybeSingle()),
   ])
 
   const pointsRows: unknown[] = []
   const referrals: unknown[] = []
   const badgeRows: unknown[] = []
-  const cardApp = null
   const wallets: unknown[] = []
 
   const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
@@ -464,8 +465,10 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
       earnedAt: new Date(b.earned_at).getTime(),
     })),
     adminScope: (profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope ?? null,
-    cardStatus: (cardApp as { status?: Snapshot['cardStatus'] })?.status ?? 'none',
-    cardRef: (cardApp as { card_ref?: string })?.card_ref ?? null,
+    cardStatus: ((pulseCard as { status?: string })?.status ?? (cardApplication as { status?: string })?.status ?? 'none') as Snapshot['cardStatus'],
+    cardRef: (pulseCard as { card_number?: string })?.card_number ?? null,
+    cardLast4: (pulseCard as { card_number_last4?: string })?.card_number_last4 ?? null,
+    pinRequired: Boolean(pulseCard && !(pulseCard as { pin_hash?: string | null }).pin_hash),
     savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({
       id: w.id,
       label: w.label,

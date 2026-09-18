@@ -18,10 +18,13 @@ import { TOKEN } from '@/lib/pulse-data'
 
 const STAKE_APY = TOKEN.stakingApy ?? 24.8
 
-const CARD_STATUS_META: Record<string, { label: string; tone: 'muted' | 'gold' | 'green' }> = {
+const CARD_STATUS_META: Record<string, { label: string; tone: 'muted' | 'gold' | 'green' | 'red' }> = {
   none: { label: 'Not applied', tone: 'muted' },
   waitlisted: { label: 'Waitlisted', tone: 'gold' },
-  approved: { label: 'Approved', tone: 'green' },
+  approved: { label: 'Approved — set PIN', tone: 'gold' },
+  pending_pin: { label: 'Set your PIN', tone: 'gold' },
+  active: { label: 'Active', tone: 'green' },
+  locked: { label: 'PIN locked', tone: 'red' },
   free_card_earned: { label: 'Free card earned', tone: 'green' },
 }
 
@@ -74,6 +77,10 @@ export function WalletView() {
   const [sellAmount, setSellAmount] = React.useState('')
   const [sellOpen, setSellOpen] = React.useState(false)
   const [cardFlipped, setCardFlipped] = React.useState(false)
+  const [pin, setPin] = React.useState('')
+  const [pinConfirm, setPinConfirm] = React.useState('')
+  const [resetToken, setResetToken] = React.useState<string | null>(null)
+  const [pinMode, setPinMode] = React.useState<'setup' | 'reset'>('setup')
 
   const cardMeta = CARD_STATUS_META[state.cardStatus ?? 'none'] ?? CARD_STATUS_META.none
   const recentTxns = state.txns.slice(0, 6)
@@ -83,7 +90,7 @@ export function WalletView() {
 
   // Card digits derive from the real card_ref written by reviewCardApplication.
   // No placeholder digits are invented — an unissued card shows bullets.
-  const cardIssued = state.cardStatus === 'approved' || state.cardStatus === 'free_card_earned'
+  const cardIssued = ['approved', 'pending_pin', 'active', 'locked', 'free_card_earned'].includes(state.cardStatus)
   const cardLast4 = React.useMemo(() => {
     if (!cardIssued || !state.cardRef) return null
     const digits = state.cardRef.replace(/\D/g, '')
@@ -133,6 +140,33 @@ export function WalletView() {
     const res = await api.applyForCard()
     if (res.ok) toast({ title: 'Card application submitted', variant: 'success' })
     else toast({ title: 'Could not apply', description: res.error, variant: 'error' })
+  }
+
+  async function handlePinSave() {
+    if (pin !== pinConfirm) {
+      toast({ title: 'PINs do not match', variant: 'error' })
+      return
+    }
+    const res = pinMode === 'setup'
+      ? await api.setPulsePin(pin)
+      : resetToken
+        ? await api.resetPulsePin(resetToken, pin)
+        : { ok: false as const, error: 'Start a new PIN reset first.' }
+    if (res.ok) {
+      setPin('')
+      setPinConfirm('')
+      setResetToken(null)
+      toast({ title: 'Pulse PIN saved securely', variant: 'success' })
+    } else toast({ title: 'Could not save PIN', description: res.error, variant: 'error' })
+  }
+
+  async function handlePinResetStart() {
+    const res = await api.requestPulsePinReset()
+    if (res.ok) {
+      setPinMode('reset')
+      setResetToken(res.token)
+      toast({ title: 'PIN reset started', description: 'Create a new PIN within 10 minutes.', variant: 'info' })
+    } else toast({ title: 'Could not start reset', description: res.error, variant: 'error' })
   }
 
   const setPct = (pct: number) => {
@@ -425,10 +459,21 @@ export function WalletView() {
           >
             Apply for Pulse Card
           </button>
+        ) : state.pinRequired || state.cardStatus === 'pending_pin' || state.cardStatus === 'approved' || resetToken ? (
+          <div className="space-y-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3.5">
+            <div>
+              <p className="text-xs font-semibold text-amber-200">{pinMode === 'reset' ? 'Reset your Pulse PIN' : 'Set your Pulse PIN'}</p>
+              <p className="pulse-label mt-1 normal-case tracking-normal text-zinc-500">Use 4–6 digits. Avoid repeated or obvious sequences.</p>
+            </div>
+            <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\\D/g, '').slice(0, 6))} inputMode="numeric" type="password" placeholder="New PIN" className="pulse-input" autoComplete="new-password" />
+            <input value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\\D/g, '').slice(0, 6))} inputMode="numeric" type="password" placeholder="Confirm PIN" className="pulse-input" autoComplete="new-password" />
+            <button onClick={handlePinSave} disabled={busy || pin.length < 4 || pin !== pinConfirm} className="w-full rounded-xl bg-amber-400 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-black transition hover:bg-amber-300 disabled:opacity-50">Save PIN</button>
+          </div>
         ) : (
-          <p className="pulse-label text-center normal-case tracking-normal text-zinc-500">
-            Your Pulse Card details dynamically sync with your account profile status and issuance parameters.
-          </p>
+          <div className="space-y-2 text-center">
+            <p className="pulse-label normal-case tracking-normal text-zinc-500">Your in-house Pulse card is linked to your account.</p>
+            <button onClick={handlePinResetStart} disabled={busy} className="text-xs font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-50">Forgot PIN? Reset securely</button>
+          </div>
         )}
       </div>
 

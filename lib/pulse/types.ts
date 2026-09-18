@@ -43,8 +43,10 @@ export interface Snapshot {
   referralVerifiedCount: number
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
-  cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  cardStatus: 'none' | 'waitlisted' | 'approved' | 'pending_pin' | 'active' | 'locked' | 'free_card_earned'
   cardRef?: string | null
+  cardLast4?: string | null
+  pinRequired?: boolean
   savedWallets: SavedWallet[]
 }
 

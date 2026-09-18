@@ -30,6 +30,9 @@ import {
   castVote,
   claimAdmin as claimAdminAction,
   applyForCard as applyForCardAction,
+  setPulsePin,
+  requestPulsePinReset,
+  resetPulsePin,
   addSavedWallet as addSavedWalletAction,
   removeSavedWallet as removeSavedWalletAction,
   requestTransfer as requestTransferAction,
@@ -89,8 +92,10 @@ interface State {
   referralVerifiedCount: number
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | 'manager' | 'director' | null
-  cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  cardStatus: 'none' | 'waitlisted' | 'approved' | 'pending_pin' | 'active' | 'locked' | 'free_card_earned'
   cardRef: string | null
+  cardLast4: string | null
+  pinRequired: boolean
   savedWallets: SavedWallet[]
 }
 
@@ -118,8 +123,11 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
     referralVerifiedCount: data.referralVerifiedCount ?? 0,
     badges: data.badges ?? [],
     adminScope: data.adminScope ?? null,
-    cardStatus: data.cardStatus ?? 'none',
-    cardRef: data.cardRef ?? null,
+  cardStatus: data.cardStatus ?? 'none',
+  cardRef: data.cardRef ?? null,
+  cardLast4: data.cardLast4 ?? null,
+  pinRequired: data.pinRequired ?? false,
+
     savedWallets: data.savedWallets ?? [],
   }
 }
@@ -181,6 +189,9 @@ interface StoreContext {
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
     myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
     applyForCard: () => Promise<ActionResult>
+    setPulsePin: (pin: string) => Promise<ActionResult>
+    requestPulsePinReset: () => Promise<{ ok: true; token: string } | { ok: false; error: string }>
+    resetPulsePin: (token: string, pin: string) => Promise<ActionResult>
     addSavedWallet: (label: string, address: string) => Promise<ActionResult>
     removeSavedWallet: (id: string) => Promise<ActionResult>
     transfer: (recipientIdentifier: string, amount: number) => Promise<ActionResult>
@@ -363,6 +374,9 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       foundersWall: () => getFoundersWall(),
       myReferrals: () => getMyReferrals(),
       applyForCard: () => run(() => applyForCardAction()),
+      setPulsePin: (pin) => run(() => setPulsePin(pin)),
+      requestPulsePinReset: () => requestPulsePinReset(),
+      resetPulsePin: (token, pin) => run(() => resetPulsePin(token, pin)),
       addSavedWallet: (label, address) => run(() => addSavedWalletAction(label, address)),
       removeSavedWallet: (id) => run(() => removeSavedWalletAction(id)),
       transfer: (recipientIdentifier, amount) => run(() => requestTransferAction(recipientIdentifier, amount)),
