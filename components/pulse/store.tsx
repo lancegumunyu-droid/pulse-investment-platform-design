@@ -287,14 +287,15 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
         setState({ ...fromSnapshot(snap) })
         setLastSyncedAt(Date.now())
       }
-    } catch {
-      // Network blips are non-fatal: keep the last good snapshot on screen
-      // rather than flashing zeros at someone reading their balance.
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Supabase synchronization failed.'
+      toast({ title: 'Live sync failed', description: message, variant: 'error' })
+      console.error('[v0] Live sync failed', error)
     } finally {
       inFlight.current = false
       if (mounted.current) setSyncing(false)
     }
-  }, [])
+  }, [toast])
 
   // ---- LIVE SUPABASE SYNC ----------------------------------------------
   // Three triggers, all funnelling into refresh():

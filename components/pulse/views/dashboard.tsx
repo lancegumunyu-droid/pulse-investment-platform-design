@@ -48,7 +48,7 @@ export function DashboardView() {
   }
 
   return (
-    <div className="pulse-executive-shell mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
+    <div className="pulse-executive-shell mx-auto flex w-full max-w-[480px] flex-col gap-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
       {/* STATUS BAR */}
       <div className="pulse-glass-card pulse-static pulse-glow-frame flex items-center justify-between gap-3 p-4">
         <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export function DashboardView() {
       </div>
 
       {/* ACTIVE HOLDINGS */}
-      <div className="pulse-glass-card pulse-static overflow-hidden">
+      <div className="order-1 pulse-glass-card pulse-static overflow-hidden">
         <div className="pulse-vault-header">
           <button onClick={() => setView('invest')} className="flex min-w-0 items-center gap-2 text-left transition-colors hover:text-amber-300">
             <Folder className="h-4 w-4 shrink-0 text-amber-400" />
@@ -204,7 +204,7 @@ export function DashboardView() {
       </div>
 
       {/* QUICK ACTIONS */}
-      <div className="space-y-3">
+      <div className="order-3 space-y-3">
         <h3 className="pulse-label px-1">Quick Actions &amp; Hubs</h3>
         <div className="grid grid-cols-2 gap-3">
           <ActionTile icon={<Rocket className="h-4 w-4 text-amber-300" />} label="Buy $PULSE" detail="Private sale round" badge="Private" onClick={() => setView('sale')} />
@@ -230,7 +230,7 @@ export function DashboardView() {
       {/* REFERRAL + SHARE */}
       <button
         onClick={() => setView('profile')}
-        className="pulse-glass-card pulse-glow-track flex w-full items-center justify-between p-4 text-left"
+        className="order-4 pulse-glass-card pulse-glow-track flex w-full items-center justify-between p-4 text-left"
       >
         <div className="relative z-[3] space-y-0.5">
           <span className="pulse-label block">Your Referral Code</span>
@@ -240,7 +240,7 @@ export function DashboardView() {
       </button>
 
       {/* PROJECT PIPELINE */}
-      <div className="space-y-3">
+      <div className="order-2 space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="pulse-label">Regional Opportunities ({projects.length})</h3>
           <span className="pulse-chip pulse-chip-gold">Verified SADC Pipeline</span>

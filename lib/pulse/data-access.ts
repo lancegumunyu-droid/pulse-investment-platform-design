@@ -349,13 +349,12 @@ export async function getSnapshot(
 ): Promise<Snapshot> {
   const db = authenticatedDb ?? serviceClient()
 
-  const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> => {
-    try {
-      const res = await promise
-      return res.data
-    } catch {
-      return null
+  const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: { message?: string } | null }>): Promise<T | null> => {
+    const res = await promise
+    if (res.error) {
+      throw new Error(`Supabase sync failed: ${res.error.message ?? 'Unknown query error'}`)
     }
+    return res.data
   }
 
   const [acct, holdings, txns, cardApplication, roleRow] = await Promise.all([
@@ -424,12 +423,14 @@ export async function getSnapshot(
     pending_yield?: number
     wallet_id?: string
   } | null
-  let cashBalance = Number(account?.cash_balance ?? 0)
+  const cashBalance = Number(account?.cash_balance ?? 0)
   const tokenBalance = Number(account?.token_balance ?? 0)
   const stakedBalance = Number(account?.staked_balance ?? 0) || Number((stakingRows ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0))
   const pendingYield = Number(account?.pending_yield ?? 0)
 
-  if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
+  if (ledgerCash > 0 && cashBalance !== ledgerCash) {
+    console.warn('[v0] Cash ledger differs from accounts.cash_balance', { userId, accountCash: cashBalance, ledgerCash })
+  }
 
   const activeHoldings = (
     (holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []
