@@ -8,14 +8,14 @@ const CONTACT_DETAILS = [
   {
     icon: <Mail className="size-5" />,
     label: 'General enquiries',
-    value: 'contact@pulseinvest.africa',
-    href: 'mailto:contact@pulseinvest.africa',
+    value: 'contact@pulseinvest.uk',
+    href: 'mailto:contact@pulseinvest.uk',
   },
   {
     icon: <MessageSquare className="size-5" />,
     label: 'Compliance & KYC',
-    value: 'compliance@pulseinvest.africa',
-    href: 'mailto:compliance@pulseinvest.africa',
+    value: 'compliance@pulseinvest.uk',
+    href: 'mailto:compliance@pulseinvest.uk',
   },
   {
     icon: <MapPin className="size-5" />,

@@ -83,12 +83,12 @@ ledger. We operate under corporate registration and enable payment rails only af
             </p>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               Our business email for platform enquiries and partnerships is{' '}
-              <a href="mailto:contact@pulseinvest.africa" className="font-semibold text-gold transition-colors hover:underline">
-                contact@pulseinvest.africa
+              <a href="mailto:contact@pulseinvest.uk" className="font-semibold text-gold transition-colors hover:underline">
+                contact@pulseinvest.uk
               </a>
               . For technical or compliance questions, reach us at{' '}
-              <a href="mailto:compliance@pulseinvest.africa" className="font-semibold text-gold transition-colors hover:underline">
-                compliance@pulseinvest.africa
+              <a href="mailto:compliance@pulseinvest.uk" className="font-semibold text-gold transition-colors hover:underline">
+                compliance@pulseinvest.uk
               </a>
               .
             </p>

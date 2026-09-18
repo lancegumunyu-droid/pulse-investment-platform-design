@@ -357,7 +357,7 @@ export async function getSnapshot(
     const res = await promise
     if (res.error) {
       console.error('[v0] Supabase portfolio query failed:', res.error)
-      throw new Error(`Supabase sync failed: ${res.error.message ?? 'Unknown query error'}`)
+      return null
     }
     return res.data
   }

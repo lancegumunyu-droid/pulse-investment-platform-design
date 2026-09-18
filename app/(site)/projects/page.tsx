@@ -183,7 +183,7 @@ export default async function HomePage() {
               return (
                 <Link
                   key={p.id}
-                  href={`/auth/sign-up?project=${p.id}`}
+                  href={`/projects/${p.id}`}
                   aria-label={`Invest in ${p.name}`}
                   className="animate-rise group rounded-2xl border border-white/[0.1] bg-card overflow-hidden shadow-2xl flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                   style={{ animationDelay: `${i * 80}ms` }}

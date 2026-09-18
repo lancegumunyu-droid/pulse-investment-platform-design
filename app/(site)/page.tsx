@@ -167,7 +167,7 @@ export default async function HomePage() {
 
           <div className="grid gap-6 md:grid-cols-3">
             {PROJECTS.map((p) => (
-              <div key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-card p-6 shadow-xl">
+              <Link href={`/projects/${p.id}`} key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-card p-6 shadow-xl">
                 <Image src={p.image ?? '/projects/lovable-pulse-hero.jpg'} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-80 saturate-150 brightness-125 contrast-105 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
                 <div className="absolute inset-0 bg-gradient-to-r from-background/55 via-background/35 to-transparent" aria-hidden="true" />
                 
@@ -185,7 +185,7 @@ export default async function HomePage() {
                 <div className="relative mt-6">
                   <div className="mb-2 flex justify-between text-xs text-muted-foreground font-technical">
                     <span>Funded</span>
-                    <span className="font-bold text-foreground">{p.funded}%</span>
+                    <span className="font-bold text-foreground">{Math.round((p.funded / p.goal) * 100)}%</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.08] p-0.5 border border-white/5">
                     <div
@@ -194,7 +194,7 @@ export default async function HomePage() {
                     />
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

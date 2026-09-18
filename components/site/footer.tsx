@@ -23,6 +23,8 @@ const COLS = [
       { href: '/legal/terms', label: 'Terms of use' },
       { href: '/legal/privacy', label: 'Privacy policy' },
       { href: '/legal/risk-disclaimer', label: 'Risk disclaimer' },
+      { href: '/legal/data-consent', label: 'Data consent' },
+      { href: '/legal/fraud-report', label: 'Report fraud' },
     ],
   },
 ]
@@ -48,10 +50,10 @@ export function SiteFooter() {
               Connecting capital to impactful SADC projects. Transparency, performance, growth.
             </p>
             <a
-              href="mailto:contact@pulseinvest.africa"
+              href="mailto:contact@pulseinvest.uk"
               className="mt-3 block text-xs font-medium text-zinc-400 transition-colors hover:text-amber-400"
             >
-              contact@pulseinvest.africa
+              contact@pulseinvest.uk
             </a>
           </div>
 
