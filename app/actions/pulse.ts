@@ -101,12 +101,12 @@ export async function getSaleProgress(): Promise<
 }
 
 export async function validateReferralCode(code: string): Promise<{ ok: boolean; valid: boolean; error?: string }> {
-  const clean = code?.trim()
+  const clean = code?.trim().toUpperCase()
   if (!clean) return { ok: false, valid: false, error: 'Code cannot be empty' }
   try {
     const db = serviceClient()
 
-  const { data: byWallet } = await db.from('accounts').select('user_id').eq('wallet_id', clean).maybeSingle()
+  const { data: byWallet } = await db.from('accounts').select('user_id, wallet_id').eq('wallet_id', clean).maybeSingle()
   if (byWallet) {
     const { data: verifiedKyc } = await db
       .from('kyc_submissions')

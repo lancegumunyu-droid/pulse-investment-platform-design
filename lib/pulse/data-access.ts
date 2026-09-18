@@ -477,7 +477,7 @@ export async function getSnapshot(
     }),
     kyc: rawKyc,
     wallet: account?.wallet_id ?? null,
-    referralCode: '',
+    referralCode: account?.wallet_id ?? '',
     fullName: kycRow?.full_name ?? null,
     email: email || null,
     tier: tierForAmount(Number(account?.invested_balance ?? 0)).id,

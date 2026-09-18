@@ -69,7 +69,7 @@ export function PulseApp({ initial }: PulseAppProps) {
     <PulseProvider initial={initial}>
       <div className="min-h-dvh bg-black">
         <TopBar />
-        <main className="mx-auto max-w-4xl px-4 pb-8 pt-6">
+        <main className="mx-auto max-w-4xl px-4 pb-4 pt-6">
           <ViewSwitcher />
           <div className="mx-auto mt-8 w-full max-w-3xl border-t border-amber-500/15 pt-5">
             <RiskNote className="w-full rounded-xl bg-amber-400/[0.03] shadow-none" />
