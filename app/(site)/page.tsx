@@ -168,18 +168,18 @@ export default async function HomePage() {
           <div className="grid gap-6 md:grid-cols-3">
             {PROJECTS.map((p) => (
               <div key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-card p-6 shadow-xl">
-                <Image src={p.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-80 saturate-150 brightness-125 contrast-105 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
+                <Image src={p.image ?? '/projects/lovable-pulse-hero.jpg'} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-80 saturate-150 brightness-125 contrast-105 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
                 <div className="absolute inset-0 bg-gradient-to-r from-background/55 via-background/35 to-transparent" aria-hidden="true" />
                 
                 <div className="relative flex items-center justify-between">
                   <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium backdrop-blur-md">
                     {p.sector}
                   </span>
-                  <span className="text-xs font-medium text-muted-foreground">{p.location}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{p.country}</span>
                 </div>
                 
                 <p className="relative mt-5 text-lg font-display font-semibold text-foreground">{p.name}</p>
-                <p className="relative mt-1 text-sm font-medium text-amber-400">Target return: {p.target} p.a.</p>
+                <p className="relative mt-1 text-sm font-medium text-amber-400">Target return: {p.targetYield} p.a.</p>
 
                 {/* Funding bar */}
                 <div className="relative mt-6">

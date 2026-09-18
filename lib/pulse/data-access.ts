@@ -370,14 +370,9 @@ export async function getSnapshot(
         .eq('user_id', userId)
         .maybeSingle(),
     ),
-    safeQuery(
-      db
-        .from('investments')
-        .select('id, plan_id, amount, created_at, status')
-        .eq('user_id', userId)
-        .in('status', ['active', 'approved', 'completed'])
-        .order('created_at', { ascending: false }),
-    ),
+    // The production schema has no investments table. Keep the snapshot
+    // renderable until holdings have a verified persistence model.
+    Promise.resolve(null),
     safeQuery(
       db
         .from('transactions')
@@ -424,7 +419,7 @@ export async function getSnapshot(
   }
 
   const activeHoldings = (
-    (holdings as Array<{ id: string; plan_id: string; amount: number; created_at: string }>) ?? []
+    (holdings as unknown as Array<{ id: string; plan_id: string; amount: number; created_at: string }> | null) ?? []
   ).map((h) => ({
     id: h.id,
     projectId: h.plan_id,

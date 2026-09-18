@@ -160,6 +160,30 @@ export const PROJECTS: Project[] = [
     summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
     image: '/projects/maputo-logistics.png',
   },
+  {
+    id: 'limpopo-agri',
+    name: 'Limpopo AgriHub',
+    country: 'South Africa',
+    sector: 'Agriculture',
+    targetYield: '18–22%',
+    funded: 910_000,
+    goal: 1_000_000,
+    risk: 'Moderate',
+    summary: 'Agriculture infrastructure opportunity in South Africa’s Limpopo region.',
+    image: '/projects/limpopo-agri.png',
+  },
+  {
+    id: 'harare-fintech',
+    name: 'Harare Fintech Bridge',
+    country: 'Zimbabwe',
+    sector: 'Infrastructure',
+    targetYield: '28–34%',
+    funded: 550_000,
+    goal: 1_000_000,
+    risk: 'Higher',
+    summary: 'Fintech infrastructure opportunity supporting digital financial access in Zimbabwe.',
+    image: '/projects/harare-fintech.png',
+  },
 ]
 
 export const PULSE_PROJECTS: PulseProject[] = PROJECTS.map((project) => ({
