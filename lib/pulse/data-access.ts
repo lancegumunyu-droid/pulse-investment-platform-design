@@ -132,9 +132,9 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
 
 const SETTLED_EXCLUDED = ['failed', 'rejected', 'cancelled', 'pending', 'processing']
 
-export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
+export async function calculateCashBalanceFromLedger(userId: string, authenticatedDb?: ReturnType<typeof serviceClient>): Promise<number> {
   try {
-    const db = serviceClient()
+    const db = authenticatedDb ?? serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
       .select('type, amount, currency, status, meta')
@@ -190,9 +190,9 @@ export async function calculateCashBalanceFromLedger(userId: string): Promise<nu
   }
 }
 
-export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
+export async function calculateTokenBalanceFromLedger(userId: string, authenticatedDb?: ReturnType<typeof serviceClient>): Promise<number> {
   try {
-    const db = serviceClient()
+    const db = authenticatedDb ?? serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
       .select('type, amount, currency, status')
@@ -220,9 +220,9 @@ export async function calculateTokenBalanceFromLedger(userId: string): Promise<n
   }
 }
 
-export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
+export async function calculateStakedBalanceFromLedger(userId: string, authenticatedDb?: ReturnType<typeof serviceClient>): Promise<number> {
   try {
-    const db = serviceClient()
+    const db = authenticatedDb ?? serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
       .select('type, amount, currency, status')
@@ -404,9 +404,9 @@ export async function getSnapshot(
   const rawKyc = ((profile as { kyc_status?: string })?.kyc_status ?? 'none') as Snapshot['kyc']
 
   const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
-    calculateCashBalanceFromLedger(userId),
-    calculateTokenBalanceFromLedger(userId),
-    calculateStakedBalanceFromLedger(userId),
+    calculateCashBalanceFromLedger(userId, db),
+    calculateTokenBalanceFromLedger(userId, db),
+    calculateStakedBalanceFromLedger(userId, db),
   ])
 
   const wallet = acct as { balance?: number; available_balance?: number; pending_balance?: number } | null
