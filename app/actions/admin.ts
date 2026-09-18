@@ -80,13 +80,19 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     ])
     const failed = results.find((result) => result.error)
     if (failed?.error) throw new Error(`Admin data load failed: ${failed.error.message}`)
-    const [{ data: accounts }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] = results
+    const [{ data: accounts }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] = results as any
+    type AdminRawRow = Record<string, any>
+    const accountRows = (accounts ?? []) as AdminRawRow[]
+    const kycRows = (kyc ?? []) as AdminRawRow[]
+    const roleRows = (roles ?? []) as AdminRawRow[]
+    const txnRows = (txns ?? []) as AdminRawRow[]
+    const cardRows = (cardApps ?? []) as AdminRawRow[]
 
-    const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
-    const kycMap = new Map<string, (typeof kyc extends Array<infer T> ? T : never)>()
-    for (const row of kyc ?? []) if (!kycMap.has(row.user_id)) kycMap.set(row.user_id, row)
-    const roleMap = new Map((roles ?? []).map((r) => [r.user_id, r.role]))
-    const userIds = Array.from(new Set([...(accounts ?? []).map((a) => a.user_id), ...(kyc ?? []).map((k) => k.user_id)]))
+    const acctMap = new Map(accountRows.map((a) => [a.user_id, a]))
+    const kycMap = new Map<string, AdminRawRow>()
+    for (const row of kycRows) if (!kycMap.has(row.user_id)) kycMap.set(row.user_id, row)
+    const roleMap = new Map(roleRows.map((r) => [r.user_id, r.role]))
+    const userIds = Array.from(new Set([...accountRows.map((a) => a.user_id), ...kycRows.map((k) => k.user_id)]))
     const emailMap = new Map<string, string | null>()
     const profileMap = kycMap
 
@@ -112,14 +118,14 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       }
     })
 
-    const totalDeposits = (txns ?? [])
+    const totalDeposits = txnRows
       .filter((t) => t.type === 'deposit' && t.status === 'completed')
       .reduce((s, t) => s + Number(t.amount), 0)
 
-    const totalInvested = (accounts ?? []).reduce((s, a) => s + Number(a.invested_balance ?? 0), 0)
-    const totalStaked = (accounts ?? []).reduce((s, a) => s + Number(a.staked_balance ?? 0), 0)
+    const totalInvested = accountRows.reduce((s, a) => s + Number(a.invested_balance ?? 0), 0)
+    const totalStaked = accountRows.reduce((s, a) => s + Number(a.staked_balance ?? 0), 0)
 
-    const depositQueue: AdminTxnRow[] = (txns ?? [])
+    const depositQueue: AdminTxnRow[] = txnRows
       .filter((t) => t.type === 'deposit' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -139,7 +145,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const withdrawalQueue: AdminTxnRow[] = (txns ?? [])
+    const withdrawalQueue: AdminTxnRow[] = txnRows
       .filter((t) => t.type === 'withdrawal' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -164,7 +170,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const p2pQueue: AdminP2PRow[] = (txns ?? [])
+    const p2pQueue: AdminTxnRow[] = txnRows
       .filter((t) => t.type === 'p2p_send' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -185,7 +191,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const recentTxns: AdminTxnRow[] = (txns ?? []).slice(0, 40).map((t) => ({
+    const recentTxns: AdminTxnRow[] = txnRows.slice(0, 40).map((t) => ({
       id: t.id,
       userId: t.user_id,
       email: emailMap.get(t.user_id) ?? null,
@@ -197,7 +203,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       createdAt: new Date(t.created_at).getTime(),
     }))
 
-    const cardQueue: AdminCardRow[] = (cardApps ?? [])
+    const cardQueue: AdminCardRow[] = cardRows
       .filter((c) => c.status === 'waitlisted')
       .map((c) => {
         const p = profileMap.get(c.user_id)
@@ -214,7 +220,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const kycQueue: AdminKycRow[] = (kyc ?? []).filter((k) => normalizeKycStatus(k.status) === 'pending').map((k) => ({
+    const kycQueue: AdminKycRow[] = kycRows.filter((k) => normalizeKycStatus(k.status) === 'pending').map((k) => ({
       id: k.id,
       userId: k.user_id,
       email: emailMap.get(k.user_id) ?? null,

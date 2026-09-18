@@ -33,7 +33,7 @@ export interface Snapshot {
   referralCode: string
   fullName: string | null
   email: string | null
-  tier: number
+  tier: TierId
   isAdmin: boolean
   points: number
   founderNumber: number | null
@@ -66,26 +66,27 @@ export interface BadgeRow {
 }
 
 export interface MyReferralRow {
-  walletId: string | null
-  displayName: string
-  kycStatus: string
-  createdAt: number
+  walletId?: string | null
+  displayName?: string
+  kycStatus?: string
+  createdAt?: number
   name?: string
   status?: string
   date?: number
 }
 
 export interface LeaderboardRow {
-  fullName: string
-  totalPoints: number
-  founderNumber: number | null
+  fullName?: string
+  totalPoints?: number
+  founderNumber?: number | null
   rank?: number
   username?: string
   points?: number
+  tier?: number
 }
 
 export interface FounderRow {
-  fullName: string
+  fullName?: string
   founderNumber: number
   name?: string
 }
@@ -96,7 +97,7 @@ export interface AdminUserRow {
   email: string | null
   fullName: string | null
   username: string | null
-  role: string
+  role: string | null
   kycStatus: string
   cash: number
   invested: number
@@ -133,8 +134,13 @@ export interface AdminCardRow {
 
 export interface AdminTxnRow {
   id: string
-  userId: string
-  email: string | null
+  userId?: string
+  email?: string | null
+  senderId?: string
+  senderEmail?: string | null
+  recipientId?: string
+  recipientEmail?: string | null
+  note?: string | null
   type: string
   amount: number
   currency: string
@@ -170,7 +176,7 @@ export interface AdminSnapshot {
   p2pQueue: AdminTxnRow[] // NEW
   cardQueue: AdminCardRow[] // NEW
   recentTxns: AdminTxnRow[]
-  usersList?: AdminUserRow[]
+  usersList: AdminUserRow[]
 }
 
 export type AdminP2PRow = AdminTxnRow

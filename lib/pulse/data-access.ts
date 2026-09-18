@@ -79,11 +79,12 @@ const TXN_LABEL: Record<string, string> = {
 export interface AccountRow {
   user_id: string
   cash_balance: number
-  invested_balance: number
-  staked_balance: number
-  token_balance: number
+  invested_balance?: number
+  staked_balance?: number
+  token_balance?: number
   pending_yield: number
   updated_at?: string
+  wallet_id?: string
 }
 
 export async function ensureAccount(userId: string): Promise<AccountRow> {
@@ -127,7 +128,7 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
     }
   }
 
-  return created as AccountRow
+  return created as unknown as AccountRow
 }
 
 const SETTLED_EXCLUDED = ['failed', 'rejected', 'cancelled', 'pending', 'processing']
@@ -280,7 +281,7 @@ export async function adjustAccount(
     .single()
 
   if (error) throw error
-  return data as AccountRow
+  return data as unknown as AccountRow
 }
 
 export async function recordTxn(
@@ -408,6 +409,7 @@ export async function getSnapshot(
     available_balance?: number
     pending_balance?: number
     id?: string
+    invested_balance?: number
   } | null
   const cashBalance = Number(account?.balance ?? account?.available_balance ?? 0)
   const tokenBalance = 0
@@ -466,7 +468,7 @@ export async function getSnapshot(
     email: email || null,
     tier: tierForAmount(Number(account?.invested_balance ?? 0)).id,
     isAdmin,
-    points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
+    points: ((pointsRows ?? []) as Array<{ amount: number }>).reduce((s, r) => s + Number(r.amount), 0),
     founderNumber: null,
     walletId: account?.id ?? null,
     username: null,
@@ -487,7 +489,7 @@ export async function getSnapshot(
     cardExpiryYear: (issuedCard as { expiry_year?: number } | null)?.expiry_year ?? (cardApplication as { expiry_year?: number } | null)?.expiry_year ?? null,
     cardholderName: (issuedCard as { cardholder_name?: string } | null)?.cardholder_name ?? (cardApplication as { cardholder_name?: string } | null)?.cardholder_name ?? null,
     pinRequired: Boolean(cardApplication && !issuedCard),
-    savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({
+    savedWallets: ((wallets ?? []) as Array<{ id: string; label: string; address: string }>).map((w) => ({
       id: w.id,
       label: w.label,
       address: w.address,

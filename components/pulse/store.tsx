@@ -82,7 +82,7 @@ interface State {
   referralCode: string
   fullName: string | null
   email: string | null
-  tier: number
+  tier: import('@/lib/pulse-data').TierId
   isAdmin: boolean
   points: number
   founderNumber: number | null
@@ -117,7 +117,7 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
     referralCode: data.referralCode ?? 'PULSE-USER',
     fullName: data.fullName ?? null,
     email: data.email ?? null,
-    tier: data.tier ?? 1,
+    tier: data.tier ?? 'starter',
     isAdmin: data.isAdmin ?? false,
     points: data.points ?? 0,
     founderNumber: data.founderNumber ?? null,

@@ -108,7 +108,7 @@ export interface PulseProject {
   image: string
   badge: string
   description: string
-  metrics: { irr: string; duration: string }
+  metrics: { irr: string; duration: string; riskProfile?: string }
 }
 
 export const PROJECTS: Project[] = [
@@ -180,7 +180,7 @@ export interface Signal {
   window: string
   detail: string
   targetYield: string
-  urgency: 'New' | 'Closing soon' | 'Open'
+  urgency: 'New' | 'Closing soon' | 'Open' | 'Standard'
 }
 
 export const SIGNALS: Signal[] = [
