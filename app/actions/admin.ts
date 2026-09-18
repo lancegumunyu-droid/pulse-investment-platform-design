@@ -63,14 +63,16 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     await requireAdmin()
     const db = serviceClient()
 
-    const [{ data: accounts }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] =
-      await Promise.all([
-        db.from('accounts').select('*').limit(500),
-        db.from('kyc_submissions').select('*').order('created_at', { ascending: false }).limit(500),
-        db.from('user_roles').select('*').limit(500),
-        db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
-        db.from('card_applications').select('*').order('created_at', { ascending: false }).limit(200),
-      ])
+    const results = await Promise.all([
+      db.from('accounts').select('*').limit(500),
+      db.from('kyc_submissions').select('*').order('created_at', { ascending: false }).limit(500),
+      db.from('user_roles').select('*').limit(500),
+      db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
+      db.from('card_applications').select('id, user_id, status, card_ref, card_number_last4, cardholder_name, created_at').order('created_at', { ascending: false }).limit(200),
+    ])
+    const failed = results.find((result) => result.error)
+    if (failed?.error) throw new Error(`Admin data load failed: ${failed.error.message}`)
+    const [{ data: accounts }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] = results
 
     const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
     const kycMap = new Map<string, (typeof kyc extends Array<infer T> ? T : never)>()
@@ -290,18 +292,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
       await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
 
-      const { data: referral } = await db
-        .from('referrals')
-        .select('referrer_id')
-        .eq('referred_user_id', sub.user_id)
-        .maybeSingle()
-      if (referral?.referrer_id) {
-        await db.rpc('award_points', {
-          p_user_id: referral.referrer_id,
-          p_amount: 100,
-          p_reason: 'Your referral completed KYC',
-        })
-      }
     }
 
     return getAdminSnapshot()
