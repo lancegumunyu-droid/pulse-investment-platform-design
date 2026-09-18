@@ -352,6 +352,7 @@ export async function getSnapshot(
   const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: { message?: string } | null }>): Promise<T | null> => {
     const res = await promise
     if (res.error) {
+      console.error('[v0] Supabase portfolio query failed:', res.error)
       throw new Error(`Supabase sync failed: ${res.error.message ?? 'Unknown query error'}`)
     }
     return res.data
@@ -363,7 +364,7 @@ export async function getSnapshot(
         .from('accounts')
         .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, updated_at')
         .eq('user_id', userId)
-        .maybeSingle(),
+        .single(),
     ),
     safeQuery(
       db

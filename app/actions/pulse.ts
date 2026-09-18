@@ -50,10 +50,20 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
 }
 
 export async function fetchSnapshot(): Promise<Snapshot | null> {
-  const user = await requireUser()
-  if (!user) return null
   const supabase = await getSupabase()
-  return getSnapshotFromDb(user.id, user.email ?? undefined, supabase)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('No authenticated Supabase user')
+  }
+
+  try {
+    return await getSnapshotFromDb(user.id, user.email ?? undefined, supabase)
+  } catch (error) {
+    console.error('Portfolio load failed:', error)
+    throw error
+  }
 }
 
 // NEW — backs sale.tsx. The private-sale progress bar previously showed a
