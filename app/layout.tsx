@@ -72,6 +72,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${jakarta.variable} ${monoNum.variable} dark bg-[#060608] text-foreground h-full`}
     >
