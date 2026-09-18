@@ -302,10 +302,9 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       channel = supabase
         .channel(`pulse-sync-${user.id}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` }, () => refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, () => refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, () => refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles', filter: `user_id=eq.${user.id}` }, () => refresh())
         .subscribe()
     }
 

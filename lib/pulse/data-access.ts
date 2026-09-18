@@ -88,16 +88,31 @@ export interface AccountRow {
 
 export async function ensureAccount(userId: string): Promise<AccountRow> {
   const db = serviceClient()
-  const { data, error } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
+  const { data, error } = await db
+    .from('wallets')
+    .select('id, user_id, balance, available_balance, pending_balance, total_earnings, currency, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle()
   if (error && error.code !== 'PGRST116') {
     console.error('[Data Access] ensureAccount error:', error)
   }
-  if (data) return data as AccountRow
+  if (data) {
+    return {
+      user_id: data.user_id,
+      cash_balance: Number(data.available_balance ?? data.balance ?? 0),
+      invested_balance: 0,
+      staked_balance: 0,
+      token_balance: 0,
+      pending_yield: Number(data.pending_balance ?? 0),
+      updated_at: data.updated_at,
+      wallet_id: data.id,
+    } as AccountRow & { wallet_id: string }
+  }
 
   const { data: created, error: createError } = await db
-    .from('accounts')
-    .insert({ user_id: userId })
-    .select('*')
+    .from('wallets')
+    .insert({ user_id: userId, currency: 'USD' })
+    .select('id, user_id, balance, available_balance, pending_balance, total_earnings, currency, updated_at')
     .single()
 
   if (createError) {
@@ -253,10 +268,15 @@ export async function adjustAccount(
   }
 
   const { data, error } = await db
-    .from('accounts')
-    .update({ ...next, updated_at: new Date().toISOString() })
+    .from('wallets')
+    .update({
+      balance: next.cash_balance,
+      available_balance: next.cash_balance,
+      pending_balance: next.pending_yield,
+      updated_at: new Date().toISOString(),
+    })
     .eq('user_id', userId)
-    .select('*')
+    .select('id, user_id, balance, available_balance, pending_balance, total_earnings, currency, updated_at')
     .single()
 
   if (error) throw error
@@ -284,9 +304,8 @@ export async function recordTxn(
       amount: row.amount,
       currency: (row.currency ?? 'USD').toUpperCase(),
       status: row.status ?? 'completed',
-      reference: row.reference ?? null,
-      meta: row.meta ?? {},
-      processed_by: row.processedBy ?? null,
+      reference_id: row.reference ?? null,
+      metadata: row.meta ?? {},
     })
     .select('*')
     .single()
@@ -335,25 +354,31 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     }
   }
 
-  const [profile, acct, holdings, txns, pointsRows, referrals, badgeRows, cardApp, wallets] = await Promise.all([
-    safeQuery(db.from('profiles').select('*').eq('id', userId).maybeSingle()),
-    ensureAccount(userId),
-    safeQuery(db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
-    safeQuery(
-      db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
-    ),
-    safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
-    safeQuery(db.from('profiles').select('kyc_status').eq('referred_by', userId)),
-    safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId)),
-    safeQuery(db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle()),
+  const [profile, acct, holdings, txns] = await Promise.all([
     safeQuery(
       db
-        .from('saved_wallets')
-        .select('id, label, address')
+        .from('users')
+        .select('id, email, full_name, kyc_status, referral_code, status, country_code, created_at')
+        .eq('id', userId)
+        .maybeSingle(),
+    ),
+    ensureAccount(userId),
+    Promise.resolve([]),
+    safeQuery(
+      db
+        .from('transactions')
+        .select('id, type, amount, currency, status, metadata, reference_id, created_at, updated_at, description')
         .eq('user_id', userId)
-        .order('created_at', { ascending: true }),
+        .order('created_at', { ascending: false })
+        .limit(50),
     ),
   ])
+
+  const pointsRows: unknown[] = []
+  const referrals: unknown[] = []
+  const badgeRows: unknown[] = []
+  const cardApp = null
+  const wallets: unknown[] = []
 
   const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
   const role = (profile as { role?: string })?.role
@@ -396,7 +421,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
         id: string
         type: string
         currency: string
-        meta?: Record<string, unknown>
+        metadata?: Record<string, unknown>
         amount: number
         status: string
         processing_started_at?: string
@@ -408,7 +433,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
       return {
         id: t.id,
         type: TXN_TYPE_MAP[rawType] ?? 'deposit',
-        label: (t.meta?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
+        label: (t.metadata?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
         amount: Number(t.amount),
         currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
         status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
@@ -452,8 +477,12 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
 export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const db = serviceClient()
-    const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
-    return data?.role === 'admin' || data?.role === 'super_admin'
+    const { data } = await db
+      .from('admin_users')
+      .select('role, is_active')
+      .eq('user_id', userId)
+      .maybeSingle()
+    return data?.is_active === true && ['admin', 'super_admin'].includes(data.role)
   } catch {
     return false
   }
