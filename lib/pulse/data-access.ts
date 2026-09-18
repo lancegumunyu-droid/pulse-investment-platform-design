@@ -1,11 +1,8 @@
-// FIX #1 — BUILD BLOCKER.
-// This line used to read: 'server-only'
-// A bare string literal is parsed as a directive prologue, not an import.
-// Turbopack discards the body of an app-rsc module carrying an unrecognised
-// directive, which is why the build reported "The module has no exports at
-// all" for getSnapshot / adjustAccount / recordTxn / isUserAdmin all at once.
-import 'server-only'
-
+/**
+ * This file does NOT import 'server-only' — see the comment in ./service.ts
+ * for why that guard is removed rather than restored. Server confinement is
+ * enforced there instead.
+ */
 import { serviceClient } from './service'
 import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-data'
 import type { Snapshot, SnapshotTxn } from './types'
@@ -47,9 +44,6 @@ const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
   stake: 'stake',
   unstake: 'unstake',
   token_purchase: 'sale',
-  // FIX — sellToken() writes 'token_sale' and closeInvestment() writes
-  // 'close_investment'. Neither was mapped, so both rendered in the activity
-  // feed as "Deposit", which is why sales looked like incoming money.
   token_sale: 'sale',
   sale: 'sale',
   close_investment: 'invest',
@@ -121,6 +115,8 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
   return created as AccountRow
 }
 
+const SETTLED_EXCLUDED = ['failed', 'rejected', 'cancelled', 'pending', 'processing']
+
 export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
   try {
     const db = serviceClient()
@@ -134,8 +130,7 @@ export async function calculateCashBalanceFromLedger(userId: string): Promise<nu
     let balance = 0
     for (const txn of txns ?? []) {
       const status = (txn.status || '').toLowerCase()
-      // Pending money is not spendable money — only settled rows count.
-      if (['failed', 'rejected', 'cancelled', 'pending', 'processing'].includes(status)) continue
+      if (SETTLED_EXCLUDED.includes(status)) continue
 
       const amount = Number(txn.amount) || 0
       const currency = (txn.currency || 'USD').toUpperCase()
@@ -164,12 +159,11 @@ export async function calculateCashBalanceFromLedger(userId: string): Promise<nu
             break
         }
       } else if (currency === 'PULSE' || currency === 'PLS') {
+        const meta = txn.meta as Record<string, unknown> | null
         if (type === 'token_purchase') {
-          const meta = txn.meta as Record<string, unknown> | null
           const usdCost = Number(meta?.usdCost) || 0
           if (usdCost > 0) balance -= usdCost
         } else if (type === 'token_sale') {
-          const meta = txn.meta as Record<string, unknown> | null
           const usdValue = Number(meta?.usdValue) || 0
           if (usdValue > 0) balance += usdValue
         }
@@ -194,18 +188,15 @@ export async function calculateTokenBalanceFromLedger(userId: string): Promise<n
     let balance = 0
     for (const txn of txns ?? []) {
       const status = (txn.status || '').toLowerCase()
-      if (['failed', 'rejected', 'cancelled', 'pending', 'processing'].includes(status)) continue
+      if (SETTLED_EXCLUDED.includes(status)) continue
 
       const amount = Number(txn.amount) || 0
       const currency = (txn.currency || '').toUpperCase()
       const type = (txn.type || '').toLowerCase()
 
       if (currency === 'PULSE' || currency === 'PLS') {
-        if (['token_purchase', 'unstake', 'p2p_receive'].includes(type)) {
-          balance += amount
-        } else if (['stake', 'p2p_send', 'token_sale'].includes(type)) {
-          balance -= amount
-        }
+        if (['token_purchase', 'unstake', 'p2p_receive'].includes(type)) balance += amount
+        else if (['stake', 'p2p_send', 'token_sale'].includes(type)) balance -= amount
       }
     }
     return Math.max(0, balance)
@@ -227,7 +218,7 @@ export async function calculateStakedBalanceFromLedger(userId: string): Promise<
     let balance = 0
     for (const txn of txns ?? []) {
       const status = (txn.status || '').toLowerCase()
-      if (['failed', 'rejected', 'cancelled', 'pending', 'processing'].includes(status)) continue
+      if (SETTLED_EXCLUDED.includes(status)) continue
 
       const amount = Number(txn.amount) || 0
       const currency = (txn.currency || '').toUpperCase()
@@ -356,7 +347,11 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId)),
     safeQuery(db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle()),
     safeQuery(
-      db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
+      db
+        .from('saved_wallets')
+        .select('id, label, address')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true }),
     ),
   ])
 
@@ -371,8 +366,6 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     calculateStakedBalanceFromLedger(userId),
   ])
 
-  // The accounts table is authoritative. The ledger recomputation is a repair
-  // path for rows that were never initialised, not a second source of truth.
   let cashBalance = Number(acct.cash_balance ?? 0)
   let tokenBalance = Number(acct.token_balance ?? 0)
   let stakedBalance = Number(acct.staked_balance ?? 0)
@@ -382,14 +375,6 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
   if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
   if (stakedBalance <= 0 && ledgerStaked > 0) stakedBalance = ledgerStaked
 
-  // FIX #2 — DATA NOT FETCHING.
-  // The previous version zeroed every balance and emptied the holdings array
-  // whenever `isVerified` was false, and reported kyc as 'verified' whenever
-  // the user merely had data. So a real user with a real balance who had not
-  // completed KYC saw $0.00 across the whole app and assumed nothing was
-  // loading. Balances are now always reported as they are in the database;
-  // KYC gating belongs in the action layer (invest / withdraw / transfer all
-  // already enforce it), not in the read path.
   const activeHoldings = (
     (holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []
   ).map((h) => ({
@@ -468,10 +453,6 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const db = serviceClient()
     const { data } = await db.from('profiles').select('role').eq('id', userId).maybeSingle()
-    // FIX #3 — SECURITY. The hardcoded owner-email backdoor was removed.
-    // Admin status now comes only from profiles.role, which an existing admin
-    // controls through appointAdminScope(). A leaked or spoofed email address
-    // can no longer escalate to full platform access.
     return data?.role === 'admin' || data?.role === 'super_admin'
   } catch {
     return false
