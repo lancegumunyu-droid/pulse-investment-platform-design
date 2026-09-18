@@ -27,44 +27,13 @@ export default async function AppPage() {
     redirect('/auth/login')
   }
 
-  // Safely fetch snapshot data with robust error recovery
-  let initial = null
-  let fetchError = null
-
+  let initial
   try {
     initial = await getSnapshot(user.id, user.email ?? undefined, supabase)
-  } catch (err) {
-    fetchError = (err as Error).message
-    console.error('[Pulse App Page] Failed to fetch user snapshot:', fetchError)
+  } catch (error) {
+    console.error('[Pulse App Page] Failed to fetch user snapshot:', error)
+    throw error
   }
 
-  // Fallback state if database snapshot fails or is uninitialized
-  const safeInitial = initial || {
-    cash: 0,
-    pulse: 0,
-    staked: 0,
-    pendingYield: 0,
-    holdings: [],
-    txns: [],
-    kyc: 'none',
-    wallet: null,
-    referralCode: 'PULSE-' + user.id.slice(0, 6).toUpperCase(),
-    fullName: user.user_metadata?.full_name || null,
-    email: user.email || null,
-    tier: 1,
-    isAdmin: false,
-    points: 0,
-    founderNumber: null,
-    walletId: null,
-    username: null,
-    referralCount: 0,
-    referralVerifiedCount: 0,
-    badges: [],
-    adminScope: null,
-    cardStatus: 'none',
-    cardRef: null,
-    savedWallets: [],
-  }
-
-  return <PulseApp initial={safeInitial} />
+  return <PulseApp initial={initial} />
 }
