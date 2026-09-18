@@ -325,7 +325,6 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, () => void refresh())
       nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, () => void refresh())
       nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles', filter: `user_id=eq.${user.id}` }, () => void refresh())
-      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` }, () => void refresh())
 
       if (!mounted.current) return
       channel = nextChannel
@@ -398,20 +397,9 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
       notifications: async () => {
         try {
-          const supabase = createClient()
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-          if (!user) return { ok: true, rows: [] }
-
-          const { data, error } = await supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-
-          if (error) return { ok: false, error: error.message }
-          return { ok: true, rows: (data || []) as NotificationRow[] }
+          // Notifications are not part of the live production schema yet.
+          // Keep the contract stable without issuing a guaranteed failing query.
+          return { ok: true, rows: [] as NotificationRow[] }
         } catch (e) {
           return { ok: false, error: (e as Error).message }
         }
@@ -419,8 +407,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       markNotificationRead: async (id: string) => {
         try {
           const supabase = createClient()
-          const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id)
-          if (error) return { ok: false, error: error.message }
+          void id
           return { ok: true }
         } catch (e) {
           return { ok: false, error: (e as Error).message }

@@ -10,7 +10,10 @@ import type { Snapshot, SnapshotTxn } from './types'
 export async function getLiveProjects(): Promise<Project[]> {
   try {
     const db = serviceClient()
-    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
+    const { data: rows, error } = await db
+      .from('investments')
+      .select('plan_id, amount')
+      .in('status', ['active', 'approved', 'completed'])
 
     if (error) {
       console.warn('[Data Access] Failed to fetch live holdings for projects:', error.message)
@@ -19,7 +22,7 @@ export async function getLiveProjects(): Promise<Project[]> {
 
     const liveByProject = new Map<string, number>()
     for (const r of rows ?? []) {
-      liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
+      liveByProject.set(r.plan_id, (liveByProject.get(r.plan_id) ?? 0) + Number(r.amount))
     }
 
     return PROJECTS.map((p) => ({
@@ -138,7 +141,7 @@ export async function calculateCashBalanceFromLedger(userId: string, authenticat
     const db = authenticatedDb ?? serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
-      .select('type, amount, currency, status, meta')
+      .select('type, amount, currency, status, metadata')
       .eq('user_id', userId)
 
     if (error) return 0
@@ -175,7 +178,7 @@ export async function calculateCashBalanceFromLedger(userId: string, authenticat
             break
         }
       } else if (currency === 'PULSE' || currency === 'PLS') {
-        const meta = txn.meta as Record<string, unknown> | null
+        const meta = txn.metadata as Record<string, unknown> | null
         if (type === 'token_purchase') {
           const usdCost = Number(meta?.usdCost) || 0
           if (usdCost > 0) balance -= usdCost
@@ -378,7 +381,7 @@ export async function getSnapshot(
     safeQuery(
       db
         .from('transactions')
-        .select('id, type, amount, currency, status, meta, reference, created_at')
+        .select('id, type, amount, currency, status, metadata, reference_id, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50),
@@ -441,8 +444,8 @@ export async function getSnapshot(
         id: string
         type: string
         currency: string
-        meta?: Record<string, unknown>
-        reference?: string
+        metadata?: Record<string, unknown>
+        reference_id?: string
         amount: number
         status: string
         created_at: string
@@ -453,7 +456,7 @@ export async function getSnapshot(
       return {
         id: t.id,
         type: TXN_TYPE_MAP[rawType] ?? 'deposit',
-        label: (t.meta?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
+        label: (t.metadata?.label as string) ?? TXN_LABEL[rawType] ?? t.type,
         amount: Number(t.amount),
         currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
         status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
