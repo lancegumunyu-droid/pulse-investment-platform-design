@@ -358,7 +358,7 @@ export async function getSnapshot(
     return res.data
   }
 
-  const [acct, holdings, txns, cardApplication, issuedCard, roleRow, pointsRows, referrals, wallets] = await Promise.all([
+  const [acct, holdings, txns, cardApplication, issuedCard, roleRow, pointsRows, wallets] = await Promise.all([
     safeQuery(
       db
         .from('accounts')
@@ -394,7 +394,6 @@ export async function getSnapshot(
     safeQuery(db.from('pulse_cards').select('id, status, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()),
     safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
     safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
-    safeQuery(db.from('referrals').select('id, referred_user_id, status').eq('referrer_id', userId)),
     safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: false })),
   ])
 
@@ -414,6 +413,8 @@ export async function getSnapshot(
   const rawKyc = (kycRows?.[0]?.status ?? 'none') as Snapshot['kyc']
 
   const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
+  const referrals: unknown[] = []
+  const badgeRows: unknown[] = []
 
   const account = acct as {
     cash_balance?: number
