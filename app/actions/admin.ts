@@ -63,39 +63,42 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     await requireAdmin()
     const db = serviceClient()
 
-    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] =
+    const [{ data: accounts }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] =
       await Promise.all([
-        db.from('profiles').select('*').order('created_at', { ascending: false }).limit(500),
         db.from('accounts').select('*').limit(500),
-        db.from('kyc_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
+        db.from('kyc_submissions').select('*').order('created_at', { ascending: false }).limit(500),
+        db.from('user_roles').select('*').limit(500),
         db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
         db.from('card_applications').select('*').order('created_at', { ascending: false }).limit(200),
       ])
 
     const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
-    const emailMap = new Map((profiles ?? []).map((p) => [p.id, p.email]))
-    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
+    const kycMap = new Map<string, (typeof kyc extends Array<infer T> ? T : never)>()
+    for (const row of kyc ?? []) if (!kycMap.has(row.user_id)) kycMap.set(row.user_id, row)
+    const roleMap = new Map((roles ?? []).map((r) => [r.user_id, r.role]))
+    const userIds = Array.from(new Set([...(accounts ?? []).map((a) => a.user_id), ...(kyc ?? []).map((k) => k.user_id)]))
+    const emailMap = new Map<string, string | null>()
+    const profileMap = kycMap
 
-    const users: AdminUserRow[] = (profiles ?? []).map((p) => {
-      const a = acctMap.get(p.id)
+    const users: AdminUserRow[] = userIds.map((id) => {
+      const a = acctMap.get(id)
+      const k = kycMap.get(id)
+      const role = roleMap.get(id) ?? null
       return {
-        id: p.id,
-        email: p.email,
-        fullName: p.full_name,
-        username: p.username,
-        role: p.role,
-        kycStatus: p.kyc_status,
-        // FIX #5 — admin.tsx renders `u.kycVerified` to decide the
-        // Verified/Pending pill. It was never in the payload, so every user
-        // showed "Pending" regardless of their real KYC state.
-        kycVerified: p.kyc_status === 'verified',
+        id,
+        email: emailMap.get(id) ?? null,
+        fullName: k?.full_name ?? null,
+        username: null,
+        role,
+        kycStatus: k?.status ?? 'none',
+        kycVerified: k?.status === 'verified',
         cash: Number(a?.cash_balance ?? 0),
         invested: Number(a?.invested_balance ?? 0),
         staked: Number(a?.staked_balance ?? 0),
-        createdAt: new Date(p.created_at).getTime(),
-        adminScope: p.admin_scope ?? null,
-        managerId: p.managed_by ?? null,
-        isAdmin: p.role === 'admin' || p.role === 'super_admin',
+        createdAt: new Date(k?.created_at ?? Date.now()).getTime(),
+        adminScope: role === 'admin' ? 'full' : null,
+        managerId: null,
+        isAdmin: role === 'admin',
       }
     })
 

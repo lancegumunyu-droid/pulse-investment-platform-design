@@ -358,14 +358,7 @@ export async function getSnapshot(
     }
   }
 
-  const [profile, acct, holdings, txns, cardApplication] = await Promise.all([
-    safeQuery(
-      db
-        .from('profiles')
-        .select('id, email, full_name, username, role, tier, founder_number, wallet_address, admin_scope')
-        .eq('id', userId)
-        .maybeSingle(),
-    ),
+  const [acct, holdings, txns, cardApplication, roleRow] = await Promise.all([
     safeQuery(
       db
         .from('accounts')
@@ -378,6 +371,7 @@ export async function getSnapshot(
         .from('holdings')
         .select('id, project_id, amount, created_at, status')
         .eq('user_id', userId)
+        .eq('status', 'active')
         .order('created_at', { ascending: false }),
     ),
     safeQuery(
@@ -391,12 +385,13 @@ export async function getSnapshot(
     safeQuery(
       db
         .from('card_applications')
-        .select('id, status, card_number, card_number_last4, cvv, expiry_month, expiry_year, cardholder_name, pin_hash')
+        .select('id, status, card_ref, card_number, card_number_last4, cvv, expiry_month, expiry_year, cardholder_name, pin_hash')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
     ),
+    safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
   ])
 
   const pointsRows: unknown[] = []
@@ -409,14 +404,14 @@ export async function getSnapshot(
       .eq('active', true),
   )) as Array<{ amount?: number }> | null
   const kycRows = (await safeQuery(
-    db.from('kyc_submissions').select('status').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
+    db.from('kyc_submissions').select('status, full_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
   )) as Array<{ status?: string }> | null
   const badgeRows: unknown[] = []
   const wallets: unknown[] = []
 
-  const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
-  const role = (profile as { role?: string })?.role
-  const isAdmin = role === 'admin' || role === 'super_admin'
+  const email = (userEmail || '').toLowerCase()
+  const role = (roleRow as { role?: string } | null)?.role
+  const isAdmin = role === 'admin'
   const rawKyc = (kycRows?.[0]?.status ?? 'none') as Snapshot['kyc']
 
   const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
@@ -478,17 +473,16 @@ export async function getSnapshot(
       }
     }),
     kyc: rawKyc,
-    wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
-  referralCode: account?.wallet_id ?? 'PLS-XXXX',
-
-    fullName: (profile as { full_name?: string })?.full_name ?? null,
+    wallet: account?.wallet_id ?? null,
+    referralCode: account?.wallet_id ?? 'PLS-XXXX',
+    fullName: (kycRows?.[0] as { full_name?: string } | undefined)?.full_name ?? null,
     email: email || null,
-    tier: (profile as { tier?: number })?.tier ?? 1,
+    tier: tierForAmount(Number(account?.invested_balance ?? 0)).id,
     isAdmin,
     points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
-    founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
+    founderNumber: null,
     walletId: account?.wallet_id ?? null,
-    username: (profile as { username?: string })?.username ?? null,
+    username: null,
     referralCount: ((referrals as unknown[]) ?? []).length,
     referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(
       (r) => r.kyc_status === 'verified',
@@ -497,9 +491,9 @@ export async function getSnapshot(
       key: b.badge_key,
       earnedAt: new Date(b.earned_at).getTime(),
     })),
-    adminScope: (profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope ?? null,
+    adminScope: isAdmin ? 'full' : null,
     cardStatus: ((cardApplication as { status?: string })?.status ?? 'none') as Snapshot['cardStatus'],
-    cardRef: (cardApplication as { card_number?: string })?.card_number ?? null,
+    cardRef: (cardApplication as { card_ref?: string })?.card_ref ?? (cardApplication as { card_number?: string })?.card_number ?? null,
     cardLast4: (cardApplication as { card_number_last4?: string })?.card_number_last4 ?? null,
     cardCvv: (cardApplication as { cvv?: string })?.cvv ?? null,
     cardExpiryMonth: (cardApplication as { expiry_month?: number })?.expiry_month ?? null,

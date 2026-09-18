@@ -13,32 +13,10 @@ function sectorIcon(sector?: string) {
   return Layers
 }
 
-function useMouseGlow<T extends HTMLElement>() {
-  const ref = React.useRef<T | null>(null)
-  const onMove = (e: React.PointerEvent<T>) => {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
-    el.style.setProperty('--my', `${e.clientY - rect.top}px`)
-  }
-  const onLeave = () => {
-    const el = ref.current
-    if (!el) return
-    el.style.removeProperty('--mx')
-    el.style.removeProperty('--my')
-  }
-  return { ref, onMove, onLeave }
-}
-
 export function DashboardView() {
   const { state, api, openModal, setView, totalInvested, currentTier, portfolioValue, busy } = usePulse()
   const [projects, setProjects] = useState<Project[]>(PROJECTS)
   const [liquidatingId, setLiquidatingId] = useState<string | null>(null)
-
-  const heroGlow = useMouseGlow<HTMLDivElement>()
-  const standingGlow = useMouseGlow<HTMLDivElement>()
-  const referralGlow = useMouseGlow<HTMLButtonElement>()
 
   useEffect(() => {
     let cancelled = false
@@ -82,9 +60,6 @@ export function DashboardView() {
 
       {/* PORTFOLIO HERO — always-on ambient glow + mouse tracking */}
       <div
-        ref={heroGlow.ref}
-        onPointerMove={heroGlow.onMove}
-        onPointerLeave={heroGlow.onLeave}
         className="pulse-hero-premium pulse-glow-track"
       >
         <div className="relative z-[3] p-6 md:p-8">
@@ -137,9 +112,6 @@ export function DashboardView() {
 
       {/* STANDING / NEXT TIER */}
       <div
-        ref={standingGlow.ref}
-        onPointerMove={standingGlow.onMove}
-        onPointerLeave={standingGlow.onLeave}
         className="pulse-glass-card pulse-glow-track p-5"
       >
         <div className="relative z-[3]">
@@ -177,21 +149,6 @@ export function DashboardView() {
           )}
         </div>
       </div>
-
-      {/* REFERRAL */}
-      <button
-        ref={referralGlow.ref}
-        onPointerMove={referralGlow.onMove}
-        onPointerLeave={referralGlow.onLeave}
-        onClick={() => setView('profile')}
-        className="pulse-glass-card pulse-glow-track flex w-full items-center justify-between p-4 text-left"
-      >
-        <div className="relative z-[3] space-y-0.5">
-          <span className="pulse-label block">Your Referral Code</span>
-          <p className="pulse-value-accent">{state.referralCode}</p>
-        </div>
-        <span className="pulse-chip pulse-chip-gold relative z-[3]">{state.referralCount} joined</span>
-      </button>
 
       {/* ACTIVE HOLDINGS */}
       <div className="pulse-glass-card pulse-static overflow-hidden">
@@ -269,6 +226,18 @@ export function DashboardView() {
           />
         </div>
       </div>
+
+      {/* REFERRAL + SHARE */}
+      <button
+        onClick={() => setView('profile')}
+        className="pulse-glass-card pulse-glow-track flex w-full items-center justify-between p-4 text-left"
+      >
+        <div className="relative z-[3] space-y-0.5">
+          <span className="pulse-label block">Your Referral Code</span>
+          <p className="pulse-value-accent">{state.referralCode}</p>
+        </div>
+        <span className="pulse-chip pulse-chip-gold relative z-[3]">{state.referralCount} joined</span>
+      </button>
 
       {/* PROJECT PIPELINE */}
       <div className="space-y-3">
