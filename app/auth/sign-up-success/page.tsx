@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MailCheck, Sparkles, AlertCircle, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react'
@@ -150,7 +150,7 @@ function SignUpSuccessInner() {
               You&apos;re almost in
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400 text-pretty">
-              We&apos;ve sent a secure handshake link to <span className="font-mono font-medium text-amber-300">{email || 'your inbox'}</span>. Tap it to verify your clearance, then sign in to access your Pulse syndicate portfolio.
+              We&apos;ve sent a secure Pulse verification link to <span className="font-mono font-medium text-amber-300">{email || 'your inbox'}</span>. Look for an email from <span className="font-medium text-foreground">support@pulseinvest.uk</span>, then tap the link to access your Pulse portfolio.
             </p>
 
             <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-zinc-300">

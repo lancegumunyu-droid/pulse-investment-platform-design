@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Pickaxe, Radio, Rocket, ShieldCheck, Sprout, Sun, Zap, Building2, Layers } from 'lucide-react'
+import { Folder, Gift, Lock, Pickaxe, Radio, Rocket, ShieldCheck, Sprout, Sun, Zap, Building2, Layers } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { PROJECTS, nextTier, isProjectClosed, type Project } from '@/lib/pulse-data'
 
@@ -13,32 +13,10 @@ function sectorIcon(sector?: string) {
   return Layers
 }
 
-function useMouseGlow<T extends HTMLElement>() {
-  const ref = React.useRef<T | null>(null)
-  const onMove = (e: React.PointerEvent<T>) => {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
-    el.style.setProperty('--my', `${e.clientY - rect.top}px`)
-  }
-  const onLeave = () => {
-    const el = ref.current
-    if (!el) return
-    el.style.removeProperty('--mx')
-    el.style.removeProperty('--my')
-  }
-  return { ref, onMove, onLeave }
-}
-
 export function DashboardView() {
   const { state, api, openModal, setView, totalInvested, currentTier, portfolioValue, busy } = usePulse()
   const [projects, setProjects] = useState<Project[]>(PROJECTS)
   const [liquidatingId, setLiquidatingId] = useState<string | null>(null)
-
-  const heroGlow = useMouseGlow<HTMLDivElement>()
-  const standingGlow = useMouseGlow<HTMLDivElement>()
-  const referralGlow = useMouseGlow<HTMLButtonElement>()
 
   useEffect(() => {
     let cancelled = false
@@ -70,7 +48,7 @@ export function DashboardView() {
   }
 
   return (
-    <div className="pulse-executive-shell mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
+    <div className="pulse-executive-shell mx-auto flex w-full max-w-[480px] flex-col gap-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
       {/* STATUS BAR */}
       <div className="pulse-glass-card pulse-static pulse-glow-frame flex items-center justify-between gap-3 p-4">
         <div className="flex items-center gap-2">
@@ -82,9 +60,6 @@ export function DashboardView() {
 
       {/* PORTFOLIO HERO — always-on ambient glow + mouse tracking */}
       <div
-        ref={heroGlow.ref}
-        onPointerMove={heroGlow.onMove}
-        onPointerLeave={heroGlow.onLeave}
         className="pulse-hero-premium pulse-glow-track"
       >
         <div className="relative z-[3] p-6 md:p-8">
@@ -137,9 +112,6 @@ export function DashboardView() {
 
       {/* STANDING / NEXT TIER */}
       <div
-        ref={standingGlow.ref}
-        onPointerMove={standingGlow.onMove}
-        onPointerLeave={standingGlow.onLeave}
         className="pulse-glass-card pulse-glow-track p-5"
       >
         <div className="relative z-[3]">
@@ -178,26 +150,16 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* REFERRAL */}
-      <button
-        ref={referralGlow.ref}
-        onPointerMove={referralGlow.onMove}
-        onPointerLeave={referralGlow.onLeave}
-        onClick={() => setView('profile')}
-        className="pulse-glass-card pulse-glow-track flex w-full items-center justify-between p-4 text-left"
-      >
-        <div className="relative z-[3] space-y-0.5">
-          <span className="pulse-label block">Your Referral Code</span>
-          <p className="pulse-value-accent">{state.referralCode}</p>
-        </div>
-        <span className="pulse-chip pulse-chip-gold relative z-[3]">{state.referralCount} joined</span>
-      </button>
-
       {/* ACTIVE HOLDINGS */}
-      <div className="pulse-glass-card pulse-static overflow-hidden">
+      <div className="order-1 pulse-glass-card pulse-static overflow-hidden">
         <div className="pulse-vault-header">
-          <span className="pulse-label">Active Holdings ({state.holdings.length})</span>
-          <span className="pulse-chip pulse-chip-muted">${money(totalInvested, 0)} deployed</span>
+          <button onClick={() => setView('invest')} className="flex min-w-0 items-center gap-2 text-left transition-colors hover:text-amber-300">
+            <Folder className="h-4 w-4 shrink-0 text-amber-400" />
+            <span className="pulse-label">Active Holdings ({state.holdings.length})</span>
+          </button>
+          <button onClick={() => setView('invest')} className="pulse-chip pulse-chip-muted transition-colors hover:border-amber-400/50 hover:text-amber-300">
+            Explore <span aria-hidden="true">›</span>
+          </button>
         </div>
 
         {state.holdings.length === 0 ? (
@@ -242,12 +204,19 @@ export function DashboardView() {
       </div>
 
       {/* QUICK ACTIONS */}
-      <div className="space-y-3">
+      <div className="order-3 space-y-3">
         <h3 className="pulse-label px-1">Quick Actions &amp; Hubs</h3>
         <div className="grid grid-cols-2 gap-3">
           <ActionTile icon={<Rocket className="h-4 w-4 text-amber-300" />} label="Buy $PULSE" detail="Private sale round" badge="Private" onClick={() => setView('sale')} />
           <ActionTile icon={<Zap className="h-4 w-4 text-amber-300" />} label="Stake Vault" detail="High yield pool" badge={`${money(state.staked, 0)} staked`} onClick={() => setView('stake')} />
           <ActionTile icon={<Radio className="h-4 w-4 text-amber-300" />} label="Signals Feed" detail="Institutional deals" badge="Live" onClick={() => setView('signals')} />
+          <ActionTile
+            icon={<Gift className="h-4 w-4 text-amber-300" />}
+            label="Send Ref Code"
+            detail="Invite a verified holder"
+            badge={`${state.referralCount} joined`}
+            onClick={() => setView('profile')}
+          />
           <ActionTile
             icon={<ShieldCheck className="h-4 w-4 text-amber-300" />}
             label="Verify KYC"
@@ -258,8 +227,20 @@ export function DashboardView() {
         </div>
       </div>
 
+      {/* REFERRAL + SHARE */}
+      <button
+        onClick={() => setView('profile')}
+        className="order-4 pulse-glass-card pulse-glow-track flex w-full items-center justify-between p-4 text-left"
+      >
+        <div className="relative z-[3] space-y-0.5">
+          <span className="pulse-label block">Your Referral Code</span>
+          <p className="pulse-value-accent">{state.referralCode}</p>
+        </div>
+        <span className="pulse-chip pulse-chip-gold relative z-[3]">{state.referralCount} joined</span>
+      </button>
+
       {/* PROJECT PIPELINE */}
-      <div className="space-y-3">
+      <div className="order-2 space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="pulse-label">Regional Opportunities ({projects.length})</h3>
           <span className="pulse-chip pulse-chip-gold">Verified SADC Pipeline</span>
@@ -290,7 +271,7 @@ export function DashboardView() {
                 {p.image && (
                   <div className="relative h-40 w-full overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                    <img src={p.image} alt={p.name} className="project-image-drift h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <span className="pulse-chip pulse-chip-gold absolute left-3 top-3">
                       {closed ? 'Closed' : 'Verified Project'}
@@ -350,17 +331,6 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* RISK DISCLAIMER */}
-      <div className="pulse-glass-card pulse-static space-y-2 p-4">
-        <div className="pulse-disclaimer-title flex items-center gap-2">
-          <span>&#9888;&#65039;</span>
-          <span>Risk Disclaimer</span>
-        </div>
-        <p className="pulse-disclaimer">
-          Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
-          does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
-        </p>
-      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { TOKEN } from '@/lib/pulse-data'
+import { createHash, randomBytes, scryptSync } from 'node:crypto'
 import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
 import {
   getSnapshot as getSnapshotFromDb,
@@ -49,9 +50,20 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
 }
 
 export async function fetchSnapshot(): Promise<Snapshot | null> {
-  const user = await requireUser()
-  if (!user) return null
-  return getSnapshotFromDb(user.id, user.email ?? undefined)
+  const supabase = await getSupabase()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('No authenticated Supabase user')
+  }
+
+  try {
+    return await getSnapshotFromDb(user.id, user.email ?? undefined, supabase)
+  } catch (error) {
+    console.error('Portfolio load failed:', error)
+    throw error
+  }
 }
 
 // NEW — backs sale.tsx. The private-sale progress bar previously showed a
@@ -89,20 +101,13 @@ export async function getSaleProgress(): Promise<
 }
 
 export async function validateReferralCode(code: string): Promise<{ ok: boolean; valid: boolean; error?: string }> {
-  const clean = code?.trim()
+  const clean = code?.trim().toUpperCase()
   if (!clean) return { ok: false, valid: false, error: 'Code cannot be empty' }
   try {
     const db = serviceClient()
-
-    const { data: byCode } = await db.from('profiles').select('id').eq('referral_code', clean).maybeSingle()
-    if (byCode) return { ok: true, valid: true }
-
-    const { data: byWallet } = await db.from('accounts').select('user_id').eq('wallet_id', clean).maybeSingle()
-    if (byWallet) return { ok: true, valid: true }
-
-    if (clean.toUpperCase() === 'PULSE-PUBLIC') return { ok: true, valid: true }
-
-    return { ok: false, valid: false, error: 'Invalid or expired referral code' }
+    const { data, error } = await db.rpc('validate_pulse_referral', { ref_code: clean })
+    if (!error && data === true) return { ok: true, valid: true }
+    return { ok: false, valid: false, error: 'A verified Pulse ID is required to join.' }
   } catch (e) {
     return { ok: false, valid: false, error: (e as Error).message }
   }
@@ -165,8 +170,11 @@ export async function invest(amount: number, projectId: string) {
   try {
     const db = serviceClient()
 
-    const snap = await getSnapshotFromDb(user.id)
-    if (amount > 500 && snap.kyc !== 'verified') {
+  const snap = await getSnapshotFromDb(user.id)
+  if (snap.holdings.length >= 2) {
+    return { ok: false as const, error: 'You can only hold two active positions at a time.' }
+  }
+  if (amount > 500 && snap.kyc !== 'verified') {
       return { ok: false as const, error: 'KYC verification is required for investments over $500' }
     }
 
@@ -257,7 +265,8 @@ export async function setWallet(address: string | null) {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = serviceClient()
-    await db.from('profiles').update({ wallet_address: address }).eq('id', user.id)
+    const { error } = await db.from('accounts').update({ wallet_id: address }).eq('user_id', user.id)
+    if (error) throw error
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }
@@ -276,8 +285,20 @@ export async function submitKyc(input: {
   const user = await requireUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-    const db = serviceClient()
-    const { error: subErr } = await db.from('kyc_submissions').insert({
+  const db = serviceClient()
+  const { data: latestSubmission, error: latestError } = await db
+    .from('kyc_submissions')
+    .select('status')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (latestError) return { ok: false as const, error: `Could not check existing verification: ${latestError.message}` }
+  const latestStatus = String(latestSubmission?.status ?? '').toLowerCase()
+  if (latestStatus === 'approved' || latestStatus === 'verified') {
+    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
+  }
+  const { error: subErr } = await db.from('kyc_submissions').insert({
       user_id: user.id,
       full_name: input.fullName,
       id_number: input.idNumber,
@@ -290,7 +311,6 @@ export async function submitKyc(input: {
     })
     if (subErr) return { ok: false as const, error: `Could not file submission: ${subErr.message}` }
 
-    await db.from('profiles').update({ kyc_status: 'pending', full_name: input.fullName }).eq('id', user.id)
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }
@@ -348,7 +368,88 @@ export async function applyForCard() {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = serviceClient()
-    await db.from('card_applications').upsert({ user_id: user.id, status: 'waitlisted' }, { onConflict: 'user_id' })
+    const { data: existing } = await db
+    .from('card_applications')
+    .select('id, status')
+    .eq('user_id', user.id)
+    .in('status', ['waitlisted', 'approved'])
+    .maybeSingle()
+  if (!existing) {
+    const cardRef = `PULSE-${randomBytes(10).toString('hex').toUpperCase()}`
+    const { error } = await db.from('card_applications').insert({
+      user_id: user.id,
+      status: 'waitlisted',
+      card_ref: cardRef,
+      card_number_last4: cardRef.slice(-4),
+    })
+    if (error) throw error
+  }
+    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+function hashPin(pin: string) {
+  const salt = randomBytes(16).toString('hex')
+  const digest = scryptSync(pin, salt, 32).toString('hex')
+  return `${salt}:${digest}`
+}
+
+function hashResetToken(token: string) {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+function validPin(pin: string) {
+  return /^(?!([0-9])\\1{3,5}$)(?!0123$|1234$|4321$)[0-9]{4,6}$/.test(pin)
+}
+
+export async function setPulsePin(pin: string) {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  if (!validPin(pin)) return { ok: false as const, error: 'Use a unique 4–6 digit PIN.' }
+  try {
+    const db = serviceClient()
+    const { data: card } = await db.from('card_applications').select('id, status').eq('user_id', user.id).in('status', ['approved', 'free_card_earned']).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (!card || !['approved', 'pending_pin', 'active', 'free_card_earned'].includes(card.status)) {
+      return { ok: false as const, error: 'Your Pulse card is not ready for PIN setup.' }
+    }
+    const { error } = await db.from('card_applications').update({ pin_hash: hashPin(pin), status: 'approved', pin_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', card.id)
+    if (error) throw error
+    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function requestPulsePinReset() {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const db = serviceClient()
+    const { data: card } = await db.from('card_applications').select('id').eq('user_id', user.id).in('status', ['approved', 'free_card_earned']).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (!card) return { ok: false as const, error: 'No Pulse card found.' }
+    const token = randomBytes(32).toString('base64url')
+    const { error } = await db.from('pulse_card_pin_resets').insert({ card_id: card.id, user_id: user.id, token_hash: hashResetToken(token), expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
+    if (error) throw error
+    return { ok: true as const, token }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+export async function resetPulsePin(token: string, pin: string) {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  if (!validPin(pin)) return { ok: false as const, error: 'Use a unique 4–6 digit PIN.' }
+  try {
+    const db = serviceClient()
+    const { data: reset } = await db.from('pulse_card_pin_resets').select('id, card_id, expires_at, consumed_at').eq('user_id', user.id).eq('token_hash', hashResetToken(token)).maybeSingle()
+    if (!reset || reset.consumed_at || new Date(reset.expires_at) < new Date()) return { ok: false as const, error: 'That reset request has expired. Start again.' }
+    const { error: cardError } = await db.from('card_applications').update({ pin_hash: hashPin(pin), status: 'approved', pin_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', reset.card_id).eq('user_id', user.id)
+    if (cardError) throw cardError
+    const { error } = await db.from('pulse_card_pin_resets').update({ consumed_at: new Date().toISOString() }).eq('id', reset.id)
+    if (error) throw error
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }
@@ -430,15 +531,18 @@ export async function closeInvestment(holdingId: string) {
       .maybeSingle()
     if (!holding) return { ok: false as const, error: 'Holding not found' }
 
-    const amount = Number(holding.amount)
-    await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount })
-    await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
+  const amount = Number(holding.amount)
+  const openedAt = new Date(holding.created_at ?? 0).getTime()
+  const earlyClose = Number.isFinite(openedAt) && Date.now() - openedAt < 14 * 24 * 60 * 60 * 1000
+  const earlyCloseFee = earlyClose ? 15 : 0
+  await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount - earlyCloseFee })
+  await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
     await recordTxn(user.id, {
       type: 'close_investment',
       amount,
       currency: 'USD',
-      meta: { holdingId, label: 'Investment liquidated' },
-    })
+    meta: { holdingId, label: earlyClose ? 'Investment liquidated — $15 early close fee' : 'Investment liquidated', earlyCloseFee },
+  })
 
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
@@ -450,7 +554,7 @@ export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow
   try {
     const db = serviceClient()
     const [{ data: profiles }, { data: points }] = await Promise.all([
-      db.from('profiles').select('id, username, full_name, tier').limit(200),
+      db.from('profiles').select('id, username, full_name, founder_number').limit(200),
       db.from('points_ledger').select('user_id, amount'),
     ])
 
@@ -463,8 +567,8 @@ export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow
       .map((p) => ({
         rank: 0,
         username: p.username ?? p.full_name ?? 'Anonymous',
-        tier: p.tier ?? 0,
-        points: totals.get(p.id) ?? 0,
+    founderNumber: p.founder_number ?? null,
+    points: totals.get(p.id) ?? 0,
       }))
       .sort((a, b) => b.points - a.points)
       .slice(0, 20)

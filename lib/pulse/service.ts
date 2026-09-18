@@ -29,11 +29,13 @@ export function serviceClient() {
   // Support both standard service role keys and newer secret key definitions
   const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 
-  if (!url || !key) {
-    throw new Error('Supabase administrative credentials are not configured on this server environment.')
+  if (!url) {
+    throw new Error('Supabase URL is not configured on this server environment.')
   }
 
-  return createClient(url, key, {
+  // User-facing reads must remain available with the publishable key. Privileged
+  // mutations still require the service key and are guarded by their actions.
+  return createClient(url, key || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

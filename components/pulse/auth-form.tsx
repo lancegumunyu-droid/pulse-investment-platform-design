@@ -44,6 +44,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [error, setError] = useState<{ type: 'error' | 'warning' | 'success'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [emailCooldown, setEmailCooldown] = useState(0)
+  const [consent, setConsent] = useState(false)
 
   const inFlightRef = useRef(false)
 
@@ -60,7 +61,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
     if (fromUrl) {
       setRefCode(fromUrl.toUpperCase())
     } else if (isSignUp) {
-      setRefCode('PULSE-PUBLIC')
+      setRefCode('')
+      setRefStatus('idle')
     } else {
       setRefStatus('valid')
     }
@@ -132,6 +134,10 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         })
         return
       }
+      if (!consent) {
+        setError({ type: 'error', message: 'Please accept the data consent notice before creating your account.' })
+        return
+      }
     }
 
     setError(null)
@@ -185,7 +191,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         if (data?.user) {
           setError({ type: 'success', message: 'Account initialized! Redirecting to secure success terminal...' })
           setTimeout(() => {
-            window.location.href = `/auth/sign-up-success?email=${encodeURIComponent(cleanEmail)}`
+            router.replace(`/auth/sign-up-success?email=${encodeURIComponent(cleanEmail)}`)
           }, 800)
         }
       } else {
@@ -209,7 +215,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         if (data?.user) {
           setError({ type: 'success', message: 'Authentication successful. Entering dashboard...' })
           setTimeout(() => {
-            window.location.href = '/app'
+            router.replace('/app')
           }, 600)
           return
         }
@@ -419,6 +425,13 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                 />
               </label>
             </div>
+
+            {isSignUp && (
+              <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-zinc-400">
+                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} disabled={isFormDisabled} className="mt-0.5 accent-amber-500" />
+                <span>I confirm that I have read and accept the <Link href="/legal/data-consent" className="text-amber-400 underline">Data Consent Notice</Link>, <Link href="/legal/terms" className="text-amber-400 underline">Terms of Use</Link>, and <Link href="/legal/risk-disclaimer" className="text-amber-400 underline">Risk Disclaimer</Link>.</span>
+              </label>
+            )}
 
             {!isSignUp && (
               <div className="flex justify-end pt-1">

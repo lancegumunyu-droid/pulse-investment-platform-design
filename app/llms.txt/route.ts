@@ -10,8 +10,6 @@ export function GET() {
 - About: https://pulseinvest.uk/about
 - Risk disclosure: https://pulseinvest.uk/legal/risk-disclaimer
 - Contact: mailto:support@pulseinvest.uk
-- Pi Network: https://minepi.com
-- Pi developer documentation: https://developers.minepi.com
 `, {
     headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
   })

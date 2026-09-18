@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
+import { randomInt } from 'node:crypto'
 import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type {
   AdminSnapshot,
@@ -34,9 +35,9 @@ async function requireAdmin() {
 async function requireAdminScope(allowed: AdminScope[]) {
   const user = await requireAdmin()
   const db = serviceClient()
-  const { data } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
+  const { data } = await db.from('admin_users').select('role').eq('user_id', user.id).eq('is_active', true).maybeSingle()
 
-  const scope = data?.admin_scope as AdminScope | null
+  const scope = data?.role === 'admin' ? ('full' as AdminScope) : null
 
   // No implicit privilege. An admin with no scope set can only perform
   // actions that explicitly allow 'operations'.
@@ -53,6 +54,14 @@ async function requireAdminScope(allowed: AdminScope[]) {
 
 type AdminResult = { ok: true; snapshot: AdminSnapshot } | { ok: false; error: string }
 
+function normalizeKycStatus(value: unknown): 'none' | 'pending' | 'verified' | 'rejected' {
+  const status = String(value ?? 'none').toLowerCase()
+  if (status === 'approved' || status === 'verified') return 'verified'
+  if (status === 'pending') return 'pending'
+  if (status === 'rejected' || status === 'declined') return 'rejected'
+  return 'none'
+}
+
 // ==========================================
 // SNAPSHOT & CORE DASHBOARD
 // ==========================================
@@ -62,50 +71,61 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     await requireAdmin()
     const db = serviceClient()
 
-    const [{ data: profiles }, { data: accounts }, { data: kyc }, { data: txns }, { data: cardApps }] =
-      await Promise.all([
-        db.from('profiles').select('*').order('created_at', { ascending: false }).limit(500),
-        db.from('accounts').select('*').limit(500),
-        db.from('kyc_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
-        db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
-        db.from('card_applications').select('*').order('created_at', { ascending: false }).limit(200),
-      ])
+    const results = await Promise.all([
+      db.from('wallets').select('user_id, cash_balance:balance, invested_balance:total_deposits, staked_balance:total_withdrawals, created_at, updated_at').limit(500),
+      db.from('users').select('user_id:id, full_name, status:kyc_status, id_number:verification_token, country:country_code, created_at').order('created_at', { ascending: false }).limit(500),
+      db.from('admin_users').select('user_id, role').eq('is_active', true).limit(500),
+      db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
+      Promise.resolve({ data: [], error: null }),
+    ])
+    const failed = results.find((result) => result.error)
+    if (failed?.error) throw new Error(`Admin data load failed: ${failed.error.message}`)
+    const [{ data: accounts }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] = results as any
+    type AdminRawRow = Record<string, any>
+    const accountRows = (accounts ?? []) as AdminRawRow[]
+    const kycRows = (kyc ?? []) as AdminRawRow[]
+    const roleRows = (roles ?? []) as AdminRawRow[]
+    const txnRows = (txns ?? []) as AdminRawRow[]
+    const cardRows = (cardApps ?? []) as AdminRawRow[]
 
-    const acctMap = new Map((accounts ?? []).map((a) => [a.user_id, a]))
-    const emailMap = new Map((profiles ?? []).map((p) => [p.id, p.email]))
-    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
+    const acctMap = new Map(accountRows.map((a) => [a.user_id, a]))
+    const kycMap = new Map<string, AdminRawRow>()
+    for (const row of kycRows) if (!kycMap.has(row.user_id)) kycMap.set(row.user_id, row)
+    const roleMap = new Map(roleRows.map((r) => [r.user_id, r.role]))
+    const userIds = Array.from(new Set([...accountRows.map((a) => a.user_id), ...kycRows.map((k) => k.user_id)]))
+    const emailMap = new Map<string, string | null>()
+    const profileMap = kycMap
 
-    const users: AdminUserRow[] = (profiles ?? []).map((p) => {
-      const a = acctMap.get(p.id)
+    const users: AdminUserRow[] = userIds.map((id) => {
+      const a = acctMap.get(id)
+      const k = kycMap.get(id)
+      const role = roleMap.get(id) ?? null
       return {
-        id: p.id,
-        email: p.email,
-        fullName: p.full_name,
-        username: p.username,
-        role: p.role,
-        kycStatus: p.kyc_status,
-        // FIX #5 — admin.tsx renders `u.kycVerified` to decide the
-        // Verified/Pending pill. It was never in the payload, so every user
-        // showed "Pending" regardless of their real KYC state.
-        kycVerified: p.kyc_status === 'verified',
+        id,
+        email: emailMap.get(id) ?? null,
+        fullName: k?.full_name ?? null,
+        username: null,
+        role,
+        kycStatus: normalizeKycStatus(k?.status),
+        kycVerified: normalizeKycStatus(k?.status) === 'verified',
         cash: Number(a?.cash_balance ?? 0),
         invested: Number(a?.invested_balance ?? 0),
         staked: Number(a?.staked_balance ?? 0),
-        createdAt: new Date(p.created_at).getTime(),
-        adminScope: p.admin_scope ?? null,
-        managerId: p.managed_by ?? null,
-        isAdmin: p.role === 'admin' || p.role === 'super_admin',
+        createdAt: new Date(k?.created_at ?? Date.now()).getTime(),
+        adminScope: role === 'admin' ? 'full' : null,
+        managerId: null,
+        isAdmin: role === 'admin',
       }
     })
 
-    const totalDeposits = (txns ?? [])
+    const totalDeposits = txnRows
       .filter((t) => t.type === 'deposit' && t.status === 'completed')
       .reduce((s, t) => s + Number(t.amount), 0)
 
-    const totalInvested = (accounts ?? []).reduce((s, a) => s + Number(a.invested_balance ?? 0), 0)
-    const totalStaked = (accounts ?? []).reduce((s, a) => s + Number(a.staked_balance ?? 0), 0)
+    const totalInvested = accountRows.reduce((s, a) => s + Number(a.invested_balance ?? 0), 0)
+    const totalStaked = accountRows.reduce((s, a) => s + Number(a.staked_balance ?? 0), 0)
 
-    const depositQueue: AdminTxnRow[] = (txns ?? [])
+    const depositQueue: AdminTxnRow[] = txnRows
       .filter((t) => t.type === 'deposit' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -125,7 +145,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const withdrawalQueue: AdminTxnRow[] = (txns ?? [])
+    const withdrawalQueue: AdminTxnRow[] = txnRows
       .filter((t) => t.type === 'withdrawal' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -150,7 +170,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const p2pQueue: AdminP2PRow[] = (txns ?? [])
+    const p2pQueue: AdminTxnRow[] = txnRows
       .filter((t) => t.type === 'p2p_send' && t.status === 'pending')
       .map((t) => {
         const meta = (t.meta as Record<string, unknown> | null) ?? {}
@@ -171,7 +191,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         }
       })
 
-    const recentTxns: AdminTxnRow[] = (txns ?? []).slice(0, 40).map((t) => ({
+    const recentTxns: AdminTxnRow[] = txnRows.slice(0, 40).map((t) => ({
       id: t.id,
       userId: t.user_id,
       email: emailMap.get(t.user_id) ?? null,
@@ -183,7 +203,7 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       createdAt: new Date(t.created_at).getTime(),
     }))
 
-    const cardQueue: AdminCardRow[] = (cardApps ?? [])
+    const cardQueue: AdminCardRow[] = cardRows
       .filter((c) => c.status === 'waitlisted')
       .map((c) => {
         const p = profileMap.get(c.user_id)
@@ -194,13 +214,13 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
           fullName: p?.full_name ?? null,
           cardType: c.card_type ?? 'virtual',
           shippingAddress: c.shipping_address ?? null,
-          kycStatus: p?.kyc_status ?? 'none',
+          kycStatus: normalizeKycStatus(p?.status),
           status: c.status,
           createdAt: new Date(c.created_at).getTime(),
         }
       })
 
-    const kycQueue: AdminKycRow[] = (kyc ?? []).map((k) => ({
+    const kycQueue: AdminKycRow[] = kycRows.filter((k) => normalizeKycStatus(k.status) === 'pending').map((k) => ({
       id: k.id,
       userId: k.user_id,
       email: emailMap.get(k.user_id) ?? null,
@@ -258,12 +278,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       .eq('status', 'pending')
     if (kycErr) return { ok: false, error: `kyc_submissions update failed: ${kycErr.message}` }
 
-    const { error: profErr } = await db
-      .from('profiles')
-      .update({ kyc_status: decision === 'approved' ? 'verified' : 'rejected' })
-      .eq('id', sub.user_id)
-    if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
-
     if (decision === 'approved') {
       const { data: alreadyBonused } = await db
         .from('transactions')
@@ -292,18 +306,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
       await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
       await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
 
-      const { data: verifiedProfile } = await db
-        .from('profiles')
-        .select('referred_by')
-        .eq('id', sub.user_id)
-        .maybeSingle()
-      if (verifiedProfile?.referred_by) {
-        await db.rpc('award_points', {
-          p_user_id: verifiedProfile.referred_by,
-          p_amount: 100,
-          p_reason: 'Your referral completed KYC',
-        })
-      }
     }
 
     return getAdminSnapshot()
@@ -316,8 +318,11 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const { error: profErr } = await db.from('profiles').update({ kyc_status: 'none' }).eq('id', userId)
-    if (profErr) return { ok: false, error: `profiles update failed: ${profErr.message}` }
+    const { data: submission, error: findError } = await db.from('kyc_submissions').select('id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (findError) return { ok: false, error: findError.message }
+    if (!submission) return { ok: false, error: 'No KYC submission found for this user.' }
+    const { error } = await db.from('kyc_submissions').update({ status: 'pending', reviewed_by: null, reviewed_at: null }).eq('id', submission.id)
+    if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -456,29 +461,45 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
     }
 
     if (decision === 'approved') {
-      const { data: profile } = await db.from('profiles').select('kyc_status').eq('id', app.user_id).maybeSingle()
-      if (profile?.kyc_status !== 'verified') {
+      const { data: profile } = await db.from('kyc_submissions').select('status').eq('user_id', app.user_id).eq('status', 'verified').maybeSingle()
+      if (!profile) {
         return { ok: false, error: 'Applicant has not completed KYC verification' }
       }
     }
 
-    const cardRef =
-      decision === 'approved'
-        ? `PULSE-${Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join('-')}`
-        : null
+  const cardNumber =
+  decision === 'approved'
+  ? `PULSE-${Array.from({ length: 4 }, () => randomInt(1000, 10000)).join('-')}`
+  : null
+  const cvv = decision === 'approved' ? String(randomInt(100, 1000)) : null
+  const { data: authUser } = decision === 'approved' ? await db.auth.admin.getUserById(app.user_id) : { data: { user: null } }
+  const cardholderName = authUser.user?.user_metadata?.full_name ?? authUser.user?.user_metadata?.name ?? authUser.user?.email?.split('@')[0] ?? 'Pulse Member'
+  const { data, error } = await db
 
-    const { error } = await db
+
+
       .from('card_applications')
       .update({
         status: decision === 'approved' ? 'approved' : 'rejected',
         reviewed_by: admin.id,
         reviewed_at: new Date().toISOString(),
-        ...(cardRef ? { card_ref: cardRef } : {}),
+        ...(decision === 'approved' ? {
+          card_number: cardNumber,
+          card_number_last4: cardNumber?.slice(-4),
+          cvv,
+          expiry_month: new Date().getMonth() + 1,
+          expiry_year: new Date().getFullYear() + 5,
+          cardholder_name: cardholderName,
+          updated_at: new Date().toISOString(),
+        } : {}),
       })
       .eq('id', id)
-      .eq('status', 'waitlisted')
+  .eq('status', 'waitlisted')
+  .select('id')
 
-    if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
+  if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
+  if (!data?.length) return { ok: false, error: 'Card application was not updated because it is no longer waitlisted.' }
+
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -510,6 +531,7 @@ export async function disburseYield(userId: string, amount: number): Promise<Adm
 // explicit admin scope configuration" on almost every action.
 export async function addAdminByEmail(email: string, scope: AdminScope = 'operations'): Promise<AdminResult> {
   try {
+    void scope
     await requireAdminScope(['full'])
     const clean = email.trim().toLowerCase()
     if (!clean.includes('@')) return { ok: false, error: 'Enter a valid email' }
@@ -517,20 +539,18 @@ export async function addAdminByEmail(email: string, scope: AdminScope = 'operat
     const db = serviceClient()
     await db.from('admin_allowlist').upsert({ email: clean }, { onConflict: 'email' })
 
-    const { data: updated, error } = await db
-      .from('profiles')
-      .update({ role: 'admin', admin_scope: scope })
-      .ilike('email', clean)
-      .select('id')
-
-    if (error) return { ok: false, error: error.message }
-    if (!updated || updated.length === 0) {
+    const { data: authData, error: authError } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    if (authError) return { ok: false, error: authError.message }
+    const target = authData.users.find((candidate) => candidate.email?.toLowerCase() === clean)
+    if (!target) {
       return {
         ok: false,
         error: `No registered profile found for ${clean}. They must sign up first — the allowlist entry has been saved and will apply once they do.`,
       }
     }
 
+    const { error: roleError } = await db.from('user_roles').upsert({ user_id: target.id, role: 'admin' }, { onConflict: 'user_id' })
+    if (roleError) return { ok: false, error: roleError.message }
     return getAdminSnapshot()
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -541,7 +561,8 @@ export async function appointAdminScope(userId: string, scope: AdminScope): Prom
   try {
     await requireAdminScope(['full'])
     const db = serviceClient()
-    const { error } = await db.from('profiles').update({ admin_scope: scope, role: 'admin' }).eq('id', userId)
+    if (!['full', 'operations', 'finance', 'compliance'].includes(scope)) return { ok: false, error: 'Unsupported admin scope for the current schema.' }
+    const { error } = await db.from('user_roles').upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id' })
     if (error) return { ok: false, error: error.message }
     return getAdminSnapshot()
   } catch (e) {
@@ -550,29 +571,17 @@ export async function appointAdminScope(userId: string, scope: AdminScope): Prom
 }
 
 export async function assignManager(userId: string, managerId: string): Promise<AdminResult> {
-  try {
-    await requireAdminScope(['full', 'operations'])
-    const db = serviceClient()
-    const clean = managerId.trim()
-    const { error } = await db
-      .from('profiles')
-      .update({ managed_by: clean.length > 0 ? clean : null })
-      .eq('id', userId)
-    if (error) return { ok: false, error: error.message }
-    return getAdminSnapshot()
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
+  void userId
+  void managerId
+  await requireAdminScope(['full', 'operations'])
+  return { ok: false, error: 'Manager assignment is unavailable until admin_memberships is added to the production schema.' }
 }
 
 export async function deleteUser(userId: string): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full'])
     if (admin.id === userId) return { ok: false, error: 'You cannot delete your own admin account' }
-    const db = serviceClient()
-    const { error } = await db.from('profiles').delete().eq('id', userId)
-    if (error) return { ok: false, error: error.message }
-    return getAdminSnapshot()
+    return { ok: false, error: 'User deletion is disabled until the production deletion/audit policy is implemented.' }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
@@ -847,10 +856,14 @@ export async function getTeamVolumeReport(): Promise<
   | { ok: false; error: string }
 > {
   try {
+    await requireAdminScope(['manager', 'director', 'full'])
+    return { ok: false, error: 'Team access is unavailable until admin_memberships is added to the production schema.' }
+
+    /*
     const user = await requireAdminScope(['manager', 'director', 'full'])
     const db = serviceClient()
-    const { data: me } = await db.from('profiles').select('admin_scope').eq('id', user.id).maybeSingle()
-    const scope: 'manager' | 'director' = me?.admin_scope === 'director' ? 'director' : 'manager'
+    const { data: me } = await db.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    const scope: 'manager' | 'director' = me?.role === 'admin' ? 'director' : 'manager'
 
     let teamIds: string[] = []
     if (scope === 'director') {
@@ -887,6 +900,7 @@ export async function getTeamVolumeReport(): Promise<
     }))
 
     return { ok: true, scope, rows }
+    */
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }

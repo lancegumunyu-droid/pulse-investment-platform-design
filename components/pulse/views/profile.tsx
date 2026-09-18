@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Copy, Gift, Lock, LogOut, User, ChevronDown } from 'lucide-react'
+import { Copy, Gift, Lock, LogOut, User, ChevronDown, ShieldCheck } from 'lucide-react'
 import { usePulse } from '../store'
 import { Button } from '@/components/ui/button'
 import type { LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
@@ -14,7 +14,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
 }
 
 /**
@@ -24,26 +24,8 @@ const itemVariants = {
  * `React.PointerEvent`. This file is an ES module with no default React
  * import, so `React.X` would resolve to the UMD global and fail type-check.
  */
-function useMouseGlow<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null)
-  const onMove = (e: ReactPointerEvent<T>) => {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    el.style.setProperty('--mx', `${e.clientX - rect.left}px`)
-    el.style.setProperty('--my', `${e.clientY - rect.top}px`)
-  }
-  const onLeave = () => {
-    const el = ref.current
-    if (!el) return
-    el.style.removeProperty('--mx')
-    el.style.removeProperty('--my')
-  }
-  return { ref, onMove, onLeave }
-}
-
 export function ProfileView() {
-  const { state, currentTier, setView, toast, signOut, api } = usePulse()
+  const { state, currentTier, setView, toast, signOut, api, openModal } = usePulse()
   const referralCode = state.referralCode
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[] | null>(null)
   const [founders, setFounders] = useState<FounderRow[] | null>(null)
@@ -54,9 +36,6 @@ export function ProfileView() {
   const [editingUsername, setEditingUsername] = useState(false)
   const [usernameInput, setUsernameInput] = useState(state.username ?? '')
   const [savingUsername, setSavingUsername] = useState(false)
-
-  const heroGlow = useMouseGlow<HTMLDivElement>()
-  const adminGlow = useMouseGlow<HTMLButtonElement>()
 
   const saveUsername = async () => {
     setSavingUsername(true)
@@ -70,7 +49,10 @@ export function ProfileView() {
     setSavingUsername(false)
   }
 
-  const referralLink = `https://pulseinvest.uk/?ref=${encodeURIComponent(referralCode)}`
+  const pulseId = state.pulseId
+  const referralLink = pulseId
+    ? `https://pulseinvest.uk/auth/sign-up?ref=${encodeURIComponent(pulseId)}`
+    : ''
 
   const copyRef = () => {
     navigator.clipboard?.writeText(referralLink)
@@ -113,15 +95,7 @@ export function ProfileView() {
     setLoadingReferrals(false)
   }
 
-  // Admin button is always visible; claimAdmin() checks profiles.role server-side.
-  const openAdmin = async () => {
-    const res = await api.claimAdmin()
-    if (res.ok) {
-      setView('admin')
-    } else {
-      toast({ title: 'Admin access unavailable', description: res.error, variant: 'error' })
-    }
-  }
+  const openAdmin = () => setView('admin')
 
   const displayName = state.fullName || state.username || 'Investor'
 
@@ -148,9 +122,6 @@ export function ProfileView() {
       {/* PROFILE HERO CARD */}
       <motion.div variants={itemVariants}>
         <div
-          ref={heroGlow.ref}
-          onPointerMove={heroGlow.onMove}
-          onPointerLeave={heroGlow.onLeave}
           className="pulse-hero-premium pulse-glow-track"
         >
           <div className="relative z-[3] p-6 md:p-8">
@@ -195,6 +166,11 @@ export function ProfileView() {
                     </p>
                   </button>
                 )}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="pulse-label normal-case tracking-normal text-zinc-400">Pulse ID:</span>
+                  <span className="font-mono text-xs font-semibold text-amber-300">{pulseId ?? 'Assigning securely...'}</span>
+                  {pulseId && <button onClick={() => { navigator.clipboard?.writeText(pulseId); toast({ title: 'Pulse ID copied', variant: 'info' }) }} className="text-amber-400" aria-label="Copy Pulse ID"><Copy className="size-3.5" /></button>}
+                </div>
                 <p className="pulse-label mt-1 truncate normal-case tracking-normal text-zinc-400">
                   {displayName} &middot; <span className="pulse-value-accent">{currentTier.name} tier</span>
                 </p>
@@ -211,6 +187,26 @@ export function ProfileView() {
         </div>
       </motion.div>
 
+      {/* VERIFICATION STATUS */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static p-5">
+        <div className="flex items-start gap-3">
+          <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl border ${state.kyc === 'verified' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
+            <ShieldCheck className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="pulse-value-md">Identity verification</p>
+            <p className="pulse-label mt-1 normal-case tracking-normal text-zinc-400">
+              {state.kyc === 'verified' ? 'Verified member — full platform access enabled.' : state.kyc === 'pending' ? 'Your documents are under review.' : state.kyc === 'rejected' ? 'Verification needs to be resubmitted.' : 'Verify your identity to unlock investing and wallet features.'}
+            </p>
+          </div>
+          {state.kyc !== 'verified' && (
+            <Button size="sm" className="shrink-0 bg-amber-400 font-semibold text-black hover:bg-amber-300" onClick={() => openModal('kyc')}>
+              {state.kyc === 'pending' ? 'View' : 'Verify'}
+            </Button>
+          )}
+        </div>
+      </motion.div>
+
       {/* REFER FRIENDS */}
       <motion.div variants={itemVariants} className="pulse-glass-card pulse-static p-5">
         <div className="mb-3 flex items-center gap-3">
@@ -224,7 +220,7 @@ export function ProfileView() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-black/40 px-3.5 py-2.5">
+        {referralLink ? <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-black/40 px-3.5 py-2.5">
           <span className="flex-1 truncate font-mono text-sm text-amber-300">{referralLink}</span>
           <button
             onClick={copyRef}
@@ -233,7 +229,7 @@ export function ProfileView() {
           >
             <Copy className="h-4 w-4" />
           </button>
-        </div>
+        </div> : <p className="rounded-xl border border-amber-500/20 bg-black/30 px-3.5 py-3 text-sm text-zinc-400">Your verified Pulse ID will generate your referral link here.</p>}
       </motion.div>
 
       {/* MY REFERRALS */}
@@ -328,19 +324,17 @@ export function ProfileView() {
         ) : null}
       </motion.div>
 
-      {/* ADMIN PANEL ACCESS */}
-      <motion.div variants={itemVariants}>
-        <button
-          ref={adminGlow.ref}
-          onPointerMove={adminGlow.onMove}
-          onPointerLeave={adminGlow.onLeave}
-          onClick={openAdmin}
-          className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 text-sm font-semibold uppercase tracking-wide text-amber-300"
-        >
-          <Lock className="h-4 w-4" />
-          Admin Dashboard
-        </button>
-      </motion.div>
+      {state.isAdmin ? (
+        <motion.div variants={itemVariants}>
+          <button
+            onClick={openAdmin}
+            className="pulse-glass-card pulse-glow-track flex w-full items-center justify-center gap-2 p-4 text-sm font-semibold uppercase tracking-wide text-amber-300"
+          >
+            <Lock className="h-4 w-4" />
+            Admin Dashboard
+          </button>
+        </motion.div>
+      ) : null}
 
       {/* SIGN OUT */}
       <motion.div variants={itemVariants}>
@@ -352,17 +346,6 @@ export function ProfileView() {
         </button>
       </motion.div>
 
-      {/* RISK DISCLAIMER */}
-      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static space-y-2 p-4">
-        <div className="pulse-disclaimer-title flex items-center gap-2">
-          <span>&#9888;&#65039;</span>
-          <span>Risk Disclaimer</span>
-        </div>
-        <p className="pulse-disclaimer">
-          Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
-          does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
-        </p>
-      </motion.div>
     </motion.div>
   )
 }

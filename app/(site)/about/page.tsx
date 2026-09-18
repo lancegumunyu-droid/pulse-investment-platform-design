@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Activity, BadgeCheck, Globe, ShieldCheck, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = {
   title: 'About | Pulse',
@@ -80,20 +79,33 @@ export default function AboutPage() {
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Pulse Investment Group operates a fully compliant investment platform with mandatory identity
               verification (KYC) for all investors. All financial activity is recorded in an immutable transaction
-              ledger. We operate under corporate registration and use NOWPayments exclusively to process crypto
-              deposit payments — providing African investors with a borderless, low-fee funding option.
+ledger. We operate under corporate registration and enable payment rails only after operational and compliance review.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               Our business email for platform enquiries and partnerships is{' '}
-              <a href="mailto:contact@pulseinvest.africa" className="font-semibold text-gold transition-colors hover:underline">
-                contact@pulseinvest.africa
+              <a href="mailto:contact@pulseinvest.uk" className="font-semibold text-gold transition-colors hover:underline">
+                contact@pulseinvest.uk
               </a>
               . For technical or compliance questions, reach us at{' '}
-              <a href="mailto:compliance@pulseinvest.africa" className="font-semibold text-gold transition-colors hover:underline">
-                compliance@pulseinvest.africa
+              <a href="mailto:compliance@pulseinvest.uk" className="font-semibold text-gold transition-colors hover:underline">
+                compliance@pulseinvest.uk
               </a>
               .
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative mx-auto max-w-6xl px-5 py-20">
+        <div className="grid gap-8 rounded-3xl border border-gold/20 bg-gold-soft/20 p-8 shadow-2xl md:grid-cols-[0.8fr_1.2fr] md:p-12">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-widest text-gold">The reason Pulse exists</span>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground md:text-4xl">A more hopeful way to build wealth.</h2>
+          </div>
+          <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+            <p>Pulse began with a question: what would happen if ordinary people could see, understand, and participate in the projects shaping the region around them?</p>
+            <p>That question became a commitment to make African opportunity feel less distant. We bring structure to the hard work of diligence, then give people a clearer view of the builders, milestones, risks, and realities behind each opportunity.</p>
+            <p>We are still building, carefully and openly. Every project has a story, every return has a reason, and every investor deserves the truth before they commit capital.</p>
           </div>
         </div>
       </section>
@@ -131,15 +143,13 @@ export default function AboutPage() {
             Yields are variable. Capital is at risk.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Button asChild variant="gold" size="lg">
-              <Link href="/auth/sign-up" className="inline-flex items-center gap-2">
-                Create account
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="glass" size="lg">
-              <Link href="/contact">Contact us</Link>
-            </Button>
+            <Link href="/auth/sign-up" className="group/button inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-6 text-base font-bold text-zinc-950 shadow-[0_0_20px_rgba(245,158,11,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110">
+              Create account
+              <ArrowRight className="size-4" />
+            </Link>
+            <Link href="/contact" className="group/button inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/16 bg-zinc-900/60 px-6 text-base font-bold text-white shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-400/40 hover:bg-white/[0.1]">
+              Contact us
+            </Link>
           </div>
         </div>
       </section>

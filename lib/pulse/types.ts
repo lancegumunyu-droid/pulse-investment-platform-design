@@ -31,9 +31,10 @@ export interface Snapshot {
   kyc: KycStatus
   wallet: string | null
   referralCode: string
+  pulseId: string | null
   fullName: string | null
   email: string | null
-  tier: number
+  tier: TierId
   isAdmin: boolean
   points: number
   founderNumber: number | null
@@ -43,8 +44,14 @@ export interface Snapshot {
   referralVerifiedCount: number
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | null
-  cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  cardStatus: 'none' | 'waitlisted' | 'approved' | 'pending_pin' | 'active' | 'locked' | 'free_card_earned'
   cardRef?: string | null
+  cardLast4?: string | null
+  pinRequired?: boolean
+  cardCvv?: string | null
+  cardExpiryMonth?: number | null
+  cardExpiryYear?: number | null
+  cardholderName?: string | null
   savedWallets: SavedWallet[]
 }
 
@@ -60,21 +67,29 @@ export interface BadgeRow {
 }
 
 export interface MyReferralRow {
-  walletId: string | null
-  displayName: string
-  kycStatus: string
-  createdAt: number
+  walletId?: string | null
+  displayName?: string
+  kycStatus?: string
+  createdAt?: number
+  name?: string
+  status?: string
+  date?: number
 }
 
 export interface LeaderboardRow {
-  fullName: string
-  totalPoints: number
-  founderNumber: number | null
+  fullName?: string
+  totalPoints?: number
+  founderNumber?: number | null
+  rank?: number
+  username?: string
+  points?: number
+  tier?: number
 }
 
 export interface FounderRow {
-  fullName: string
+  fullName?: string
   founderNumber: number
+  name?: string
 }
 
 // Admin dashboard payload
@@ -83,13 +98,16 @@ export interface AdminUserRow {
   email: string | null
   fullName: string | null
   username: string | null
-  role: string
+  role: string | null
   kycStatus: string
   cash: number
   invested: number
   staked: number
   createdAt: number
   adminScope: 'full' | 'finance' | 'operations' | null
+  kycVerified?: boolean
+  managerId?: string | null
+  isAdmin?: boolean
 }
 
 export interface AdminKycRow {
@@ -117,16 +135,19 @@ export interface AdminCardRow {
 
 export interface AdminTxnRow {
   id: string
-  userId: string
-  email: string | null
+  userId?: string
+  email?: string | null
+  senderId?: string
+  senderEmail?: string | null
+  recipientId?: string
+  recipientEmail?: string | null
+  note?: string | null
   type: string
   amount: number
   currency: string
   status: string
   reference: string | null
   createdAt: number
-  // NEW: lets the admin dashboard show "payment confirmed by NOWPayments,
-  // awaiting your approval" vs. "awaiting payment" for deposits.
   settledStatus?: string | null
   payCurrency?: string | null
   userTxRef?: string | null
@@ -156,4 +177,7 @@ export interface AdminSnapshot {
   p2pQueue: AdminTxnRow[] // NEW
   cardQueue: AdminCardRow[] // NEW
   recentTxns: AdminTxnRow[]
+  usersList: AdminUserRow[]
 }
+
+export type AdminP2PRow = AdminTxnRow

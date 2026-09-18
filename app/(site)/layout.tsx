@@ -1,30 +1,8 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import { SiteNav } from '@/components/site/nav'
 import { SiteFooter } from '@/components/site/footer'
 import { PWAInstaller } from '@/components/pulse/pwa-installer'
 import '@/app/globals.css'
-
-/**
- * Must match app/layout.tsx exactly.
- * This layout previously loaded Geist while globals.css resolved --font-sans
- * to --font-jakarta, which was never defined here — so every marketing page
- * silently fell back to the system font while /app rendered Plus Jakarta Sans.
- * That was the font mismatch between screens.
- */
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  variable: '--font-jakarta',
-  display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
-})
-
-const monoNum = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono-num',
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-})
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -68,15 +46,11 @@ export const metadata: Metadata = {
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${jakarta.variable} ${monoNum.variable} dark`}>
-      <body className="bg-background text-foreground font-sans antialiased selection:bg-amber-500 selection:text-black min-h-screen flex flex-col pt-safe pb-safe pl-safe pr-safe">
-        <div className="flex min-h-screen flex-col relative overflow-hidden">
-          <SiteNav />
-          <main className="flex-1 pulse-app">{children}</main>
-          <SiteFooter />
-        </div>
-        <PWAInstaller />
-      </body>
-    </html>
+    <div className="flex min-h-screen flex-col overflow-hidden bg-background text-foreground font-sans antialiased selection:bg-amber-500 selection:text-black pt-safe pb-safe pl-safe pr-safe">
+      <SiteNav />
+      <main className="flex-1 pulse-app">{children}</main>
+      <SiteFooter />
+      <PWAInstaller />
+    </div>
   )
 }

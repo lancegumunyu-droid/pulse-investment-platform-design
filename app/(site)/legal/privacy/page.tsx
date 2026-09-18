@@ -48,8 +48,8 @@ export default function PrivacyPage() {
             </Section>
 
             <Section title="5. Payment data">
-              Crypto deposit payments are processed by NOWPayments. Pulse does not store private keys, wallet seeds,
-              or payment card data. NOWPayments&apos; own privacy policy governs data processed through their gateway.
+Payment data is processed only through providers explicitly enabled by Pulse. Pulse does not store private keys, wallet seeds,
+or payment card data.
             </Section>
 
             <Section title="6. Cookies and analytics">

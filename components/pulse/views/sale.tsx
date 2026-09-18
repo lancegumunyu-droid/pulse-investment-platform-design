@@ -211,21 +211,10 @@ export function SaleView() {
 
         <div className="relative z-[3] flex items-center justify-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5 text-amber-400/80" />
-          <span className="pulse-label normal-case tracking-normal text-zinc-500">Settled via NOWPayments</span>
+          <span className="pulse-label normal-case tracking-normal text-zinc-500">Settlement handled by Pulse</span>
         </div>
       </div>
 
-      {/* RISK DISCLAIMER */}
-      <div className="pulse-glass-card pulse-static space-y-2 p-4">
-        <div className="pulse-disclaimer-title flex items-center gap-2">
-          <span>&#9888;&#65039;</span>
-          <span>Risk Disclaimer</span>
-        </div>
-        <p className="pulse-disclaimer">
-          Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
-          does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
-        </p>
-      </div>
     </div>
   )
 }

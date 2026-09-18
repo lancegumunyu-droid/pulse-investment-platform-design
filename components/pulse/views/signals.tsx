@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Radio, RotateCcw, Zap, Inbox, TrendingUp, Clock, ArrowRight, ShieldCheck } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { usePulse } from '../store'
 import { PROJECTS as INITIAL_PROJECTS } from '@/lib/pulse-data'
 
@@ -143,7 +142,6 @@ function SignalCard({ signal, index }: { signal: Signal; index: number }) {
 }
 
 export function SignalsView() {
-  const supabase = useMemo(() => createClient(), [])
   const [signals, setSignals] = useState<Signal[]>([])
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -152,15 +150,24 @@ export function SignalsView() {
     async (showLoading = true) => {
       if (showLoading) setLoading(true)
       try {
-        const { data, error } = await supabase.from('signals').select('*').order('created_at', { ascending: false })
-        if (!error && data) setSignals(data as Signal[])
+        const projectSignals: Signal[] = INITIAL_PROJECTS.map((project) => ({
+          id: `project-${project.id}`,
+          project_id: project.id,
+          title: `${project.name} investment window`,
+          detail: project.summary,
+          target_yield: project.targetYield,
+          urgency: project.status === 'Closed' ? 'Standard' : 'Open',
+          window_label: project.status === 'Closed' ? 'Closed' : 'Open for investment',
+          created_at: new Date().toISOString(),
+        }))
+        setSignals(projectSignals)
       } catch (err) {
-        console.error('Error fetching signals:', err)
+        console.error('[v0] Error building project signals:', err)
       } finally {
         if (showLoading) setLoading(false)
       }
     },
-    [supabase],
+    [],
   )
 
   const handleRefresh = useCallback(async () => {
@@ -169,34 +176,9 @@ export function SignalsView() {
     setIsRefreshing(false)
   }, [loadSignals])
 
-  // Live realtime subscription. NOTE: this requires the 'signals' table to
-  // carry a SELECT policy that allows the authenticated (or anon) role to
-  // read it — signals are shown-to-all marketing content, not per-user data,
-  // so a public SELECT policy is the correct RLS shape here, distinct from
-  // every financial table which must stay locked to service-role only.
   useEffect(() => {
     loadSignals(true)
-
-    const channel = supabase
-      .channel('signals-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'signals' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          const newSignal = payload.new as Signal
-          setSignals((prev) => [newSignal, ...prev.filter((s) => s.id !== newSignal.id)])
-        } else if (payload.eventType === 'UPDATE') {
-          const updated = payload.new as Signal
-          setSignals((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
-        } else if (payload.eventType === 'DELETE') {
-          const deletedId = (payload.old as { id?: string })?.id
-          if (deletedId) setSignals((prev) => prev.filter((s) => s.id !== deletedId))
-        }
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, loadSignals])
+  }, [loadSignals])
 
   return (
     <div className="pulse-executive-shell mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
@@ -256,17 +238,6 @@ export function SignalsView() {
         </div>
       )}
 
-      {/* RISK DISCLAIMER */}
-      <div className="pulse-glass-card pulse-static space-y-2 p-4">
-        <div className="pulse-disclaimer-title flex items-center gap-2">
-          <span>&#9888;&#65039;</span>
-          <span>Risk Disclaimer</span>
-        </div>
-        <p className="pulse-disclaimer">
-          Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
-          does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
-        </p>
-      </div>
     </div>
   )
 }

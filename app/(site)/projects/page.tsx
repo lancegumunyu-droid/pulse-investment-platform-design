@@ -44,7 +44,7 @@ export default async function HomePage() {
     {
       icon: <Zap className="size-5" />,
       title: 'Crypto-native deposits',
-      body: 'Fund your account with USDT or BTC via NOWPayments. Instant, borderless, and low-fee — built for the African diaspora.',
+      body: 'Fund your account through Pulse-supported rails with clear fees, transparent status, and investor-first controls.',
     },
     {
       icon: <TrendingUp className="size-5" />,
@@ -58,7 +58,7 @@ export default async function HomePage() {
     },
   ]
 
-  const PROJECTS_FEATURED = PROJECTS.slice(0, 3)
+  const PROJECTS_FEATURED = PROJECTS
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -177,13 +177,15 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {PROJECTS_FEATURED.map((p, i) => {
               const pct = Math.round((p.funded / p.goal) * 100)
               return (
-                <div
+                <Link
                   key={p.id}
-                  className="animate-rise group rounded-2xl border border-white/[0.1] bg-card overflow-hidden shadow-2xl flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/40"
+                  href={`/projects/${p.id}`}
+                  aria-label={`Invest in ${p.name}`}
+                  className="animate-rise group rounded-2xl border border-white/[0.1] bg-card overflow-hidden shadow-2xl flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                   style={{ animationDelay: `${i * 80}ms` }}
                 >
                   {/* Clean image thumbnail header */}
@@ -194,7 +196,7 @@ export default async function HomePage() {
                         alt={p.name}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="project-image-drift object-cover transition-transform duration-700 group-hover:scale-105"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-black flex items-center justify-center text-amber-400 font-bold">
@@ -241,7 +243,7 @@ export default async function HomePage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>

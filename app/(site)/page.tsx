@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Globe, ShieldCheck, TrendingUp, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { PROJECTS } from '@/lib/pulse-data'
 
 const STATS = [
   { label: 'Active projects', value: '12' },
@@ -30,7 +31,7 @@ const FEATURES = [
   {
     icon: <Zap className="size-5" />,
     title: 'Crypto-native deposits',
-    body: 'Fund your account with USDT or BTC via NOWPayments. Instant, borderless, and low-fee — built for the African diaspora.',
+    body: 'Fund your account through Pulse-supported rails with clear fees, transparent status, and investor-first controls.',
   },
   {
     icon: <TrendingUp className="size-5" />,
@@ -41,33 +42,6 @@ const FEATURES = [
     icon: <BadgeCheck className="size-5" />,
     title: 'PULSE token',
     body: 'Earn PULSE tokens through the private sale and stake them for additional yield, governance participation, and platform perks.',
-  },
-]
-
-const PROJECTS = [
-  {
-    name: 'Kalahari Solar Farm',
-    location: 'Botswana',
-    sector: 'Energy',
-    target: '24–28%',
-    funded: 78,
-    image: '/projects/kalahari-solar.png',
-  },
-  {
-    name: 'Limpopo AgriHub',
-    location: 'South Africa',
-    sector: 'Agriculture',
-    target: '18–22%',
-    funded: 91,
-    image: '/projects/limpopo-agri.png',
-  },
-  {
-    name: 'Harare Fintech Bridge',
-    location: 'Zimbabwe',
-    sector: 'Fintech',
-    target: '28–34%',
-    funded: 55,
-    image: '/projects/harare-fintech.png',
   },
 ]
 
@@ -193,25 +167,25 @@ export default async function HomePage() {
 
           <div className="grid gap-6 md:grid-cols-3">
             {PROJECTS.map((p) => (
-              <div key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-card p-6 shadow-xl">
-                <Image src={p.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-20 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
-                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-transparent" aria-hidden="true" />
+              <Link href={`/projects/${p.id}`} key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-card p-6 shadow-xl">
+                <Image src={p.image ?? '/projects/lovable-pulse-hero.jpg'} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-80 saturate-150 brightness-125 contrast-105 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
+                <div className="absolute inset-0 bg-gradient-to-r from-background/55 via-background/35 to-transparent" aria-hidden="true" />
                 
                 <div className="relative flex items-center justify-between">
                   <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium backdrop-blur-md">
                     {p.sector}
                   </span>
-                  <span className="text-xs font-medium text-muted-foreground">{p.location}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{p.country}</span>
                 </div>
                 
                 <p className="relative mt-5 text-lg font-display font-semibold text-foreground">{p.name}</p>
-                <p className="relative mt-1 text-sm font-medium text-amber-400">Target return: {p.target} p.a.</p>
+                <p className="relative mt-1 text-sm font-medium text-amber-400">Target return: {p.targetYield} p.a.</p>
 
                 {/* Funding bar */}
                 <div className="relative mt-6">
                   <div className="mb-2 flex justify-between text-xs text-muted-foreground font-technical">
                     <span>Funded</span>
-                    <span className="font-bold text-foreground">{p.funded}%</span>
+                    <span className="font-bold text-foreground">{Math.round((p.funded / p.goal) * 100)}%</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.08] p-0.5 border border-white/5">
                     <div
@@ -220,7 +194,7 @@ export default async function HomePage() {
                     />
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

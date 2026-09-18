@@ -26,7 +26,7 @@ const containerVariants = {
 }
 const itemVariants = {
   hidden: { opacity: 0, y: 20, scale: 0.98 },
-  visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 300, damping: 24 } },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } },
 }
 
 function useMouseGlow<T extends HTMLElement>() {
@@ -326,17 +326,6 @@ export function StakeView() {
         </div>
       </motion.div>
 
-      {/* RISK DISCLAIMER */}
-      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static space-y-2 p-4">
-        <div className="pulse-disclaimer-title flex items-center gap-2">
-          <span>&#9888;&#65039;</span>
-          <span>Risk Disclaimer</span>
-        </div>
-        <p className="pulse-disclaimer">
-          Yield outputs and APY metrics reflect live ledger states and are variable, not guaranteed. Past performance
-          does not guarantee future returns. Capital is at risk — do not invest money you cannot afford to lose.
-        </p>
-      </motion.div>
     </motion.div>
   )
 }

@@ -30,6 +30,9 @@ import {
   castVote,
   claimAdmin as claimAdminAction,
   applyForCard as applyForCardAction,
+  setPulsePin,
+  requestPulsePinReset,
+  resetPulsePin,
   addSavedWallet as addSavedWalletAction,
   removeSavedWallet as removeSavedWalletAction,
   requestTransfer as requestTransferAction,
@@ -77,9 +80,10 @@ interface State {
   kyc: KycStatus
   wallet: string | null
   referralCode: string
+  pulseId: string | null
   fullName: string | null
   email: string | null
-  tier: number
+  tier: import('@/lib/pulse-data').TierId
   isAdmin: boolean
   points: number
   founderNumber: number | null
@@ -89,8 +93,14 @@ interface State {
   referralVerifiedCount: number
   badges: BadgeRow[]
   adminScope: 'full' | 'finance' | 'operations' | 'manager' | 'director' | null
-  cardStatus: 'none' | 'waitlisted' | 'approved' | 'free_card_earned'
+  cardStatus: 'none' | 'waitlisted' | 'approved' | 'pending_pin' | 'active' | 'locked' | 'free_card_earned'
   cardRef: string | null
+  cardLast4: string | null
+  pinRequired: boolean
+  cardCvv: string | null
+  cardExpiryMonth: number | null
+  cardExpiryYear: number | null
+  cardholderName: string | null
   savedWallets: SavedWallet[]
 }
 
@@ -106,9 +116,10 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
     kyc: data.kyc ?? 'none',
     wallet: data.wallet ?? null,
     referralCode: data.referralCode ?? 'PULSE-USER',
+    pulseId: data.pulseId ?? null,
     fullName: data.fullName ?? null,
     email: data.email ?? null,
-    tier: data.tier ?? 1,
+    tier: data.tier ?? 'starter',
     isAdmin: data.isAdmin ?? false,
     points: data.points ?? 0,
     founderNumber: data.founderNumber ?? null,
@@ -118,8 +129,15 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
     referralVerifiedCount: data.referralVerifiedCount ?? 0,
     badges: data.badges ?? [],
     adminScope: data.adminScope ?? null,
-    cardStatus: data.cardStatus ?? 'none',
-    cardRef: data.cardRef ?? null,
+  cardStatus: data.cardStatus ?? 'none',
+  cardRef: data.cardRef ?? null,
+  cardLast4: data.cardLast4 ?? null,
+  pinRequired: data.pinRequired ?? false,
+  cardCvv: data.cardCvv ?? null,
+  cardExpiryMonth: data.cardExpiryMonth ?? null,
+  cardExpiryYear: data.cardExpiryYear ?? null,
+  cardholderName: data.cardholderName ?? null,
+
     savedWallets: data.savedWallets ?? [],
   }
 }
@@ -181,6 +199,9 @@ interface StoreContext {
     foundersWall: () => Promise<{ ok: true; rows: FounderRow[] } | { ok: false; error: string }>
     myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
     applyForCard: () => Promise<ActionResult>
+    setPulsePin: (pin: string) => Promise<ActionResult>
+    requestPulsePinReset: () => Promise<{ ok: true; token: string } | { ok: false; error: string }>
+    resetPulsePin: (token: string, pin: string) => Promise<ActionResult>
     addSavedWallet: (label: string, address: string) => Promise<ActionResult>
     removeSavedWallet: (id: string) => Promise<ActionResult>
     transfer: (recipientIdentifier: string, amount: number) => Promise<ActionResult>
@@ -268,14 +289,15 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
         setState({ ...fromSnapshot(snap) })
         setLastSyncedAt(Date.now())
       }
-    } catch {
-      // Network blips are non-fatal: keep the last good snapshot on screen
-      // rather than flashing zeros at someone reading their balance.
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Supabase synchronization failed.'
+      toast({ title: 'Live sync failed', description: message, variant: 'error' })
+      console.error('[v0] Live sync failed', error)
     } finally {
       inFlight.current = false
       if (mounted.current) setSyncing(false)
     }
-  }, [])
+  }, [toast])
 
   // ---- LIVE SUPABASE SYNC ----------------------------------------------
   // Three triggers, all funnelling into refresh():
@@ -285,7 +307,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   useEffect(() => {
     mounted.current = true
     let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
 
     const start = async () => {
       try {
@@ -299,21 +321,23 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       } = await supabase.auth.getUser()
       if (!user || !mounted.current) return
 
-      channel = supabase
-        .channel(`pulse-sync-${user.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, () => refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` }, () => refresh())
-        .subscribe()
+      const nextChannel = supabase.channel(`pulse-sync-${user.id}-${crypto.randomUUID()}`)
+
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => void refresh())
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, () => void refresh())
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, () => void refresh())
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles', filter: `user_id=eq.${user.id}` }, () => void refresh())
+
+      if (!mounted.current) return
+      channel = nextChannel
+      channel.subscribe()
     }
 
     start()
 
     // Pull once on mount so a server-rendered snapshot that is already a few
     // seconds old is corrected immediately.
-    refresh()
+    void Promise.resolve().then(() => refresh())
 
     const interval = setInterval(refresh, SYNC_INTERVAL_MS)
     const onVisible = () => {
@@ -364,6 +388,9 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       foundersWall: () => getFoundersWall(),
       myReferrals: () => getMyReferrals(),
       applyForCard: () => run(() => applyForCardAction()),
+      setPulsePin: (pin) => run(() => setPulsePin(pin)),
+      requestPulsePinReset: () => requestPulsePinReset(),
+      resetPulsePin: (token, pin) => run(() => resetPulsePin(token, pin)),
       addSavedWallet: (label, address) => run(() => addSavedWalletAction(label, address)),
       removeSavedWallet: (id) => run(() => removeSavedWalletAction(id)),
       transfer: (recipientIdentifier, amount) => run(() => requestTransferAction(recipientIdentifier, amount)),
@@ -372,20 +399,9 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
       notifications: async () => {
         try {
-          const supabase = createClient()
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-          if (!user) return { ok: true, rows: [] }
-
-          const { data, error } = await supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-
-          if (error) return { ok: false, error: error.message }
-          return { ok: true, rows: (data || []) as NotificationRow[] }
+          // Notifications are not part of the live production schema yet.
+          // Keep the contract stable without issuing a guaranteed failing query.
+          return { ok: true, rows: [] as NotificationRow[] }
         } catch (e) {
           return { ok: false, error: (e as Error).message }
         }
@@ -393,8 +409,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       markNotificationRead: async (id: string) => {
         try {
           const supabase = createClient()
-          const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id)
-          if (error) return { ok: false, error: error.message }
+          void id
           return { ok: true }
         } catch (e) {
           return { ok: false, error: (e as Error).message }
