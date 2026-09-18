@@ -324,6 +324,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
         .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, () => refresh())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, () => refresh())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles', filter: `user_id=eq.${user.id}` }, () => refresh())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'card_applications', filter: `user_id=eq.${user.id}` }, () => refresh())
         .subscribe()
     }
 
@@ -331,7 +332,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
 
     // Pull once on mount so a server-rendered snapshot that is already a few
     // seconds old is corrected immediately.
-    refresh()
+    void Promise.resolve().then(() => refresh())
 
     const interval = setInterval(refresh, SYNC_INTERVAL_MS)
     const onVisible = () => {

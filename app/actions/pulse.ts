@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { TOKEN } from '@/lib/pulse-data'
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes, scryptSync } from 'node:crypto'
 import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
 import {
   getSnapshot as getSnapshotFromDb,
@@ -386,7 +386,7 @@ export async function setPulsePin(pin: string) {
   try {
     const db = serviceClient()
     const { data: card } = await db.from('card_applications').select('id, status').eq('user_id', user.id).in('status', ['approved', 'free_card_earned']).order('created_at', { ascending: false }).limit(1).maybeSingle()
-    if (!card || !['pending_pin', 'active'].includes(card.status)) {
+    if (!card || !['approved', 'pending_pin', 'active', 'free_card_earned'].includes(card.status)) {
       return { ok: false as const, error: 'Your Pulse card is not ready for PIN setup.' }
     }
     const { error } = await db.from('card_applications').update({ pin_hash: hashPin(pin), status: 'approved', pin_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', card.id)

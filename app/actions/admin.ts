@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/pulse/service'
-import { randomInt, randomBytes, scryptSync } from 'node:crypto'
+import { randomInt } from 'node:crypto'
 import { adjustAccount, isUserAdmin, recordTxn } from '@/lib/pulse/data-access'
 import type {
   AdminSnapshot,
@@ -468,12 +468,10 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
   ? `PULSE-${Array.from({ length: 4 }, () => randomInt(1000, 10000)).join('-')}`
   : null
   const cvv = decision === 'approved' ? String(randomInt(100, 1000)) : null
-  const cvvSalt = cvv ? randomBytes(16).toString('hex') : null
-  const cvvHash = cvv && cvvSalt ? `${cvvSalt}:${scryptSync(cvv, cvvSalt, 32).toString('hex')}` : null
   const { data: authUser } = decision === 'approved' ? await db.auth.admin.getUserById(app.user_id) : { data: { user: null } }
   const cardholderName = authUser.user?.user_metadata?.full_name ?? authUser.user?.user_metadata?.name ?? authUser.user?.email?.split('@')[0] ?? 'Pulse Member'
+  const { data, error } = await db
 
-  const { error } = await db
 
 
       .from('card_applications')
@@ -492,9 +490,11 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
         } : {}),
       })
       .eq('id', id)
-  .eq('status', 'pending')
+  .eq('status', 'waitlisted')
+  .select('id')
 
   if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
+  if (!data?.length) return { ok: false, error: 'Card application was not updated because it is no longer waitlisted.' }
 
     return getAdminSnapshot()
   } catch (e) {
