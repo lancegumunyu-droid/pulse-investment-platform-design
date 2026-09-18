@@ -8,6 +8,7 @@ import { TopBar } from './top-bar'
 import { BottomNav } from './bottom-nav'
 import { Modals } from './modals'
 import { Toaster } from './toaster'
+import { RiskNote } from './ui-bits'
 import { DashboardView } from './views/dashboard'
 import { InvestView } from './views/invest'
 import { WalletView } from './views/wallet'
@@ -71,6 +72,11 @@ export function PulseApp({ initial }: PulseAppProps) {
         <main className="mx-auto max-w-4xl px-4 pb-28 pt-6">
           <ViewSwitcher />
         </main>
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 px-3 sm:px-5">
+          <div className="pointer-events-auto mx-auto max-w-3xl">
+            <RiskNote className="rounded-xl border-amber-400/20 bg-zinc-950/90 py-2.5 shadow-[0_-12px_35px_rgba(0,0,0,0.55)] backdrop-blur-2xl" />
+          </div>
+        </div>
         <BottomNav />
         <Modals />
         <Toaster />

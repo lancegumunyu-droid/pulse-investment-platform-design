@@ -362,7 +362,7 @@ export async function getSnapshot(
     return res.data
   }
 
-  const [acct, holdings, txns, cardApplication, issuedCard, roleRow, pointsRows, wallets] = await Promise.all([
+  const [acct, holdings, txns, cardApplication, issuedCard, roleRow, referralRows, wallets] = await Promise.all([
     safeQuery(
       db
         .from('wallets')
@@ -370,9 +370,14 @@ export async function getSnapshot(
         .eq('user_id', userId)
         .maybeSingle(),
     ),
-    // The production schema has no investments table. Keep the snapshot
-    // renderable until holdings have a verified persistence model.
-    Promise.resolve(null),
+    safeQuery(
+      db
+        .from('investments')
+        .select('id, plan_id, amount, created_at, status, expected_return, actual_return, roi_percentage')
+        .eq('user_id', userId)
+        .in('status', ['active', 'approved', 'completed', 'pending'])
+        .order('created_at', { ascending: false }),
+    ),
     safeQuery(
       db
         .from('transactions')
@@ -384,14 +389,16 @@ export async function getSnapshot(
     Promise.resolve(null),
     Promise.resolve(null),
     safeQuery(db.from('admin_users').select('role').eq('user_id', userId).eq('is_active', true).maybeSingle()),
-    Promise.resolve(null),
+    safeQuery(
+      db.from('referrals').select('id, referred_user_id, status, bonus_awarded').eq('referrer_id', userId),
+    ),
     Promise.resolve(null),
   ])
 
   const stakingRows: Array<{ amount?: number }> = []
   const kycRow = (await safeQuery(
-    db.from('users').select('kyc_status, full_name').eq('id', userId).maybeSingle(),
-  )) as { kyc_status?: string; full_name?: string } | null
+    db.from('users').select('kyc_status, full_name, referral_code').eq('id', userId).maybeSingle(),
+   )) as { kyc_status?: string; full_name?: string; referral_code?: string } | null
   const email = (userEmail || '').toLowerCase()
   const role = (roleRow as { role?: string } | null)?.role
   const isAdmin = role === 'admin'
@@ -399,7 +406,7 @@ export async function getSnapshot(
   const rawKyc: Snapshot['kyc'] = rawKycStatus === 'approved' || rawKycStatus === 'verified' ? 'verified' : rawKycStatus === 'rejected' ? 'rejected' : rawKycStatus === 'pending' ? 'pending' : 'none'
 
   const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
-  const referrals: unknown[] = []
+  const referrals = (referralRows as unknown[]) ?? []
   const badgeRows: unknown[] = []
 
   const account = acct as {
@@ -461,18 +468,18 @@ export async function getSnapshot(
     }),
     kyc: rawKyc,
     wallet: account?.id ?? null,
-    referralCode: account?.id ?? 'PLS-XXXX',
+    referralCode: kycRow?.referral_code ?? 'PULSE-USER',
     fullName: kycRow?.full_name ?? null,
     email: email || null,
     tier: tierForAmount(Number(account?.invested_balance ?? 0)).id,
     isAdmin,
-    points: ((pointsRows ?? []) as Array<{ amount: number }>).reduce((s, r) => s + Number(r.amount), 0),
+    points: 0,
     founderNumber: null,
     walletId: account?.id ?? null,
     username: null,
     referralCount: ((referrals as unknown[]) ?? []).length,
-    referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(
-      (r) => r.kyc_status === 'verified',
+    referralVerifiedCount: ((referrals as Array<{ status?: string }>) ?? []).filter(
+      (r) => r.status === 'verified' || r.status === 'completed',
     ).length,
     badges: ((badgeRows as Array<{ badge_key: string; earned_at: string }>) ?? []).map((b) => ({
       key: b.badge_key,

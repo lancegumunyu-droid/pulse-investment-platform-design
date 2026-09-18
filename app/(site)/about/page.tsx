@@ -96,6 +96,20 @@ ledger. We operate under corporate registration and enable payment rails only af
         </div>
       </section>
 
+      <section className="relative mx-auto max-w-6xl px-5 py-20">
+        <div className="grid gap-8 rounded-3xl border border-gold/20 bg-gold-soft/20 p-8 shadow-2xl md:grid-cols-[0.8fr_1.2fr] md:p-12">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-widest text-gold">The reason Pulse exists</span>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground md:text-4xl">A more hopeful way to build wealth.</h2>
+          </div>
+          <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+            <p>Pulse began with a question: what would happen if ordinary people could see, understand, and participate in the projects shaping the region around them?</p>
+            <p>That question became a commitment to make African opportunity feel less distant. We bring structure to the hard work of diligence, then give people a clearer view of the builders, milestones, risks, and realities behind each opportunity.</p>
+            <p>We are still building, carefully and openly. Every project has a story, every return has a reason, and every investor deserves the truth before they commit capital.</p>
+          </div>
+        </div>
+      </section>
+
       {/* Values Grid */}
       <section className="relative border-t border-white/[0.08] bg-white/[0.015] py-20">
         <div className="mx-auto max-w-6xl px-5">
