@@ -364,7 +364,10 @@ export async function getSnapshot(
     return res.data
   }
 
-  const [acct, holdings, txns, cardApplication, issuedCard, roleRow, referralRows, wallets] = await Promise.all([
+  const [dashboardSummaryResult, acct, holdings, txns, cardApplication, issuedCard, roleRow, referralRows, wallets] = await Promise.all([
+    authenticatedDb
+      ? authenticatedDb.rpc('get_user_dashboard_summary')
+      : Promise.resolve({ data: null, error: null }),
     safeQuery(
       db
         .from('accounts')
@@ -424,17 +427,30 @@ export async function getSnapshot(
     pending_yield?: number
     wallet_id?: string
   } | null
-  const cashBalance = Number(account?.cash_balance ?? 0)
-  const tokenBalance = Number(account?.token_balance ?? 0)
-  const stakedBalance = Number(account?.staked_balance ?? 0)
-  const accountPendingYield = Number(account?.pending_yield ?? 0)
+  const dashboardSummary = (dashboardSummaryResult as { data?: Record<string, unknown> | null; error?: { message?: string } | null } | null)?.data
+  if ((dashboardSummaryResult as { error?: { message?: string } } | null)?.error) {
+    console.warn('[v0] Dashboard summary RPC unavailable; using compatibility reads', (dashboardSummaryResult as { error?: { message?: string } }).error)
+  }
+  const canonicalCash = Number(dashboardSummary?.cash_balance)
+  const canonicalInvested = Number(dashboardSummary?.invested_balance)
+  const canonicalStaked = Number(dashboardSummary?.staked_balance)
+  const canonicalTokens = Number(dashboardSummary?.token_balance)
+  const canonicalPendingYield = Number(dashboardSummary?.pending_yield)
+  const cashBalance = Number.isFinite(canonicalCash) ? canonicalCash : Number(account?.cash_balance ?? 0)
+  const tokenBalance = Number.isFinite(canonicalTokens) ? canonicalTokens : Number(account?.token_balance ?? 0)
+  const stakedBalance = Number.isFinite(canonicalStaked) ? canonicalStaked : Number(account?.staked_balance ?? 0)
+  const accountPendingYield = Number.isFinite(canonicalPendingYield) ? canonicalPendingYield : Number(account?.pending_yield ?? 0)
+  const canonicalInvestedBalance = Number.isFinite(canonicalInvested) ? canonicalInvested : Number(account?.invested_balance ?? 0)
 
   if (ledgerCash > 0 && cashBalance !== ledgerCash) {
     console.warn('[v0] Cash ledger differs from accounts.cash_balance', { userId, accountCash: cashBalance, ledgerCash })
   }
 
+  const rpcHoldingRows = Array.isArray(dashboardSummary?.active_holdings)
+    ? (dashboardSummary.active_holdings as Array<Record<string, unknown>>)
+    : null
   const activeHoldingRows = (
-    (holdings as unknown as Array<{
+    (rpcHoldingRows ?? holdings) as unknown as Array<{
       id: string
       project_id: string
       amount: number
@@ -442,14 +458,8 @@ export async function getSnapshot(
       actual_return?: number | null
       created_at: string
     }> | null) ?? []
-  )
-  const totalInvested = activeHoldingRows.reduce((sum, holding) => sum + Math.max(0, Number(holding.amount) || 0), 0)
-  const holdingsPendingYield = activeHoldingRows.reduce((sum, holding) => {
-    const expected = Number(holding.expected_return) || 0
-    const actual = Number(holding.actual_return) || 0
-    return sum + Math.max(0, expected - actual)
-  }, 0)
-  const pendingYield = holdingsPendingYield > 0 ? holdingsPendingYield : accountPendingYield
+  const totalInvested = canonicalInvestedBalance
+  const pendingYield = accountPendingYield
   const activeHoldings = activeHoldingRows.map((h) => ({
     id: h.id,
     projectId: h.project_id,
@@ -494,7 +504,7 @@ export async function getSnapshot(
     referralCode: account?.wallet_id ?? '',
     fullName: kycRow?.full_name ?? null,
     email: email || null,
-    tier: tierForAmount(totalInvested).id,
+    tier: (dashboardSummary?.overall_tier as Snapshot['tier'] | undefined) ?? tierForAmount(totalInvested).id,
     isAdmin,
     points: 0,
     founderNumber: null,
