@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { AuthForm } from '@/components/pulse/auth-form'
 
 export const metadata: Metadata = {
-  title: 'Authenticate Terminal | SADC Pulse Private Wealth',
-  description: 'Secure executive login for institutional private equity members.',
+  title: 'Sign in to Pulse',
+  description: 'Securely sign in to your Pulse investment account.',
 }
 
 export default function LoginPage() {

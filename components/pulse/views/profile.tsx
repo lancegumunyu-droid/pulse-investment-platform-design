@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Copy, Gift, Lock, LogOut, User, ChevronDown } from 'lucide-react'
+import { Copy, Gift, Lock, LogOut, User, ChevronDown, ShieldCheck } from 'lucide-react'
 import { usePulse } from '../store'
 import { Button } from '@/components/ui/button'
 import type { LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
@@ -25,7 +25,7 @@ const itemVariants = {
  * import, so `React.X` would resolve to the UMD global and fail type-check.
  */
 export function ProfileView() {
-  const { state, currentTier, setView, toast, signOut, api } = usePulse()
+  const { state, currentTier, setView, toast, signOut, api, openModal } = usePulse()
   const referralCode = state.referralCode
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[] | null>(null)
   const [founders, setFounders] = useState<FounderRow[] | null>(null)
@@ -184,6 +184,26 @@ export function ProfileView() {
               </div>
             )}
           </div>
+        </div>
+      </motion.div>
+
+      {/* VERIFICATION STATUS */}
+      <motion.div variants={itemVariants} className="pulse-glass-card pulse-static p-5">
+        <div className="flex items-start gap-3">
+          <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl border ${state.kyc === 'verified' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
+            <ShieldCheck className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="pulse-value-md">Identity verification</p>
+            <p className="pulse-label mt-1 normal-case tracking-normal text-zinc-400">
+              {state.kyc === 'verified' ? 'Verified member — full platform access enabled.' : state.kyc === 'pending' ? 'Your documents are under review.' : state.kyc === 'rejected' ? 'Verification needs to be resubmitted.' : 'Verify your identity to unlock investing and wallet features.'}
+            </p>
+          </div>
+          {state.kyc !== 'verified' && (
+            <Button size="sm" className="shrink-0 bg-amber-400 font-semibold text-black hover:bg-amber-300" onClick={() => openModal('kyc')}>
+              {state.kyc === 'pending' ? 'View' : 'Verify'}
+            </Button>
+          )}
         </div>
       </motion.div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { ShieldCheck } from 'lucide-react'
 import type { Snapshot } from '@/lib/pulse/types'
 import { PulseProvider, usePulse } from './store'
 import { TopBar } from './top-bar'
@@ -20,8 +21,26 @@ interface PulseAppProps {
   initial: Snapshot
 }
 
+function VerificationRequiredView() {
+  const { setView, openModal } = usePulse()
+  return (
+    <section className="pulse-glass-card mx-auto flex max-w-xl flex-col items-center gap-4 p-8 text-center">
+      <ShieldCheck className="size-10 text-amber-300" />
+      <h1 className="text-xl font-semibold">Identity verification required</h1>
+      <p className="text-sm leading-6 text-muted-foreground">Complete verification to unlock investing, staking, sale, signals, and wallet features.</p>
+      <div className="flex gap-3">
+        <button className="pulse-action rounded-xl bg-amber-400 px-4 py-2 text-sm font-semibold text-black" onClick={() => openModal('kyc')}>Verify identity</button>
+        <button className="rounded-xl border border-white/10 px-4 py-2 text-sm" onClick={() => setView('profile')}>View profile</button>
+      </div>
+    </section>
+  )
+}
+
 function ViewSwitcher() {
   const view = usePulse((s) => s.view)
+  const kyc = usePulse((s) => s.state.kyc)
+  const restricted = ['invest', 'sale', 'stake', 'signals', 'wallet'].includes(view)
+  if (restricted && kyc !== 'verified') return <VerificationRequiredView />
   switch (view) {
     case 'dashboard':
       return <DashboardView />

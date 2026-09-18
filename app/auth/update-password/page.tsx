@@ -34,7 +34,7 @@ export default function UpdatePasswordPage() {
     }
     // Full navigation, same reasoning as the login flow fix — guarantees
     // the refreshed session cookie is sent cleanly on the next request.
-    window.location.href = '/app'
+    router.replace('/app')
   }
 
   return (

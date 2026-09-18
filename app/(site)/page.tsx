@@ -194,7 +194,7 @@ export default async function HomePage() {
           <div className="grid gap-6 md:grid-cols-3">
             {PROJECTS.map((p) => (
               <div key={p.name} className="pulse-tile group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-card p-6 shadow-xl">
-                <Image src={p.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-20 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
+                <Image src={p.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-42 saturate-125 brightness-110 transition-transform duration-700 group-hover:scale-105" aria-hidden="true" />
                 <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-transparent" aria-hidden="true" />
                 
                 <div className="relative flex items-center justify-between">
