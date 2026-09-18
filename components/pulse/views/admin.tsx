@@ -49,7 +49,7 @@ import {
 } from '@/app/actions/admin'
 
 import type { AdminSnapshot } from '@/lib/pulse/types'
-import type { Project, Signal } from '@/lib/pulse/pulse-data'
+import type { Project, Signal } from '@/lib/pulse-data'
 
 export type AdminScope = 'full' | 'finance' | 'operations' | 'manager' | 'director'
 export type UrgencyLevel = 'Open' | 'Standard' | 'New' | 'Closing soon'

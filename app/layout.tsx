@@ -1,28 +1,14 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
+import { Roboto } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { PWAInstaller } from '@/components/pulse/pwa-installer'
 import './globals.css'
 
-/**
- * ONE interface typeface for the entire application — Plus Jakarta Sans.
- * Roboto is declared as the system fallback inside globals.css.
- * Geist and Space Grotesk have been removed: loading them was what made the
- * marketing pages and the app shell render in different faces.
- */
-const jakarta = Plus_Jakarta_Sans({
+const roboto = Roboto({
   subsets: ['latin'],
-  variable: '--font-jakarta',
+  variable: '--font-roboto',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
-})
-
-/** Numerals only: tabular figures for balances, amounts, APY, hashes. */
-const monoNum = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono-num',
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '700'],
 })
 
 export const viewport: Viewport = {
@@ -73,7 +59,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       lang="en"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${jakarta.variable} ${monoNum.variable} dark bg-[#060608] text-foreground h-full`}
+      className={`${roboto.variable} dark bg-[#060608] text-foreground h-full`}
     >
       <body className="font-sans text-zinc-100 antialiased selection:bg-amber-500 selection:text-black min-h-screen min-h-[100dvh] flex flex-col relative overflow-x-hidden bg-background">
         <div

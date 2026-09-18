@@ -87,11 +87,28 @@ export interface Project {
   goal: number
   risk: 'Lower' | 'Moderate' | 'Higher'
   summary: string
+  status?: 'Open' | 'Closed'
+  deadline?: string | null
   // FIX — dashboard.tsx renders p.image as the card cover photo, but this
   // field never existed on the type. TypeScript would fail the build the
   // moment pulse-data.ts compiled again. Optional so projects without a
   // photo still render (dashboard.tsx already guards with `p.image &&`).
   image?: string
+}
+
+export interface PulseProject {
+  id: string
+  title: string
+  location: string
+  category: string
+  apy: string
+  minInvestment: number
+  raisedAmount: number
+  targetRaise: number
+  image: string
+  badge: string
+  description: string
+  metrics: { irr: string; duration: string }
 }
 
 export const PROJECTS: Project[] = [
@@ -140,6 +157,21 @@ export const PROJECTS: Project[] = [
     summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
   },
 ]
+
+export const PULSE_PROJECTS: PulseProject[] = PROJECTS.map((project) => ({
+  id: project.id,
+  title: project.name,
+  location: `${project.country} · ${project.sector}`,
+  category: project.sector,
+  apy: project.targetYield,
+  minInvestment: 75,
+  raisedAmount: project.funded,
+  targetRaise: project.goal,
+  image: project.image ?? '/projects/lovable-pulse-hero.jpg',
+  badge: project.risk,
+  description: project.summary,
+  metrics: { irr: project.targetYield, duration: 'Variable' },
+}))
 
 export interface Signal {
   id: string

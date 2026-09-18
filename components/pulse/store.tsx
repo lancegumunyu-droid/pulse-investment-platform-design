@@ -305,7 +305,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   useEffect(() => {
     mounted.current = true
     let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
 
     const start = async () => {
       try {

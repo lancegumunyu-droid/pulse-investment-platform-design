@@ -70,17 +70,24 @@ export interface MyReferralRow {
   displayName: string
   kycStatus: string
   createdAt: number
+  name?: string
+  status?: string
+  date?: number
 }
 
 export interface LeaderboardRow {
   fullName: string
   totalPoints: number
   founderNumber: number | null
+  rank?: number
+  username?: string
+  points?: number
 }
 
 export interface FounderRow {
   fullName: string
   founderNumber: number
+  name?: string
 }
 
 // Admin dashboard payload
@@ -96,6 +103,9 @@ export interface AdminUserRow {
   staked: number
   createdAt: number
   adminScope: 'full' | 'finance' | 'operations' | null
+  kycVerified?: boolean
+  managerId?: string | null
+  isAdmin?: boolean
 }
 
 export interface AdminKycRow {
@@ -160,4 +170,7 @@ export interface AdminSnapshot {
   p2pQueue: AdminTxnRow[] // NEW
   cardQueue: AdminCardRow[] // NEW
   recentTxns: AdminTxnRow[]
+  usersList?: AdminUserRow[]
 }
+
+export type AdminP2PRow = AdminTxnRow
