@@ -35,9 +35,10 @@ async function requireAdmin() {
 async function requireAdminScope(allowed: AdminScope[]) {
   const user = await requireAdmin()
   const db = serviceClient()
-  const { data } = await db.from('admin_users').select('role').eq('user_id', user.id).eq('is_active', true).maybeSingle()
+  const { data } = await db.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
 
-  const scope = data?.role === 'admin' ? ('full' as AdminScope) : null
+  const assignedRole = String(data?.role ?? '').toLowerCase()
+  const scope = ['admin', 'super_admin', 'director'].includes(assignedRole) ? ('full' as AdminScope) : null
 
   // No implicit privilege. An admin with no scope set can only perform
   // actions that explicitly allow 'operations'.
