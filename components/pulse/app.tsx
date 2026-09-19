@@ -40,6 +40,7 @@ function VerificationRequiredView() {
 function ViewSwitcher() {
   const view = usePulse((s) => s.view)
   const kyc = usePulse((s) => s.state.kyc)
+  const isAdmin = usePulse((s) => s.state.isAdmin)
   const restricted = ['invest', 'sale', 'stake', 'signals', 'wallet'].includes(view)
   if (restricted && kyc !== 'verified') return <VerificationRequiredView />
   switch (view) {
@@ -58,7 +59,7 @@ function ViewSwitcher() {
     case 'profile':
       return <ProfileView />
     case 'admin':
-      return <AdminView />
+      return isAdmin ? <AdminView /> : <DashboardView />
     default:
       return <DashboardView />
   }
