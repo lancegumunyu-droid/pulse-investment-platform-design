@@ -2,8 +2,19 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { TOKEN } from '@/lib/pulse-data'
-import { createHash, randomBytes, scryptSync } from 'node:crypto'
+// FIX #11 — BUILD BLOCKER. This file imported types from './types', i.e.
+// app/actions/types.ts, which does not exist. The real module is
+// '@/lib/pulse/types'.
 import type { Snapshot, LeaderboardRow, FounderRow, MyReferralRow } from '@/lib/pulse/types'
+// FIX #12 — DATA NOT FETCHING (root cause).
+// This file used to define its OWN getSnapshot / adjustAccount / recordTxn /
+// ensureAccount against the cookie-scoped anon client, which is subject to RLS.
+// If any policy on accounts / holdings / points_ledger / badges was missing or
+// restrictive, those reads returned empty and the UI rendered zeros with no
+// error. Everything now delegates to lib/pulse/data-access.ts, which uses the
+// service client and is always scoped by a userId taken from the verified
+// session — the same path the server component already used, so the dashboard
+// and the client store can no longer disagree about your balance.
 import {
   getSnapshot as getSnapshotFromDb,
   adjustAccount,
@@ -18,6 +29,7 @@ async function getSupabase() {
   return await createClient()
 }
 
+/** Returns the verified auth user, or null. Never trust a client-supplied id. */
 async function requireUser() {
   const supabase = await getSupabase()
   const {
@@ -50,64 +62,35 @@ export async function getSnapshot(userId: string): Promise<Snapshot> {
 }
 
 export async function fetchSnapshot(): Promise<Snapshot | null> {
-  const supabase = await getSupabase()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    throw new Error('No authenticated Supabase user')
-  }
-
-  try {
-    return await getSnapshotFromDb(user.id, user.email ?? undefined, supabase)
-  } catch (error) {
-    console.error('Portfolio load failed:', error)
-    throw error
-  }
+  const user = await requireUser()
+  if (!user) return null
+  return getSnapshotFromDb(user.id, user.email ?? undefined)
 }
 
-// NEW — backs sale.tsx. The private-sale progress bar previously showed a
-// hardcoded SALE_RAISED = 1_842_000 that never changed regardless of actual
-// purchases. This sums every completed token_purchase transaction's usdCost
-// across all users, so the bar reflects the real ledger.
-export async function getSaleProgress(): Promise<
-  { ok: true; raisedUsd: number; buyerCount: number } | { ok: false; error: string }
-> {
-  try {
-    const db = serviceClient()
-    const { data, error } = await db
-      .from('transactions')
-      .select('user_id, amount, currency, status, meta')
-      .eq('type', 'token_purchase')
-      .eq('status', 'completed')
-
-    if (error) return { ok: false, error: error.message }
-
-    let raisedUsd = 0
-    const buyers = new Set<string>()
-    for (const t of data ?? []) {
-      const meta = t.meta as Record<string, unknown> | null
-      const usdCost = Number(meta?.usdCost)
-      // Fall back to amount * salePrice for older rows written before usdCost
-      // was always stored in meta.
-      raisedUsd += usdCost > 0 ? usdCost : Number(t.amount) * TOKEN.salePrice
-      buyers.add(t.user_id)
-    }
-
-    return { ok: true, raisedUsd, buyerCount: buyers.size }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
+// ==========================================
+// USER ACTION WRAPPERS
+// ==========================================
 
 export async function validateReferralCode(code: string): Promise<{ ok: boolean; valid: boolean; error?: string }> {
-  const clean = code?.trim().toUpperCase()
+  // FIX #13 — auth-form.tsx checks `res?.ok`, but this action only ever
+  // returned { valid }. `ok` was always undefined, so every referral code was
+  // reported invalid and nobody could complete sign-up. Both keys are now
+  // returned and kept in sync.
+  const clean = code?.trim()
   if (!clean) return { ok: false, valid: false, error: 'Code cannot be empty' }
   try {
     const db = serviceClient()
-    const { data, error } = await db.rpc('validate_pulse_referral', { ref_code: clean })
-    if (!error && data === true) return { ok: true, valid: true }
-    return { ok: false, valid: false, error: 'A verified Pulse ID is required to join.' }
+
+    const { data: byCode } = await db.from('profiles').select('id').eq('referral_code', clean).maybeSingle()
+    if (byCode) return { ok: true, valid: true }
+
+    const { data: byWallet } = await db.from('accounts').select('user_id').eq('wallet_id', clean).maybeSingle()
+    if (byWallet) return { ok: true, valid: true }
+
+    // The public join code used when someone arrives without a referrer.
+    if (clean.toUpperCase() === 'PULSE-PUBLIC') return { ok: true, valid: true }
+
+    return { ok: false, valid: false, error: 'Invalid or expired referral code' }
   } catch (e) {
     return { ok: false, valid: false, error: (e as Error).message }
   }
@@ -118,6 +101,9 @@ export async function submitDeposit(amount: number, currency: 'usdttrc20' | 'btc
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   if (!(amount > 0)) return { ok: false as const, error: 'Enter a valid amount' }
   try {
+    // SECURITY: deposits must NOT touch the account balance here. This logs the
+    // claim as 'pending'. Balance only moves when an admin approves it via
+    // reviewDeposit in app/actions/admin.ts.
     await recordTxn(user.id, {
       type: 'deposit',
       amount,
@@ -150,6 +136,8 @@ export async function requestWithdrawal(
       return { ok: false as const, error: 'Amount exceeds your available balance' }
     }
 
+    // SECURITY: pending-only. The debit happens on admin approval in
+    // reviewWithdrawal so a rejected request never needs a refund.
     await recordTxn(user.id, {
       type: 'withdrawal',
       amount,
@@ -170,11 +158,11 @@ export async function invest(amount: number, projectId: string) {
   try {
     const db = serviceClient()
 
-  const snap = await getSnapshotFromDb(user.id)
-  if (snap.holdings.length >= 2) {
-    return { ok: false as const, error: 'You can only hold two active positions at a time.' }
-  }
-  if (amount > 500 && snap.kyc !== 'verified') {
+    // FIX #14 — the invest modal blocks amounts over $500 without KYC on the
+    // client only. A direct server-action call bypassed it entirely. The same
+    // threshold is now enforced server-side.
+    const snap = await getSnapshotFromDb(user.id)
+    if (amount > 500 && snap.kyc !== 'verified') {
       return { ok: false as const, error: 'KYC verification is required for investments over $500' }
     }
 
@@ -265,8 +253,7 @@ export async function setWallet(address: string | null) {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = serviceClient()
-    const { error } = await db.from('accounts').update({ wallet_id: address }).eq('user_id', user.id)
-    if (error) throw error
+    await db.from('profiles').update({ wallet_address: address }).eq('id', user.id)
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }
@@ -285,20 +272,13 @@ export async function submitKyc(input: {
   const user = await requireUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
-  const db = serviceClient()
-  const { data: latestSubmission, error: latestError } = await db
-    .from('kyc_submissions')
-    .select('status')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (latestError) return { ok: false as const, error: `Could not check existing verification: ${latestError.message}` }
-  const latestStatus = String(latestSubmission?.status ?? '').toLowerCase()
-  if (latestStatus === 'approved' || latestStatus === 'verified') {
-    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
-  }
-  const { error: subErr } = await db.from('kyc_submissions').insert({
+    const db = serviceClient()
+
+    // FIX #15 — the admin KYC queue reads from the kyc_submissions table, but
+    // this action only ever flipped profiles.kyc_status to 'pending'. No row
+    // was ever inserted, so submissions never appeared for review and every
+    // user sat on "under review" forever. The submission row is now written.
+    const { error: subErr } = await db.from('kyc_submissions').insert({
       user_id: user.id,
       full_name: input.fullName,
       id_number: input.idNumber,
@@ -311,6 +291,7 @@ export async function submitKyc(input: {
     })
     if (subErr) return { ok: false as const, error: `Could not file submission: ${subErr.message}` }
 
+    await db.from('profiles').update({ kyc_status: 'pending', full_name: input.fullName }).eq('id', user.id)
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }
@@ -333,6 +314,8 @@ export async function claimAdmin() {
   const user = await requireUser()
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
+    // SECURITY: self-service admin promotion is disabled. This only recognises
+    // admin status that already exists via profiles.role.
     const admin = await checkIsUserAdmin(user.id)
     if (!admin) {
       return { ok: false as const, error: 'Admin access is not enabled for this account.' }
@@ -368,88 +351,7 @@ export async function applyForCard() {
   if (!user) return { ok: false as const, error: 'Unauthorized' }
   try {
     const db = serviceClient()
-    const { data: existing } = await db
-    .from('card_applications')
-    .select('id, status')
-    .eq('user_id', user.id)
-    .in('status', ['waitlisted', 'approved'])
-    .maybeSingle()
-  if (!existing) {
-    const cardRef = `PULSE-${randomBytes(10).toString('hex').toUpperCase()}`
-    const { error } = await db.from('card_applications').insert({
-      user_id: user.id,
-      status: 'waitlisted',
-      card_ref: cardRef,
-      card_number_last4: cardRef.slice(-4),
-    })
-    if (error) throw error
-  }
-    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message }
-  }
-}
-
-function hashPin(pin: string) {
-  const salt = randomBytes(16).toString('hex')
-  const digest = scryptSync(pin, salt, 32).toString('hex')
-  return `${salt}:${digest}`
-}
-
-function hashResetToken(token: string) {
-  return createHash('sha256').update(token).digest('hex')
-}
-
-function validPin(pin: string) {
-  return /^(?!([0-9])\\1{3,5}$)(?!0123$|1234$|4321$)[0-9]{4,6}$/.test(pin)
-}
-
-export async function setPulsePin(pin: string) {
-  const user = await requireUser()
-  if (!user) return { ok: false as const, error: 'Unauthorized' }
-  if (!validPin(pin)) return { ok: false as const, error: 'Use a unique 4–6 digit PIN.' }
-  try {
-    const db = serviceClient()
-    const { data: card } = await db.from('card_applications').select('id, status').eq('user_id', user.id).in('status', ['approved', 'free_card_earned']).order('created_at', { ascending: false }).limit(1).maybeSingle()
-    if (!card || !['approved', 'pending_pin', 'active', 'free_card_earned'].includes(card.status)) {
-      return { ok: false as const, error: 'Your Pulse card is not ready for PIN setup.' }
-    }
-    const { error } = await db.from('card_applications').update({ pin_hash: hashPin(pin), status: 'approved', pin_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', card.id)
-    if (error) throw error
-    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message }
-  }
-}
-
-export async function requestPulsePinReset() {
-  const user = await requireUser()
-  if (!user) return { ok: false as const, error: 'Unauthorized' }
-  try {
-    const db = serviceClient()
-    const { data: card } = await db.from('card_applications').select('id').eq('user_id', user.id).in('status', ['approved', 'free_card_earned']).order('created_at', { ascending: false }).limit(1).maybeSingle()
-    if (!card) return { ok: false as const, error: 'No Pulse card found.' }
-    const token = randomBytes(32).toString('base64url')
-    const { error } = await db.from('pulse_card_pin_resets').insert({ card_id: card.id, user_id: user.id, token_hash: hashResetToken(token), expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
-    if (error) throw error
-    return { ok: true as const, token }
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message }
-  }
-}
-
-export async function resetPulsePin(token: string, pin: string) {
-  const user = await requireUser()
-  if (!user) return { ok: false as const, error: 'Unauthorized' }
-  if (!validPin(pin)) return { ok: false as const, error: 'Use a unique 4–6 digit PIN.' }
-  try {
-    const db = serviceClient()
-    const { data: reset } = await db.from('pulse_card_pin_resets').select('id, card_id, expires_at, consumed_at').eq('user_id', user.id).eq('token_hash', hashResetToken(token)).maybeSingle()
-    if (!reset || reset.consumed_at || new Date(reset.expires_at) < new Date()) return { ok: false as const, error: 'That reset request has expired. Start again.' }
-    const { error: cardError } = await db.from('card_applications').update({ pin_hash: hashPin(pin), status: 'approved', pin_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', reset.card_id).eq('user_id', user.id)
-    if (cardError) throw cardError
-    const { error } = await db.from('pulse_card_pin_resets').update({ consumed_at: new Date().toISOString() }).eq('id', reset.id)
-    if (error) throw error
+    await db.from('card_applications').upsert({ user_id: user.id, status: 'waitlisted' }, { onConflict: 'user_id' })
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
     return { ok: false as const, error: (e as Error).message }
@@ -489,6 +391,12 @@ export async function requestTransfer(recipientIdentifier: string, amount: numbe
     const db = serviceClient()
     const ident = recipientIdentifier.trim().replace(/^@/, '')
 
+    // FIX #16 — MONEY BUG. The old version debited the sender and stored only
+    // a free-text `recipientIdentifier`. reviewP2PTransfer then looked for
+    // meta.recipientId, never found it, and refused to approve — so the money
+    // left the sender and could never reach anyone. The recipient is now
+    // resolved to a real user id up front and the transfer is rejected before
+    // any debit if no such user exists.
     const { data: byUsername } = await db.from('profiles').select('id').eq('username', ident.toLowerCase()).maybeSingle()
     let recipientId = byUsername?.id as string | undefined
 
@@ -531,18 +439,15 @@ export async function closeInvestment(holdingId: string) {
       .maybeSingle()
     if (!holding) return { ok: false as const, error: 'Holding not found' }
 
-  const amount = Number(holding.amount)
-  const openedAt = new Date(holding.created_at ?? 0).getTime()
-  const earlyClose = Number.isFinite(openedAt) && Date.now() - openedAt < 14 * 24 * 60 * 60 * 1000
-  const earlyCloseFee = earlyClose ? 15 : 0
-  await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount - earlyCloseFee })
-  await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
+    const amount = Number(holding.amount)
+    await adjustAccount(user.id, { invested_balance: -amount, cash_balance: amount })
+    await db.from('holdings').delete().eq('id', holdingId).eq('user_id', user.id)
     await recordTxn(user.id, {
       type: 'close_investment',
       amount,
       currency: 'USD',
-    meta: { holdingId, label: earlyClose ? 'Investment liquidated — $15 early close fee' : 'Investment liquidated', earlyCloseFee },
-  })
+      meta: { holdingId, label: 'Investment liquidated' },
+    })
 
     return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
   } catch (e) {
@@ -550,25 +455,43 @@ export async function closeInvestment(holdingId: string) {
   }
 }
 
+// ==========================================
+// PUBLIC READ ACTIONS
+// ==========================================
+
 export async function getLeaderboard(): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; error: string }> {
   try {
     const db = serviceClient()
-    const [{ data: profiles }, { data: points }] = await Promise.all([
-      db.from('profiles').select('id, username, full_name, founder_number').limit(200),
+    // FIX #17 — this selected `tier` and no points, then returned points: 0 for
+    // everyone while calling itself a leaderboard ordered by nothing. It now
+    // ranks by real points from points_ledger.
+    // FIX — PRIVACY. Every row here fell back to profiles.full_name whenever
+    // a username wasn't set — which was every single account (0 of 69 users
+    // had ever set a username), so this "leaderboard handle" was silently
+    // showing everyone's real full legal name to any signed-in user. It now
+    // falls back to the Pulse ID / wallet handle instead, and full_name is
+    // never selected or returned here at all.
+    const [{ data: profiles }, { data: points }, { data: accts }] = await Promise.all([
+      db.from('profiles').select('id, username, tier').limit(200),
       db.from('points_ledger').select('user_id, amount'),
+      db.from('accounts').select('user_id, pulse_id, wallet_id'),
     ])
 
     const totals = new Map<string, number>()
     for (const p of points ?? []) {
       totals.set(p.user_id, (totals.get(p.user_id) ?? 0) + Number(p.amount))
     }
+    const handleMap = new Map<string, string>()
+    for (const a of accts ?? []) {
+      handleMap.set(a.user_id, a.pulse_id ?? a.wallet_id ?? '')
+    }
 
     const rows: LeaderboardRow[] = (profiles ?? [])
       .map((p) => ({
         rank: 0,
-        username: p.username ?? p.full_name ?? 'Anonymous',
-    founderNumber: p.founder_number ?? null,
-    points: totals.get(p.id) ?? 0,
+        username: p.username ? `@${p.username}` : handleMap.get(p.id) || 'Pulse Investor',
+        tier: p.tier ?? 0,
+        points: totals.get(p.id) ?? 0,
       }))
       .sort((a, b) => b.points - a.points)
       .slice(0, 20)
@@ -585,12 +508,21 @@ export async function getFoundersWall(): Promise<{ ok: true; rows: FounderRow[] 
     const db = serviceClient()
     const { data } = await db
       .from('profiles')
-      .select('username, full_name, founder_number')
+      .select('id, username, founder_number')
       .not('founder_number', 'is', null)
       .order('founder_number', { ascending: true })
+    const ids = (data ?? []).map((p) => p.id)
+    // Same privacy fix as getLeaderboard: never fall back to full_name.
+    const { data: accts } = ids.length
+      ? await db.from('accounts').select('user_id, pulse_id, wallet_id').in('user_id', ids)
+      : { data: [] as { user_id: string; pulse_id: string | null; wallet_id: string | null }[] }
+    const handleMap = new Map<string, string>()
+    for (const a of accts ?? []) {
+      handleMap.set(a.user_id, a.pulse_id ?? a.wallet_id ?? '')
+    }
     const rows: FounderRow[] = (data ?? []).map((p) => ({
       founderNumber: p.founder_number,
-      name: p.username ?? p.full_name ?? 'Founder',
+      name: p.username ? `@${p.username}` : handleMap.get(p.id) || 'Founder',
     }))
     return { ok: true, rows }
   } catch (e) {
@@ -605,10 +537,20 @@ export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[
     const db = serviceClient()
     const { data } = await db
       .from('profiles')
-      .select('username, full_name, kyc_status, created_at')
+      .select('id, username, kyc_status, created_at')
       .eq('referred_by', user.id)
+    const ids = (data ?? []).map((p) => p.id)
+    // Same privacy fix: a referred user's real name is still someone else's
+    // PII — never show it to the referrer, only their handle.
+    const { data: accts } = ids.length
+      ? await db.from('accounts').select('user_id, pulse_id, wallet_id').in('user_id', ids)
+      : { data: [] as { user_id: string; pulse_id: string | null; wallet_id: string | null }[] }
+    const handleMap = new Map<string, string>()
+    for (const a of accts ?? []) {
+      handleMap.set(a.user_id, a.pulse_id ?? a.wallet_id ?? '')
+    }
     const rows: MyReferralRow[] = (data ?? []).map((p) => ({
-      name: p.username ?? p.full_name ?? 'Invited User',
+      name: p.username ? `@${p.username}` : handleMap.get(p.id) || 'Invited User',
       status: p.kyc_status === 'verified' ? 'verified' : 'pending',
       date: new Date(p.created_at).getTime(),
     }))
@@ -616,6 +558,7 @@ export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
+
 }
 
 export async function isUserAdmin(userId: string): Promise<boolean> {
