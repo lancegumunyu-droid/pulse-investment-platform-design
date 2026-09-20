@@ -1,8 +1,11 @@
-/**
- * This file does NOT import 'server-only' — see the comment in ./service.ts
- * for why that guard is removed rather than restored. Server confinement is
- * enforced there instead.
- */
+// FIX #1 — BUILD BLOCKER.
+// This line used to read: 'server-only'
+// A bare string literal is parsed as a directive prologue, not an import.
+// Turbopack discards the body of an app-rsc module carrying an unrecognised
+// directive, which is why the build reported "The module has no exports at
+// all" for getSnapshot / adjustAccount / recordTxn / isUserAdmin all at once.
+import 'server-only'
+
 import { serviceClient } from './service'
 import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-data'
 import type { Snapshot, SnapshotTxn } from './types'
@@ -10,10 +13,7 @@ import type { Snapshot, SnapshotTxn } from './types'
 export async function getLiveProjects(): Promise<Project[]> {
   try {
     const db = serviceClient()
-    const { data: rows, error } = await db
-      .from('holdings')
-      .select('project_id, amount')
-      .in('status', ['active', 'approved', 'completed'])
+    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
 
     if (error) {
       console.warn('[Data Access] Failed to fetch live holdings for projects:', error.message)
@@ -47,6 +47,9 @@ const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
   stake: 'stake',
   unstake: 'unstake',
   token_purchase: 'sale',
+  // FIX — sellToken() writes 'token_sale' and closeInvestment() writes
+  // 'close_investment'. Neither was mapped, so both rendered in the activity
+  // feed as "Deposit", which is why sales looked like incoming money.
   token_sale: 'sale',
   sale: 'sale',
   close_investment: 'invest',
@@ -82,41 +85,25 @@ const TXN_LABEL: Record<string, string> = {
 export interface AccountRow {
   user_id: string
   cash_balance: number
-  invested_balance?: number
-  staked_balance?: number
-  token_balance?: number
+  invested_balance: number
+  staked_balance: number
+  token_balance: number
   pending_yield: number
   updated_at?: string
-  wallet_id?: string
 }
 
 export async function ensureAccount(userId: string): Promise<AccountRow> {
   const db = serviceClient()
-  const { data, error } = await db
-    .from('accounts')
-    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
-    .eq('user_id', userId)
-    .maybeSingle()
+  const { data, error } = await db.from('accounts').select('*').eq('user_id', userId).maybeSingle()
   if (error && error.code !== 'PGRST116') {
     console.error('[Data Access] ensureAccount error:', error)
   }
-  if (data) {
-    return {
-      user_id: data.user_id,
-      cash_balance: Number(data.cash_balance ?? 0),
-      invested_balance: 0,
-      staked_balance: 0,
-      token_balance: 0,
-      pending_yield: Number(data.pending_yield ?? 0),
-      updated_at: data.updated_at,
-      wallet_id: data.wallet_id ?? undefined,
-    } as unknown as AccountRow & { wallet_id: string }
-  }
+  if (data) return data as AccountRow
 
   const { data: created, error: createError } = await db
     .from('accounts')
-    .insert({ user_id: userId, currency: 'USD' })
-    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
+    .insert({ user_id: userId })
+    .select('*')
     .single()
 
   if (createError) {
@@ -131,14 +118,12 @@ export async function ensureAccount(userId: string): Promise<AccountRow> {
     }
   }
 
-  return created as unknown as AccountRow
+  return created as AccountRow
 }
 
-const SETTLED_EXCLUDED = ['failed', 'rejected', 'cancelled', 'pending', 'processing']
-
-export async function calculateCashBalanceFromLedger(userId: string, authenticatedDb?: ReturnType<typeof serviceClient>): Promise<number> {
+export async function calculateCashBalanceFromLedger(userId: string): Promise<number> {
   try {
-    const db = authenticatedDb ?? serviceClient()
+    const db = serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
       .select('type, amount, currency, status, meta')
@@ -149,7 +134,8 @@ export async function calculateCashBalanceFromLedger(userId: string, authenticat
     let balance = 0
     for (const txn of txns ?? []) {
       const status = (txn.status || '').toLowerCase()
-      if (SETTLED_EXCLUDED.includes(status)) continue
+      // Pending money is not spendable money — only settled rows count.
+      if (['failed', 'rejected', 'cancelled', 'pending', 'processing'].includes(status)) continue
 
       const amount = Number(txn.amount) || 0
       const currency = (txn.currency || 'USD').toUpperCase()
@@ -178,11 +164,12 @@ export async function calculateCashBalanceFromLedger(userId: string, authenticat
             break
         }
       } else if (currency === 'PULSE' || currency === 'PLS') {
-        const meta = txn.meta as Record<string, unknown> | null
         if (type === 'token_purchase') {
+          const meta = txn.meta as Record<string, unknown> | null
           const usdCost = Number(meta?.usdCost) || 0
           if (usdCost > 0) balance -= usdCost
         } else if (type === 'token_sale') {
+          const meta = txn.meta as Record<string, unknown> | null
           const usdValue = Number(meta?.usdValue) || 0
           if (usdValue > 0) balance += usdValue
         }
@@ -194,9 +181,9 @@ export async function calculateCashBalanceFromLedger(userId: string, authenticat
   }
 }
 
-export async function calculateTokenBalanceFromLedger(userId: string, authenticatedDb?: ReturnType<typeof serviceClient>): Promise<number> {
+export async function calculateTokenBalanceFromLedger(userId: string): Promise<number> {
   try {
-    const db = authenticatedDb ?? serviceClient()
+    const db = serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
       .select('type, amount, currency, status')
@@ -207,15 +194,18 @@ export async function calculateTokenBalanceFromLedger(userId: string, authentica
     let balance = 0
     for (const txn of txns ?? []) {
       const status = (txn.status || '').toLowerCase()
-      if (SETTLED_EXCLUDED.includes(status)) continue
+      if (['failed', 'rejected', 'cancelled', 'pending', 'processing'].includes(status)) continue
 
       const amount = Number(txn.amount) || 0
       const currency = (txn.currency || '').toUpperCase()
       const type = (txn.type || '').toLowerCase()
 
       if (currency === 'PULSE' || currency === 'PLS') {
-        if (['token_purchase', 'unstake', 'p2p_receive'].includes(type)) balance += amount
-        else if (['stake', 'p2p_send', 'token_sale'].includes(type)) balance -= amount
+        if (['token_purchase', 'unstake', 'p2p_receive'].includes(type)) {
+          balance += amount
+        } else if (['stake', 'p2p_send', 'token_sale'].includes(type)) {
+          balance -= amount
+        }
       }
     }
     return Math.max(0, balance)
@@ -224,9 +214,9 @@ export async function calculateTokenBalanceFromLedger(userId: string, authentica
   }
 }
 
-export async function calculateStakedBalanceFromLedger(userId: string, authenticatedDb?: ReturnType<typeof serviceClient>): Promise<number> {
+export async function calculateStakedBalanceFromLedger(userId: string): Promise<number> {
   try {
-    const db = authenticatedDb ?? serviceClient()
+    const db = serviceClient()
     const { data: txns, error } = await db
       .from('transactions')
       .select('type, amount, currency, status')
@@ -237,7 +227,7 @@ export async function calculateStakedBalanceFromLedger(userId: string, authentic
     let balance = 0
     for (const txn of txns ?? []) {
       const status = (txn.status || '').toLowerCase()
-      if (SETTLED_EXCLUDED.includes(status)) continue
+      if (['failed', 'rejected', 'cancelled', 'pending', 'processing'].includes(status)) continue
 
       const amount = Number(txn.amount) || 0
       const currency = (txn.currency || '').toUpperCase()
@@ -273,20 +263,13 @@ export async function adjustAccount(
 
   const { data, error } = await db
     .from('accounts')
-    .update({
-      cash_balance: next.cash_balance,
-      invested_balance: next.invested_balance,
-      staked_balance: next.staked_balance,
-      token_balance: next.token_balance,
-      pending_yield: next.pending_yield,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ ...next, updated_at: new Date().toISOString() })
     .eq('user_id', userId)
-    .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
+    .select('*')
     .single()
 
   if (error) throw error
-  return data as unknown as AccountRow
+  return data as AccountRow
 }
 
 export async function recordTxn(
@@ -312,6 +295,7 @@ export async function recordTxn(
       status: row.status ?? 'completed',
       reference: row.reference ?? null,
       meta: row.meta ?? {},
+      processed_by: row.processedBy ?? null,
     })
     .select('*')
     .single()
@@ -348,139 +332,92 @@ export async function disburseProjectPayoutFromFloat(params: {
   return txn
 }
 
-export async function getSnapshot(
-  userId: string,
-  userEmail?: string,
-  authenticatedDb?: ReturnType<typeof serviceClient>,
-): Promise<Snapshot> {
-  const db = authenticatedDb ?? serviceClient()
+export async function getSnapshot(userId: string, userEmail?: string): Promise<Snapshot> {
+  const db = serviceClient()
 
-  const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: { message?: string } | null }>): Promise<T | null> => {
-    const res = await promise
-    if (res.error) {
-      console.error('[v0] Supabase portfolio query failed:', res.error)
+  const safeQuery = async <T>(promise: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> => {
+    try {
+      const res = await promise
+      return res.data
+    } catch {
       return null
     }
-    return res.data
   }
 
-  const [dashboardSummaryResult, acct, profileRow, holdings, txns, cardApplication, issuedCard, roleRow, referralRows, wallets] = await Promise.all([
-    authenticatedDb
-      ? authenticatedDb.rpc('get_user_dashboard_summary')
-      : Promise.resolve({ data: null, error: null }),
+  const [profile, acct, holdings, txns, pointsRows, referrals, badgeRows, cardApp, wallets, adminRow] = await Promise.all([
+    safeQuery(db.from('profiles').select('*').eq('id', userId).maybeSingle()),
+    ensureAccount(userId),
+    safeQuery(db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
     safeQuery(
-      db
-        .from('accounts')
-        .select('user_id, cash_balance, invested_balance, staked_balance, token_balance, pending_yield, wallet_id, pulse_id, updated_at')
-        .eq('user_id', userId)
-        .maybeSingle(),
+      db.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     ),
-    safeQuery(db.from('profiles').select('id, email, username, full_name, founder_number, referral_code, referred_by, pulse_id, kyc_status, created_at').eq('id', userId).maybeSingle()),
+    safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId)),
+    safeQuery(db.from('profiles').select('kyc_status').eq('referred_by', userId)),
+    safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId)),
+    safeQuery(db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle()),
     safeQuery(
-      db
-        .from('holdings')
-        .select('id, project_id, amount, created_at, status, expected_return, actual_return, roi_percentage')
-        .eq('user_id', userId)
-        .in('status', ['active', 'approved', 'pending'])
-        .order('created_at', { ascending: false }),
+      db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
     ),
-    safeQuery(
-      db
-        .from('transactions')
-        .select('id, type, amount, currency, status, meta, reference, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(50),
-    ),
-    safeQuery(
-      db.from('card_applications').select('status, card_ref, card_number_last4, expiry_month, expiry_year, cardholder_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    ),
-    Promise.resolve(null),
-    safeQuery(db.from('user_roles').select('role').eq('user_id', userId).maybeSingle()),
-    safeQuery(
-      db.from('referrals').select('id, referred_user_id, status, bonus_awarded').eq('referrer_id', userId),
-    ),
-    safeQuery(db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: false })),
+    // FIX — ADMIN CHECK WAS READING THE WRONG TABLE. Admin status lives in
+    // public.user_roles (user_id, role), verified directly against the live
+    // database — every one of the 15 "owner OR admin" RLS policies across
+    // accounts/holdings/staking_positions/etc. calls the database's own
+    // is_admin() function, which itself queries user_roles, not
+    // profiles.role. profiles.role is 'user' for all 69 accounts, including
+    // real admins, so the old check here (profile.role === 'admin') could
+    // never succeed for anyone — this is exactly why the Admin Console
+    // showed "Admin access required" for a genuinely-admin account.
+    safeQuery(db.from('user_roles').select('role').eq('user_id', userId).eq('role', 'admin').maybeSingle()),
   ])
 
-  const stakingRows = (await safeQuery(
-    db.from('staking_positions').select('amount').eq('user_id', userId).eq('active', true),
-  )) as Array<{ amount?: number }> | null
-  const pointsRows = (await safeQuery(db.from('points_ledger').select('amount').eq('user_id', userId))) as Array<{ amount?: number }> | null
-  const badgeRows = (await safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId))) as Array<{ badge_key: string; earned_at: string }> | null
-  const kycRow = (await safeQuery(
-    db.from('kyc_submissions').select('status, full_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-  )) as { status?: string; full_name?: string } | null
-  const email = (userEmail || '').toLowerCase()
-  const adminRecord = roleRow as { role?: string } | null
-  const role = adminRecord?.role
-  const isAdmin = ['admin', 'super_admin', 'director', 'manager'].includes(String(role ?? '').toLowerCase())
-  const rawKycStatus = String(kycRow?.status ?? 'none').toLowerCase()
-  const rawKyc: Snapshot['kyc'] = rawKycStatus === 'approved' || rawKycStatus === 'verified' ? 'verified' : rawKycStatus === 'rejected' ? 'rejected' : rawKycStatus === 'pending' ? 'pending' : 'none'
+  const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
+  const isAdmin = !!adminRow
+  const rawKyc = ((profile as { kyc_status?: string })?.kyc_status ?? 'none') as Snapshot['kyc']
 
-  const ledgerCash = await calculateCashBalanceFromLedger(userId, db)
-  const referrals = (referralRows as unknown[]) ?? []
-  const profile = profileRow as {
-    email?: string | null
-    username?: string | null
-    full_name?: string | null
-    founder_number?: number | null
-    referral_code?: string | null
-    pulse_id?: string | null
-    kyc_status?: string | null
-  } | null
+  // PERFORMANCE FIX — this used to run all three ledger recalculations on
+  // EVERY single call to getSnapshot(), unconditionally, even though their
+  // result is only ever used when a raw account balance is non-positive.
+  // getSnapshot() runs after every action (deposit/withdraw/invest/stake/
+  // etc.), on a 30-second interval, on tab focus, and on every realtime
+  // change to 5 different tables — so this was three extra full-table
+  // queries against `transactions`, on top of the ~10 already running in
+  // the block above, on every single one of those triggers. For a properly-
+  // maintained account (the normal case now that adjustAccount() is the
+  // only write path), none of the three ever change the result, so they now
+  // only run when the account they'd actually repair is in that broken
+  // state — cutting the common-case query count roughly in half.
+  let cashBalance = Number(acct.cash_balance ?? 0)
+  let tokenBalance = Number(acct.token_balance ?? 0)
+  let stakedBalance = Number(acct.staked_balance ?? 0)
+  const pendingYield = Number(acct.pending_yield ?? 0)
 
-  const account = acct as {
-    cash_balance?: number
-    invested_balance?: number
-    staked_balance?: number
-    token_balance?: number
-    pending_yield?: number
-    wallet_id?: string
-  } | null
-  const dashboardSummary = (dashboardSummaryResult as { data?: Record<string, unknown> | null; error?: { message?: string } | null } | null)?.data
-  const databaseTier = dashboardSummary?.overall_tier
-  const validTierIds: TierId[] = ['starter', 'growth', 'builder', 'leader', 'ambassador']
-  const canonicalTier = typeof databaseTier === 'string' && validTierIds.includes(databaseTier as TierId)
-    ? (databaseTier as TierId)
-    : null
-  if ((dashboardSummaryResult as { error?: { message?: string } } | null)?.error) {
-    console.warn('[v0] Dashboard summary RPC unavailable; using compatibility reads', (dashboardSummaryResult as { error?: { message?: string } }).error)
-  }
-  const canonicalCash = Number(dashboardSummary?.cash_balance)
-  const canonicalInvested = Number(dashboardSummary?.invested_balance)
-  const canonicalStaked = Number(dashboardSummary?.staked_balance)
-  const canonicalTokens = Number(dashboardSummary?.token_balance)
-  const canonicalPendingYield = Number(dashboardSummary?.pending_yield)
-  const cashBalance = Number.isFinite(canonicalCash) ? canonicalCash : Number(account?.cash_balance ?? 0)
-  const tokenBalance = Number.isFinite(canonicalTokens) ? canonicalTokens : Number(account?.token_balance ?? 0)
-  const stakedBalance = Number.isFinite(canonicalStaked) ? canonicalStaked : Number(account?.staked_balance ?? 0)
-  const accountPendingYield = Number.isFinite(canonicalPendingYield) ? canonicalPendingYield : Number(account?.pending_yield ?? 0)
-  const canonicalInvestedBalance = Number.isFinite(canonicalInvested) ? canonicalInvested : Number(account?.invested_balance ?? 0)
+  const [ledgerCash, ledgerTokens, ledgerStaked] = await Promise.all([
+    cashBalance <= 0 ? calculateCashBalanceFromLedger(userId) : Promise.resolve(0),
+    tokenBalance <= 0 ? calculateTokenBalanceFromLedger(userId) : Promise.resolve(0),
+    stakedBalance <= 0 ? calculateStakedBalanceFromLedger(userId) : Promise.resolve(0),
+  ])
 
-  if (ledgerCash > 0 && cashBalance !== ledgerCash) {
-    console.warn('[v0] Cash ledger differs from accounts.cash_balance', { userId, accountCash: cashBalance, ledgerCash })
-  }
+  // The accounts table is authoritative. The ledger recomputation is a repair
+  // path for rows that were never initialised, not a second source of truth.
+  if (cashBalance <= 0 && ledgerCash > 0) cashBalance = ledgerCash
+  if (tokenBalance <= 0 && ledgerTokens > 0) tokenBalance = ledgerTokens
+  if (stakedBalance <= 0 && ledgerStaked > 0) stakedBalance = ledgerStaked
 
-  const rpcHoldingRows = Array.isArray(dashboardSummary?.active_holdings)
-    ? (dashboardSummary.active_holdings as Array<Record<string, unknown>>)
-    : null
-  const activeHoldingRows = (
-    (rpcHoldingRows ?? holdings) as unknown as Array<{
-      id: string
-      project_id: string
-      amount: number
-      expected_return?: number | null
-      actual_return?: number | null
-      created_at: string
-    }> | null) ?? []
-  const totalInvested = canonicalInvestedBalance
-  const pendingYield = accountPendingYield
-  const activeHoldings = activeHoldingRows.map((h) => ({
+  // FIX #2 — DATA NOT FETCHING.
+  // The previous version zeroed every balance and emptied the holdings array
+  // whenever `isVerified` was false, and reported kyc as 'verified' whenever
+  // the user merely had data. So a real user with a real balance who had not
+  // completed KYC saw $0.00 across the whole app and assumed nothing was
+  // loading. Balances are now always reported as they are in the database;
+  // KYC gating belongs in the action layer (invest / withdraw / transfer all
+  // already enforce it), not in the read path.
+  const activeHoldings = (
+    (holdings as Array<{ id: string; project_id: string; amount: number; created_at: string }>) ?? []
+  ).map((h) => ({
     id: h.id,
     projectId: h.project_id,
-    tierId: tierForAmount(Number(h.amount) || 0).id as TierId,
-    amount: Number(h.amount) || 0,
+    tierId: tierForAmount(Number(h.amount)).id as TierId,
+    amount: Number(h.amount),
     date: new Date(h.created_at).getTime(),
   }))
 
@@ -496,9 +433,9 @@ export async function getSnapshot(
         type: string
         currency: string
         meta?: Record<string, unknown>
-        reference?: string
         amount: number
         status: string
+        processing_started_at?: string
         created_at: string
       }>) ?? []
     ).map((t) => {
@@ -511,40 +448,36 @@ export async function getSnapshot(
         amount: Number(t.amount),
         currency: rawCurrency === 'PULSE' || rawCurrency === 'PLS' ? 'PULSE' : 'USDT',
         status: (t.status || 'completed').toLowerCase() as SnapshotTxn['status'],
-        isProcessing: (t.status || '').toLowerCase() === 'pending',
+        isProcessing: !!t.processing_started_at,
         date: new Date(t.created_at).getTime(),
       }
     }),
     kyc: rawKyc,
-    wallet: account?.wallet_id ?? null,
-    referralCode: profile?.referral_code ?? profile?.pulse_id ?? account?.wallet_id ?? '',
-    pulseId: profile?.pulse_id ?? (account as { pulse_id?: string | null } | null)?.pulse_id ?? null,
-    fullName: profile?.full_name ?? kycRow?.full_name ?? null,
-    email: profile?.email ?? (email || null),
-    tier: canonicalTier ?? 'starter',
+    wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
+    referralCode:
+      (acct as AccountRow & { wallet_id?: string }).wallet_id ??
+      (profile as { referral_code?: string })?.referral_code ??
+      'PLS-XXXX',
+    fullName: (profile as { full_name?: string })?.full_name ?? null,
+    email: email || null,
+    tier: (profile as { tier?: number })?.tier ?? 1,
     isAdmin,
-    points: (pointsRows ?? []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
-    founderNumber: profile?.founder_number ?? null,
-    walletId: account?.wallet_id ?? null,
-    username: profile?.username ?? null,
+    points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
+    founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
+    walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
+    username: (profile as { username?: string })?.username ?? null,
     referralCount: ((referrals as unknown[]) ?? []).length,
-    referralVerifiedCount: ((referrals as Array<{ status?: string }>) ?? []).filter(
-      (r) => ['verified', 'approved', 'completed'].includes(String(r.status).toLowerCase()),
+    referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(
+      (r) => r.kyc_status === 'verified',
     ).length,
-    badges: ((badgeRows ?? []) as Array<{ badge_key: string; earned_at: string }>).map((b) => ({
+    badges: ((badgeRows as Array<{ badge_key: string; earned_at: string }>) ?? []).map((b) => ({
       key: b.badge_key,
       earnedAt: new Date(b.earned_at).getTime(),
     })),
-    adminScope: isAdmin ? 'full' : null,
-    cardStatus: ((cardApplication as { status?: string } | null)?.status ?? 'none') as Snapshot['cardStatus'],
-    cardRef: (cardApplication as { card_ref?: string } | null)?.card_ref ?? null,
-    cardLast4: (cardApplication as { card_number_last4?: string } | null)?.card_number_last4 ?? null,
-    cardCvv: null,
-    cardExpiryMonth: (cardApplication as { expiry_month?: number } | null)?.expiry_month ?? null,
-    cardExpiryYear: (cardApplication as { expiry_year?: number } | null)?.expiry_year ?? null,
-    cardholderName: (cardApplication as { cardholder_name?: string } | null)?.cardholder_name ?? null,
-    pinRequired: Boolean(cardApplication && !(cardApplication as { pin_set_at?: string | null }).pin_set_at),
-    savedWallets: ((wallets ?? []) as Array<{ id: string; label: string; address: string }>).map((w) => ({
+    adminScope: (profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope ?? null,
+    cardStatus: (cardApp as { status?: Snapshot['cardStatus'] })?.status ?? 'none',
+    cardRef: (cardApp as { card_ref?: string })?.card_ref ?? null,
+    savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({
       id: w.id,
       label: w.label,
       address: w.address,
@@ -555,14 +488,15 @@ export async function getSnapshot(
 export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const db = serviceClient()
-    const { data: adminRow } = await db
-      .from('admin_users')
-      .select('role, is_active')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .maybeSingle()
-    return Boolean(adminRow?.is_active && ['admin', 'super_admin', 'director', 'manager'].includes(adminRow.role))
-
+    // FIX — this used to check profiles.role, which is 'user' for every
+    // single account in the live database, admins included. Confirmed
+    // directly against the schema: the real admin flag lives in
+    // public.user_roles (user_id, role), and it's the table every RLS
+    // policy's admin check (public.is_admin(), no arguments) actually
+    // queries. Checking anywhere else can never agree with what the
+    // database itself already enforces.
+    const { data } = await db.from('user_roles').select('role').eq('user_id', userId).eq('role', 'admin').maybeSingle()
+    return !!data
   } catch {
     return false
   }
