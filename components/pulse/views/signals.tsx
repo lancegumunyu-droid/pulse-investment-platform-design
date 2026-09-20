@@ -49,25 +49,19 @@ function useMouseGlow<T extends HTMLElement>() {
   return { ref, onMove, onLeave }
 }
 
-function SignalCard({ signal, index }: { signal: Signal; index: number }) {
-  const { openModal, api } = usePulse()
+// FIX — PERFORMANCE. This component used to call api.liveProjectFunding()
+// itself, inside its own useEffect. liveProjectFunding() fetches funding
+// totals for every project at once, not just this card's project — so with
+// 4 project signals on screen, opening this page fired 4 separate,
+// simultaneous, identical database queries. funding is now fetched exactly
+// once by the parent SignalsView and passed down as a prop.
+function SignalCard({ signal, index, funding }: { signal: Signal; index: number; funding: Record<string, number> | null }) {
+  const { openModal } = usePulse()
   const glow = useMouseGlow<HTMLDivElement>()
-  const [funded, setFunded] = useState<number | null>(null)
 
   const project = INITIAL_PROJECTS.find((p) => p.id === signal.project_id)
-
-  useEffect(() => {
-    let cancelled = false
-    if (!project) return
-    api.liveProjectFunding().then((res) => {
-      if (!cancelled && res.ok) setFunded(res.funding[project.id] ?? project.funded)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [api, project])
-
-  const pct = project ? Math.min(100, Math.round(((funded ?? project.funded) / project.goal) * 100)) : 0
+  const fundedAmount = project ? funding?.[project.id] ?? project.funded : 0
+  const pct = project ? Math.min(100, Math.round((fundedAmount / project.goal) * 100)) : 0
   const displayWindow = signal.window_label || signal.window
   const rawDate = signal.updated_at || signal.created_at
   const formattedDate = rawDate
@@ -142,43 +136,48 @@ function SignalCard({ signal, index }: { signal: Signal; index: number }) {
 }
 
 export function SignalsView() {
+  const { api } = usePulse()
   const [signals, setSignals] = useState<Signal[]>([])
+  const [funding, setFunding] = useState<Record<string, number> | null>(null)
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const loadSignals = useCallback(
-    async (showLoading = true) => {
-      if (showLoading) setLoading(true)
-      try {
-        const projectSignals: Signal[] = INITIAL_PROJECTS.map((project) => ({
-          id: `project-${project.id}`,
-          project_id: project.id,
-          title: `${project.name} investment window`,
-          detail: project.summary,
-          target_yield: project.targetYield,
-          urgency: project.status === 'Closed' ? 'Standard' : 'Open',
-          window_label: project.status === 'Closed' ? 'Closed' : 'Open for investment',
-          created_at: new Date().toISOString(),
-        }))
-        setSignals(projectSignals)
-      } catch (err) {
-        console.error('[v0] Error building project signals:', err)
-      } finally {
-        if (showLoading) setLoading(false)
-      }
-    },
-    [],
-  )
+  const loadSignals = useCallback((showLoading = true) => {
+    if (showLoading) setLoading(true)
+    try {
+      const projectSignals: Signal[] = INITIAL_PROJECTS.map((project) => ({
+        id: `project-${project.id}`,
+        project_id: project.id,
+        title: `${project.name} investment window`,
+        detail: project.summary,
+        target_yield: project.targetYield,
+        urgency: project.status === 'Closed' ? 'Standard' : 'Open',
+        window_label: project.status === 'Closed' ? 'Closed' : 'Open for investment',
+        created_at: new Date().toISOString(),
+      }))
+      setSignals(projectSignals)
+    } catch (err) {
+      console.error('[v0] Error building project signals:', err)
+    } finally {
+      if (showLoading) setLoading(false)
+    }
+  }, [])
+
+  const loadFunding = useCallback(async () => {
+    const res = await api.liveProjectFunding()
+    if (res.ok) setFunding(res.funding)
+  }, [api])
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
-    await loadSignals(false)
+    await Promise.all([loadSignals(false), loadFunding()])
     setIsRefreshing(false)
-  }, [loadSignals])
+  }, [loadSignals, loadFunding])
 
   useEffect(() => {
     loadSignals(true)
-  }, [loadSignals])
+    loadFunding()
+  }, [loadSignals, loadFunding])
 
   return (
     <div className="pulse-executive-shell mx-auto w-full max-w-[480px] space-y-4 pb-24 text-amber-100 antialiased lg:max-w-3xl">
@@ -233,7 +232,7 @@ export function SignalsView() {
       ) : (
         <div className="space-y-4">
           {signals.map((signal, index) => (
-            <SignalCard key={signal.id} signal={signal} index={index} />
+            <SignalCard key={signal.id} signal={signal} index={index} funding={funding} />
           ))}
         </div>
       )}
