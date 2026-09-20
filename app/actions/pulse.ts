@@ -564,3 +564,63 @@ export async function getMyReferrals(): Promise<{ ok: true; rows: MyReferralRow[
 export async function isUserAdmin(userId: string): Promise<boolean> {
   return checkIsUserAdmin(userId)
 }
+
+// NEW — sale.tsx used to hardcode SALE_RAISED = 1_842_000, a number that
+// never moved no matter how many people actually bought tokens. This sums
+// the real usdCost of every completed token_purchase transaction, the exact
+// same field buyToken() already writes into meta on every purchase.
+export async function getSaleProgress(): Promise<{ ok: true; raisedUsd: number } | { ok: false; error: string }> {
+  try {
+    const db = serviceClient()
+    const { data, error } = await db
+      .from('transactions')
+      .select('meta')
+      .eq('type', 'token_purchase')
+      .eq('status', 'completed')
+    if (error) return { ok: false, error: error.message }
+    const raisedUsd = (data ?? []).reduce((sum, t) => {
+      const meta = t.meta as Record<string, unknown> | null
+      return sum + (Number(meta?.usdCost) || 0)
+    }, 0)
+    return { ok: true, raisedUsd }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+}
+
+// NEW — Pulse Card PIN. The card is in-house only (usable on Pulse and Pulse
+// merch, funded by the PULSE/cash balance) — it never touches a real card
+// network, so there's no external processor to hand PIN management to.
+// set_pulse_card_pin / verify_pulse_card_pin already exist as SECURITY
+// DEFINER functions in the database (hashed storage via pgcrypto, 5-attempt
+// lockout, rejects sequential/repeated/common PINs via validate_pulse_pin).
+// These MUST be called through the user's own session client, not
+// serviceClient() — the functions read auth.uid() internally, which only
+// resolves to the calling user's ID when the request carries their own JWT.
+export async function setPulsePin(pin: string) {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  try {
+    const supabase = await getSupabase()
+    const { error } = await supabase.rpc('set_pulse_card_pin', { p_pin: pin })
+    if (error) return { ok: false as const, error: error.message }
+    return { ok: true as const, snapshot: await getSnapshotFromDb(user.id) }
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message }
+  }
+}
+
+// No separate out-of-band verification channel (email/SMS code) exists yet
+// for a true "forgot PIN" flow. This is only reachable from inside an
+// already-authenticated session, so re-confirming that session is valid
+// (which requireUser() does) is the honest extent of "reset" available
+// right now — it does not claim to verify identity beyond the login itself.
+export async function requestPulsePinReset() {
+  const user = await requireUser()
+  if (!user) return { ok: false as const, error: 'Unauthorized' }
+  return { ok: true as const }
+}
+
+export async function resetPulsePin(pin: string) {
+  return setPulsePin(pin)
+}
