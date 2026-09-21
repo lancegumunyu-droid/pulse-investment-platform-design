@@ -10,17 +10,10 @@ import type {
   AdminKycRow,
   AdminTxnRow,
   AdminCardRow,
-  AdminP2PRow,
 } from '@/lib/pulse/types'
-// FIX #4 — BUILD BLOCKER. This used to import from '@/lib/pulse/pulse-data',
-// a path that does not exist. The real module is '@/lib/pulse-data'.
 import type { Project, Signal } from '@/lib/pulse-data'
 
 type AdminScope = 'full' | 'finance' | 'operations' | 'manager' | 'director'
-
-// ==========================================
-// AUTHORIZATION HELPERS
-// ==========================================
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -40,8 +33,6 @@ async function requireAdminScope(allowed: AdminScope[]) {
   const assignedRole = String(data?.role ?? '').toLowerCase()
   const scope = ['admin', 'super_admin', 'director'].includes(assignedRole) ? ('full' as AdminScope) : null
 
-  // No implicit privilege. An admin with no scope set can only perform
-  // actions that explicitly allow 'operations'.
   if (!scope && !allowed.includes('operations')) {
     throw new Error('This action requires an explicit admin scope configuration.')
   }
@@ -63,56 +54,58 @@ function normalizeKycStatus(value: unknown): 'none' | 'pending' | 'verified' | '
   return 'none'
 }
 
-// ==========================================
-// SNAPSHOT & CORE DASHBOARD
-// ==========================================
-
+// FIX — BUILD BLOCKER / ADMIN CONSOLE FULLY DOWN. This queried tables
+// called `wallets`, `users`, and `admin_users`, none of which exist in the
+// live database (verified directly) — the real tables are `accounts`,
+// `profiles` + `kyc_submissions`, and `user_roles`. This was the exact
+// cause of "Admin data load failed: Could not find the table
+// 'public.wallets'" — the whole admin console was unusable.
 export async function getAdminSnapshot(): Promise<AdminResult> {
   try {
     await requireAdmin()
     const db = serviceClient()
 
     const results = await Promise.all([
-      db.from('wallets').select('user_id, cash_balance:balance, invested_balance:total_deposits, staked_balance:total_withdrawals, created_at, updated_at').limit(500),
-      db.from('users').select('user_id:id, full_name, status:kyc_status, id_number:verification_token, country:country_code, created_at').order('created_at', { ascending: false }).limit(500),
-      db.from('admin_users').select('user_id, role').eq('is_active', true).limit(500),
+      db.from('accounts').select('user_id, cash_balance, invested_balance, staked_balance, created_at, updated_at').limit(500),
+      db.from('profiles').select('id, email, username, full_name, kyc_status, created_at').limit(500),
+      db.from('kyc_submissions').select('*').order('created_at', { ascending: false }).limit(500),
+      db.from('user_roles').select('user_id, role').limit(500),
       db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
-      Promise.resolve({ data: [], error: null }),
+      db.from('card_applications').select('*').eq('status', 'waitlisted').limit(200),
     ])
     const failed = results.find((result) => result.error)
     if (failed?.error) throw new Error(`Admin data load failed: ${failed.error.message}`)
-    const [{ data: accounts }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] = results as any
+    const [{ data: accounts }, { data: profiles }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] = results as any
     type AdminRawRow = Record<string, any>
     const accountRows = (accounts ?? []) as AdminRawRow[]
+    const profileRows = (profiles ?? []) as AdminRawRow[]
     const kycRows = (kyc ?? []) as AdminRawRow[]
     const roleRows = (roles ?? []) as AdminRawRow[]
     const txnRows = (txns ?? []) as AdminRawRow[]
     const cardRows = (cardApps ?? []) as AdminRawRow[]
 
     const acctMap = new Map(accountRows.map((a) => [a.user_id, a]))
-    const kycMap = new Map<string, AdminRawRow>()
-    for (const row of kycRows) if (!kycMap.has(row.user_id)) kycMap.set(row.user_id, row)
+    const profileMap = new Map(profileRows.map((p) => [p.id, p]))
+    const emailMap = new Map(profileRows.map((p) => [p.id, p.email ?? null]))
     const roleMap = new Map(roleRows.map((r) => [r.user_id, r.role]))
-    const userIds = Array.from(new Set([...accountRows.map((a) => a.user_id), ...kycRows.map((k) => k.user_id)]))
-    const emailMap = new Map<string, string | null>()
-    const profileMap = kycMap
+    const latestKycByUser = new Map<string, AdminRawRow>()
+    for (const row of kycRows) if (!latestKycByUser.has(row.user_id)) latestKycByUser.set(row.user_id, row)
 
-    const users: AdminUserRow[] = userIds.map((id) => {
-      const a = acctMap.get(id)
-      const k = kycMap.get(id)
-      const role = roleMap.get(id) ?? null
+    const users: AdminUserRow[] = profileRows.map((p) => {
+      const a = acctMap.get(p.id)
+      const role = roleMap.get(p.id) ?? null
       return {
-        id,
-        email: emailMap.get(id) ?? null,
-        fullName: k?.full_name ?? null,
-        username: null,
+        id: p.id,
+        email: emailMap.get(p.id) ?? null,
+        fullName: p.full_name ?? null,
+        username: p.username ?? null,
         role,
-        kycStatus: normalizeKycStatus(k?.status),
-        kycVerified: normalizeKycStatus(k?.status) === 'verified',
+        kycStatus: normalizeKycStatus(p.kyc_status),
+        kycVerified: normalizeKycStatus(p.kyc_status) === 'verified',
         cash: Number(a?.cash_balance ?? 0),
         invested: Number(a?.invested_balance ?? 0),
         staked: Number(a?.staked_balance ?? 0),
-        createdAt: new Date(k?.created_at ?? Date.now()).getTime(),
+        createdAt: new Date(p.created_at ?? Date.now()).getTime(),
         adminScope: role === 'admin' ? 'full' : null,
         managerId: null,
         isAdmin: role === 'admin',
@@ -141,8 +134,8 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
           reference: t.reference,
           createdAt: new Date(t.created_at).getTime(),
           settledStatus: (meta.settled_status as string | null) ?? null,
-          payCurrency: (meta.payCurrency as string | null) ?? null,
-          userTxRef: (meta.userTxRef as string | null) ?? null,
+          payCurrency: (meta.originalCurrency as string | null) ?? (meta.payCurrency as string | null) ?? null,
+          userTxRef: (meta.userTxRef as string | null) ?? t.reference ?? null,
         }
       })
 
@@ -160,9 +153,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
           status: t.status,
           reference: t.reference,
           createdAt: new Date(t.created_at).getTime(),
-          // FIX #6 — requestWithdrawal() stores meta.destinationAddress, but
-          // this read meta.wallet, so the admin queue always showed "N/A" for
-          // the destination. Both keys are now accepted.
           destinationAddress:
             ((meta.destinationAddress as string | null) ?? (meta.wallet as string | null)) ?? null,
           walletName: (meta.walletName as string | null) ?? null,
@@ -178,17 +168,15 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
         const recipientId = meta.recipientId as string | undefined
         return {
           id: t.id,
-          senderId: t.user_id,
-          senderEmail: emailMap.get(t.user_id) ?? null,
-          recipientId: recipientId ?? '',
-          recipientEmail: recipientId ? emailMap.get(recipientId) ?? null : null,
+          userId: t.user_id,
+          email: emailMap.get(t.user_id) ?? null,
           type: t.type,
           amount: Number(t.amount),
           currency: t.currency,
           status: t.status,
           reference: t.reference,
-          note: (meta.note as string | null) ?? null,
           createdAt: new Date(t.created_at).getTime(),
+          counterpartyLabel: recipientId ? emailMap.get(recipientId) ?? recipientId : null,
         }
       })
 
@@ -204,35 +192,33 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       createdAt: new Date(t.created_at).getTime(),
     }))
 
-    const cardQueue: AdminCardRow[] = cardRows
-      .filter((c) => c.status === 'waitlisted')
-      .map((c) => {
-        const p = profileMap.get(c.user_id)
-        return {
-          id: c.id,
-          userId: c.user_id,
-          email: emailMap.get(c.user_id) ?? null,
-          fullName: p?.full_name ?? null,
-          cardType: c.card_type ?? 'virtual',
-          shippingAddress: c.shipping_address ?? null,
-          kycStatus: normalizeKycStatus(p?.status),
-          status: c.status,
-          createdAt: new Date(c.created_at).getTime(),
-        }
-      })
+    const cardQueue: AdminCardRow[] = cardRows.map((c) => {
+      const p = profileMap.get(c.user_id)
+      return {
+        id: c.id,
+        userId: c.user_id,
+        email: emailMap.get(c.user_id) ?? null,
+        fullName: p?.full_name ?? null,
+        kycStatus: normalizeKycStatus(p?.kyc_status),
+        status: c.status,
+        createdAt: new Date(c.created_at).getTime(),
+      }
+    })
 
-    const kycQueue: AdminKycRow[] = kycRows.filter((k) => normalizeKycStatus(k.status) === 'pending').map((k) => ({
-      id: k.id,
-      userId: k.user_id,
-      email: emailMap.get(k.user_id) ?? null,
-      fullName: k.full_name,
-      idNumber: k.id_number,
-      dateOfBirth: k.date_of_birth,
-      nationality: k.nationality ?? null,
-      country: k.country,
-      status: k.status,
-      createdAt: new Date(k.created_at).getTime(),
-    }))
+    const kycQueue: AdminKycRow[] = kycRows
+      .filter((k) => k.status === 'pending')
+      .map((k) => ({
+        id: k.id,
+        userId: k.user_id,
+        email: emailMap.get(k.user_id) ?? null,
+        fullName: k.full_name,
+        idNumber: k.id_number,
+        dateOfBirth: k.date_of_birth,
+        nationality: k.nationality ?? null,
+        country: k.country,
+        status: k.status,
+        createdAt: new Date(k.created_at).getTime(),
+      }))
 
     const snapshot: AdminSnapshot = {
       totalDeposits,
@@ -245,8 +231,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
       pendingCards: cardQueue.length,
       userCount: users.length,
       users,
-      // FIX #7 — admin.tsx maps over `snapshot.usersList`, which this action
-      // never returned. The Users tab rendered an empty table on every load.
       usersList: users,
       kycQueue,
       withdrawalQueue,
@@ -260,10 +244,6 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     return { ok: false, error: (e as Error).message }
   }
 }
-
-// ==========================================
-// KYC & USER MANAGEMENT ACTIONS
-// ==========================================
 
 export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
@@ -295,9 +275,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
           amount: 35,
           currency: 'USD',
           status: 'completed',
-          // FIX #8 — the duplicate guard above looks up reference ===
-          // 'welcome_bonus', but the insert never set a reference. Every KYC
-          // re-approval therefore paid the $35 bonus again.
           reference: 'welcome_bonus',
           processedBy: admin.id,
           meta: { label: 'Welcome bonus' },
@@ -306,7 +283,6 @@ export async function reviewKyc(id: string, decision: 'approved' | 'rejected'): 
 
       await db.rpc('assign_founder_number', { p_user_id: sub.user_id })
       await db.rpc('award_points', { p_user_id: sub.user_id, p_amount: 100, p_reason: 'KYC verified' })
-
     }
 
     return getAdminSnapshot()
@@ -329,10 +305,6 @@ export async function resetKyc(userId: string): Promise<AdminResult> {
     return { ok: false, error: (e as Error).message }
   }
 }
-
-// ==========================================
-// TRANSACTION REVIEW ACTIONS (ATOMIC GUARDS)
-// ==========================================
 
 export async function reviewDeposit(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
@@ -382,15 +354,10 @@ export async function reviewWithdrawal(id: string, decision: 'approved' | 'rejec
       return { ok: false, error: 'Withdrawal not found or already processed concurrently' }
     }
 
-    // FIX #9 — MONEY BUG. requestWithdrawal() never debits; it only logs a
-    // pending row. The old code refunded cash_balance on *rejection*, crediting
-    // money that was never taken. Approval is what must debit.
     if (decision === 'approved') {
       try {
         await adjustAccount(txn.user_id, { cash_balance: -Number(txn.amount) })
       } catch (err) {
-        // Roll the row back to pending so it is not silently marked paid
-        // when the account can no longer cover it.
         await db.from('transactions').update({ status: 'pending', processed_by: null }).eq('id', id)
         return { ok: false, error: `Cannot approve: ${(err as Error).message}` }
       }
@@ -440,8 +407,6 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
         meta: { label: 'Received transfer', senderId: txn.user_id },
       })
     } else {
-      // requestTransfer() debits the sender immediately, so a rejection is the
-      // one case here that genuinely needs a refund.
       await adjustAccount(txn.user_id, { cash_balance: Number(txn.amount) })
     }
 
@@ -451,6 +416,13 @@ export async function reviewP2PTransfer(id: string, decision: 'approved' | 'reje
   }
 }
 
+// FIX — this checked kyc_submissions.status = 'verified', a value that
+// column never holds ('pending'/'approved'/'rejected' — confirmed
+// directly). That silently blocked EVERY card approval. It also wrote raw
+// card_number/cvv straight into card_applications — a second, less secure
+// storage path duplicating the hashed pulse_cards system already built and
+// tested this session. Now checks the real verified flag and calls the
+// tested provision_pulse_card() RPC instead of hand-rolling card data.
 export async function reviewCardApplication(id: string, decision: 'approved' | 'rejected'): Promise<AdminResult> {
   try {
     const admin = await requireAdminScope(['full', 'operations'])
@@ -462,44 +434,30 @@ export async function reviewCardApplication(id: string, decision: 'approved' | '
     }
 
     if (decision === 'approved') {
-      const { data: profile } = await db.from('kyc_submissions').select('status').eq('user_id', app.user_id).eq('status', 'verified').maybeSingle()
-      if (!profile) {
+      const { data: profile } = await db.from('profiles').select('kyc_status').eq('id', app.user_id).maybeSingle()
+      if (profile?.kyc_status !== 'verified') {
         return { ok: false, error: 'Applicant has not completed KYC verification' }
       }
     }
 
-  const cardNumber =
-  decision === 'approved'
-  ? `PULSE-${Array.from({ length: 4 }, () => randomInt(1000, 10000)).join('-')}`
-  : null
-  const cvv = decision === 'approved' ? String(randomInt(100, 1000)) : null
-  const { data: authUser } = decision === 'approved' ? await db.auth.admin.getUserById(app.user_id) : { data: { user: null } }
-  const cardholderName = authUser.user?.user_metadata?.full_name ?? authUser.user?.user_metadata?.name ?? authUser.user?.email?.split('@')[0] ?? 'Pulse Member'
-  const { data, error } = await db
-
-
-
+    const { error } = await db
       .from('card_applications')
       .update({
         status: decision === 'approved' ? 'approved' : 'rejected',
         reviewed_by: admin.id,
         reviewed_at: new Date().toISOString(),
-        ...(decision === 'approved' ? {
-          card_number: cardNumber,
-          card_number_last4: cardNumber?.slice(-4),
-          cvv,
-          expiry_month: new Date().getMonth() + 1,
-          expiry_year: new Date().getFullYear() + 5,
-          cardholder_name: cardholderName,
-          updated_at: new Date().toISOString(),
-        } : {}),
       })
       .eq('id', id)
-  .eq('status', 'waitlisted')
-  .select('id')
+      .eq('status', 'waitlisted')
 
-  if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
-  if (!data?.length) return { ok: false, error: 'Card application was not updated because it is no longer waitlisted.' }
+    if (error) return { ok: false, error: `card_applications update failed: ${error.message}` }
+
+    if (decision === 'approved') {
+      const { error: provisionError } = await db.rpc('provision_pulse_card', { p_application_id: id })
+      if (provisionError) {
+        return { ok: false, error: `Application approved but card provisioning failed: ${provisionError.message}` }
+      }
+    }
 
     return getAdminSnapshot()
   } catch (e) {
@@ -526,10 +484,6 @@ export async function disburseYield(userId: string, amount: number): Promise<Adm
   }
 }
 
-// FIX #10 — admin.tsx calls addAdminByEmail(email, scope) with two arguments,
-// but this action only accepted one. The scope was silently dropped, so every
-// appointed admin ended up with admin_scope = null and then hit "requires an
-// explicit admin scope configuration" on almost every action.
 export async function addAdminByEmail(email: string, scope: AdminScope = 'operations'): Promise<AdminResult> {
   try {
     void scope
@@ -588,10 +542,6 @@ export async function deleteUser(userId: string): Promise<AdminResult> {
   }
 }
 
-// ==========================================
-// PROJECT MANAGEMENT ACTIONS
-// ==========================================
-
 export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project[]; error?: string }> {
   try {
     await requireAdmin()
@@ -609,8 +559,6 @@ export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project
       goal: Number(p.goal),
       risk: p.risk,
       summary: p.summary,
-      status: p.status,
-      deadline: p.deadline,
     }))
     return { ok: true, projects }
   } catch (e) {
@@ -650,7 +598,7 @@ export async function setProjectStatus(
   try {
     await requireAdminScope(['full', 'operations'])
     const db = serviceClient()
-    const updatePayload: Record<string, unknown> = { status: closed ? 'Closed' : 'Open' }
+    const updatePayload: Record<string, unknown> = { status: closed ? 'Closed' : 'Open', updated_at: new Date().toISOString() }
     if (deadlineOverride !== undefined) {
       updatePayload.deadline = deadlineOverride && deadlineOverride.length > 0 ? deadlineOverride : null
     }
@@ -678,8 +626,7 @@ export async function upsertProject(project: Project): Promise<{ ok: boolean; er
         goal: project.goal,
         risk: project.risk,
         summary: project.summary,
-        status: project.status ?? 'Open',
-        deadline: project.deadline ?? null,
+        updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' },
     )
@@ -701,10 +648,6 @@ export async function deleteProject(id: string): Promise<{ ok: boolean; error?: 
     return { ok: false, error: (e as Error).message }
   }
 }
-
-// ==========================================
-// SIGNAL MANAGEMENT ACTIONS
-// ==========================================
 
 export async function fetchSignals(): Promise<{ ok: boolean; signals?: Signal[]; error?: string }> {
   try {
@@ -766,9 +709,22 @@ export async function deleteSignal(id: string): Promise<{ ok: boolean; error?: s
   }
 }
 
-// ==========================================
-// BATCHED PROJECT PAYOUT
-// ==========================================
+// Payout split: 30% retained in the Pulse Vault (platform reserve), 70%
+// disbursed to investors — confirmed business rule. Only the 70% investor
+// share is ever credited or recorded as a transaction; the 30% vault share
+// is simply not disbursed (it stays unspent platform-side, no separate
+// ledger table exists yet for it — flag this if a Vault balance ever needs
+// its own visible line item).
+//
+// This action is itself the admin-approval gate — only an authenticated
+// admin with 'full'/'operations'/'finance' scope can call it at all, so
+// "admin approved first" is already enforced structurally, not a separate
+// pending-queue step.
+//
+// Fortnightly cadence: enforced here by refusing to run again for the same
+// project within 14 days of its last completed payout.
+const PAYOUT_INVESTOR_SHARE = 0.7
+const PAYOUT_COOLDOWN_DAYS = 14
 
 export async function processProjectPayout(
   projectId: string,
@@ -785,8 +741,24 @@ export async function processProjectPayout(
       .single()
     if (projErr) return { ok: false, error: `Failed to fetch project: ${projErr.message}` }
 
-    // target_yield is stored as a range string like "12–15%". parseFloat would
-    // silently take only the lower bound, so the midpoint is used instead.
+    const cooldownCutoff = new Date(Date.now() - PAYOUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentPayout, error: recentErr } = await db
+      .from('transactions')
+      .select('id, created_at')
+      .eq('type', 'yield')
+      .eq('status', 'completed')
+      .ilike('meta->>label', `Project Payout (${projectId})%`)
+      .gte('created_at', cooldownCutoff)
+      .limit(1)
+      .maybeSingle()
+    if (recentErr) return { ok: false, error: `Failed to check payout cooldown: ${recentErr.message}` }
+    if (recentPayout) {
+      return {
+        ok: false,
+        error: `This project was already paid out within the last ${PAYOUT_COOLDOWN_DAYS} days. Payouts run on a fortnightly cycle.`,
+      }
+    }
+
     const parseYield = (raw: string | null | undefined): number => {
       if (!raw) return 0.1
       const nums = raw.match(/\d+(\.\d+)?/g)?.map(Number) ?? []
@@ -809,16 +781,23 @@ export async function processProjectPayout(
       await Promise.all(
         batch.map(async (h) => {
           try {
-            const yieldPayout = Number(h.amount) * yieldRate
-            if (yieldPayout > 0) {
-              await adjustAccount(h.user_id, { cash_balance: yieldPayout })
+            const grossYield = Number(h.amount) * yieldRate
+            const investorPayout = grossYield * PAYOUT_INVESTOR_SHARE
+            if (investorPayout > 0) {
+              await adjustAccount(h.user_id, { cash_balance: investorPayout })
               await recordTxn(h.user_id, {
                 type: 'yield',
-                amount: yieldPayout,
+                amount: investorPayout,
                 currency: 'USD',
                 status: 'completed',
                 processedBy: admin.id,
-                meta: { label: `Project Payout (${projectId})`, rate: yieldRate },
+                meta: {
+                  label: `Project Payout (${projectId})`,
+                  rate: yieldRate,
+                  grossYield,
+                  vaultShare: grossYield - investorPayout,
+                  investorSharePct: PAYOUT_INVESTOR_SHARE,
+                },
               })
             }
           } catch (err) {
@@ -838,10 +817,6 @@ export async function processProjectPayout(
   }
 }
 
-// ==========================================
-// TEAM VOLUME REPORT
-// ==========================================
-
 export async function getTeamVolumeReport(): Promise<
   | {
       ok: true
@@ -859,49 +834,6 @@ export async function getTeamVolumeReport(): Promise<
   try {
     await requireAdminScope(['manager', 'director', 'full'])
     return { ok: false, error: 'Team access is unavailable until admin_memberships is added to the production schema.' }
-
-    /*
-    const user = await requireAdminScope(['manager', 'director', 'full'])
-    const db = serviceClient()
-    const { data: me } = await db.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
-    const scope: 'manager' | 'director' = me?.role === 'admin' ? 'director' : 'manager'
-
-    let teamIds: string[] = []
-    if (scope === 'director') {
-      const { data: managers } = await db.from('profiles').select('id').eq('reports_to_director', user.id)
-      const managerIds = (managers ?? []).map((m) => m.id)
-      const { data: managed } = managerIds.length
-        ? await db.from('profiles').select('id').in('managed_by', managerIds)
-        : { data: [] as { id: string }[] }
-      teamIds = (managed ?? []).map((m) => m.id)
-    } else {
-      const { data: managed } = await db.from('profiles').select('id').eq('managed_by', user.id)
-      teamIds = (managed ?? []).map((m) => m.id)
-    }
-
-    if (teamIds.length === 0) return { ok: true, scope, rows: [] }
-
-    const [{ data: people }, { data: holdings }] = await Promise.all([
-      db.from('profiles').select('id, full_name, email, kyc_status').in('id', teamIds),
-      db.from('holdings').select('user_id, amount').in('user_id', teamIds),
-    ])
-
-    const volumeMap = new Map<string, number>()
-    for (const h of holdings ?? []) {
-      const current = volumeMap.get(h.user_id) ?? 0
-      volumeMap.set(h.user_id, current + Number(h.amount))
-    }
-
-    const rows = (people ?? []).map((p) => ({
-      userId: p.id,
-      name: p.full_name,
-      email: p.email,
-      kycVerified: p.kyc_status === 'verified',
-      investedVolume: volumeMap.get(p.id) ?? 0,
-    }))
-
-    return { ok: true, scope, rows }
-    */
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
