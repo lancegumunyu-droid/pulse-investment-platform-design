@@ -73,7 +73,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   }, [searchParams, isSignUp])
 
   const verifyCode = useCallback(async (code: string) => {
-    const clean = code.trim().toUpperCase()
+    const raw = code.trim().toUpperCase()
+    const clean = /^[A-F0-9]{10}$/.test(raw) ? `PULSE-${raw}` : raw
     if (!clean) {
       setRefStatus('idle')
       setRefError(null)
@@ -157,7 +158,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       if (isSignUp) {
         const cleanEmail = email.trim().toLowerCase()
         const cleanName = fullName.trim()
-        const cleanCode = refCode.trim().toUpperCase()
+        const rawCode = refCode.trim().toUpperCase()
+        const cleanCode = /^[A-F0-9]{10}$/.test(rawCode) ? `PULSE-${rawCode}` : rawCode
 
         const origin = typeof window !== 'undefined' ? window.location.origin : ''
         const { data, error: authError } = await supabase.auth.signUp({

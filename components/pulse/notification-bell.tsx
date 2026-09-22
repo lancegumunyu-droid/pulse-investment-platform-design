@@ -57,12 +57,19 @@ export function NotificationBell() {
     setMounted(true)
   }, [])
 
-  // Poll lightly every 60s
+  // Keep live updates lightweight and pause polling when the tab is hidden.
   useEffect(() => {
     if (!mounted) return
-    load()
-    const t = setInterval(load, 60_000)
-    return () => clearInterval(t)
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    refreshWhenVisible()
+    const t = window.setInterval(refreshWhenVisible, 30_000)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      window.clearInterval(t)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
   }, [mounted])
 
   useEffect(() => {
