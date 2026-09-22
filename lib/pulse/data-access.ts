@@ -497,7 +497,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     referralCode:
       (acct as AccountRow & { wallet_id?: string }).wallet_id ??
       profileData.referral_code ??
-      'PLS-XXXX',
+      '',
     fullName: profileData.full_name ?? null,
     email: email || null,
     tier: tierForAmount(activeHoldings.reduce((sum, holding) => sum + holding.amount, 0)).id,
