@@ -66,16 +66,20 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     const db = serviceClient()
 
     const results = await Promise.all([
-      db.from('accounts').select('user_id, cash_balance, invested_balance, staked_balance, created_at, updated_at').limit(500),
+      db.from('accounts').select('user_id, cash_balance, invested_balance, staked_balance, updated_at').limit(500),
       db.from('profiles').select('id, email, username, full_name, kyc_status, created_at').limit(500),
       db.from('kyc_submissions').select('*').order('created_at', { ascending: false }).limit(500),
       db.from('user_roles').select('user_id, role').limit(500),
       db.from('transactions').select('*').order('created_at', { ascending: false }).limit(200),
       db.from('card_applications').select('*').eq('status', 'waitlisted').limit(200),
+      // FIX — profiles.email is empty for all 69 accounts (verified directly).
+      // Real emails only exist in auth.users, which is why the admin table
+      // showed raw UUID fragments instead of addresses.
+      db.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     ])
-    const failed = results.find((result) => result.error)
+    const failed = results.slice(0, 6).find((result: any) => result.error)
     if (failed?.error) throw new Error(`Admin data load failed: ${failed.error.message}`)
-    const [{ data: accounts }, { data: profiles }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }] = results as any
+    const [{ data: accounts }, { data: profiles }, { data: kyc }, { data: roles }, { data: txns }, { data: cardApps }, authResult] = results as any
     type AdminRawRow = Record<string, any>
     const accountRows = (accounts ?? []) as AdminRawRow[]
     const profileRows = (profiles ?? []) as AdminRawRow[]
@@ -83,10 +87,12 @@ export async function getAdminSnapshot(): Promise<AdminResult> {
     const roleRows = (roles ?? []) as AdminRawRow[]
     const txnRows = (txns ?? []) as AdminRawRow[]
     const cardRows = (cardApps ?? []) as AdminRawRow[]
+    const authUsers = (authResult?.data?.users ?? []) as AdminRawRow[]
 
     const acctMap = new Map(accountRows.map((a) => [a.user_id, a]))
     const profileMap = new Map(profileRows.map((p) => [p.id, p]))
-    const emailMap = new Map(profileRows.map((p) => [p.id, p.email ?? null]))
+    const authEmailMap = new Map(authUsers.map((u) => [u.id, u.email ?? null]))
+    const emailMap = new Map(profileRows.map((p) => [p.id, authEmailMap.get(p.id) ?? p.email ?? null]))
     const roleMap = new Map(roleRows.map((r) => [r.user_id, r.role]))
     const latestKycByUser = new Map<string, AdminRawRow>()
     for (const row of kycRows) if (!latestKycByUser.has(row.user_id)) latestKycByUser.set(row.user_id, row)
