@@ -8,6 +8,7 @@ import { Activity, AlertCircle, Info, CheckCircle2, XCircle, Sparkles, ShieldChe
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { validateReferralCode } from '@/app/actions/pulse'
 import { Button } from '@/components/ui/button'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 export function AuthForm({ mode }: { mode: 'login' | 'sign-up' }) {
   return (
@@ -45,6 +46,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [loading, setLoading] = useState(false)
   const [emailCooldown, setEmailCooldown] = useState(0)
   const [consent, setConsent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   const inFlightRef = useRef(false)
 
@@ -122,6 +124,10 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
       setError({ type: 'error', message: 'Please enter a password (minimum 6 characters).' })
       return
     }
+    if (!captchaToken) {
+      setError({ type: 'error', message: 'Please complete the security check before continuing.' })
+      return
+    }
     if (isSignUp) {
       if (!fullName.trim()) {
         setError({ type: 'error', message: 'Please enter your full legal name.' })
@@ -155,10 +161,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         const { data, error: authError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
-          options: {
-            emailRedirectTo: `${origin}/auth/callback`,
-            data: { full_name: cleanName, ref_code: cleanCode },
-          },
+            options: {
+              emailRedirectTo: `${origin}/auth/callback`,
+              captchaToken,
+              data: { full_name: cleanName, ref_code: cleanCode },
+            },
         })
 
         if (authError) {
@@ -196,7 +203,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         }
       } else {
         const cleanEmail = email.trim().toLowerCase()
-        const { data, error: authError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password })
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+          options: { captchaToken },
+        })
 
         if (authError) {
           const errorLower = authError.message?.toLowerCase() || ''
@@ -424,6 +435,23 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                   placeholder="••••••••••••"
                 />
               </label>
+            </div>
+
+            <div className="rounded-xl border border-amber-500/15 bg-black/20 p-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Security verification</p>
+              <Turnstile
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID || '0x4AAAAAAE_cpZAIVq8Qy56a'}
+                options={{ theme: 'dark', size: 'flexible' }}
+                onSuccess={(token) => {
+                  setCaptchaToken(token)
+                  setError(null)
+                }}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => {
+                  setCaptchaToken(null)
+                  setError({ type: 'error', message: 'Security verification failed. Please retry the widget.' })
+                }}
+              />
             </div>
 
             {isSignUp && (
