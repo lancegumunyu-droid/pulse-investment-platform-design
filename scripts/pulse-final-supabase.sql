@@ -133,11 +133,18 @@ create table if not exists public.admin_audit_log (
   created_at timestamptz not null default now()
 );
 alter table public.admin_audit_log enable row level security;
+-- Existing installations may already have this table with an older shape.
+alter table public.admin_audit_log add column if not exists actor_id uuid references auth.users(id) on delete cascade;
+alter table public.admin_audit_log add column if not exists action text;
+alter table public.admin_audit_log add column if not exists entity_type text;
+alter table public.admin_audit_log add column if not exists entity_id uuid;
+alter table public.admin_audit_log add column if not exists metadata jsonb default '{}'::jsonb;
+alter table public.admin_audit_log add column if not exists created_at timestamptz default now();
 drop policy if exists admin_audit_admin_all on public.admin_audit_log;
 create policy admin_audit_admin_all on public.admin_audit_log
 for all to authenticated
 using (public.is_pulse_admin())
-with check (public.is_pulse_admin() and actor_id = (select auth.uid()));
+with check (public.is_pulse_admin() and (actor_id is null or actor_id = (select auth.uid())));
 grant select, insert on public.admin_audit_log to authenticated;
 
 -- Create a full-scope admin account. Replace the UUID, then run separately.
