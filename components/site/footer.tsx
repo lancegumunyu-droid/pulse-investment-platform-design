@@ -33,8 +33,8 @@ export function SiteFooter() {
   return (
     <footer className="relative border-t border-white/10 bg-zinc-950 text-white backdrop-blur-2xl">
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-      <div className="relative mx-auto max-w-6xl px-5 py-14">
-        <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
+      <div className="relative mx-auto max-w-6xl px-5 py-9 sm:py-10">
+        <div className="grid grid-cols-2 gap-7 md:grid-cols-4 md:gap-8">
           <div className="col-span-2 md:col-span-1">
             <Link
               href="/"

@@ -565,6 +565,16 @@ export async function fetchProjects(): Promise<{ ok: boolean; projects?: Project
       goal: Number(p.goal),
       risk: p.risk,
       summary: p.summary,
+      status: p.status === 'Closed' ? 'Closed' : 'Open',
+      deadline: p.deadline ?? undefined,
+      image: p.image ?? undefined,
+      stage: p.stage ?? undefined,
+      progress: p.progress == null ? undefined : Number(p.progress),
+      timeline: p.timeline ?? undefined,
+      impact: p.impact ?? undefined,
+      milestones: p.milestones ?? undefined,
+      riskDetail: p.risk_detail ?? undefined,
+      riskProfile: p.risk_profile ?? undefined,
     }))
     return { ok: true, projects }
   } catch (e) {

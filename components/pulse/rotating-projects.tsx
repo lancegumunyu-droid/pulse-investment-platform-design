@@ -168,17 +168,17 @@ export function RotatingProjects() {
 
               {/* Tangible Financial Metrics Grid */}
               <div className="grid grid-cols-3 gap-2.5 sm:gap-3 font-mono text-xs">
-                <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/10 hover:border-amber-500/40 transition-colors pulse-tile">
+                <div className="metric-tile bg-white/[0.02] p-3 rounded-2xl border border-white/10 hover:border-amber-500/40 transition-colors pulse-tile">
                   <span className="text-zinc-400 block text-[10px] mb-0.5 font-technical">Projected IRR</span>
                   <span className="text-amber-400 font-bold text-sm sm:text-base">{currentProject.metrics.irr}</span>
                 </div>
-                <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/10 hover:border-amber-500/40 transition-colors pulse-tile">
+                <div className="metric-tile bg-white/[0.02] p-3 rounded-2xl border border-white/10 hover:border-amber-500/40 transition-colors pulse-tile">
                   <span className="text-zinc-400 block text-[10px] mb-0.5 font-technical">Lockup Term</span>
                   <span className="text-white font-bold text-sm sm:text-base flex items-center gap-1 truncate">
                     <Clock className="size-3 text-zinc-400 shrink-0" /> {currentProject.metrics.duration}
                   </span>
                 </div>
-                <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/10 hover:border-amber-500/40 transition-colors pulse-tile">
+                <div className="metric-tile bg-white/[0.02] p-3 rounded-2xl border border-white/10 hover:border-amber-500/40 transition-colors pulse-tile">
                   <span className="text-zinc-400 block text-[10px] mb-0.5 font-technical">Risk Rating</span>
                   <span className="text-zinc-200 font-bold text-sm sm:text-base truncate">{currentProject.metrics.riskProfile}</span>
                 </div>

@@ -77,7 +77,7 @@ export default function ContactPage() {
       <section className="relative mx-auto max-w-6xl px-5 py-16">
         <div className="grid gap-12 md:grid-cols-2 md:gap-16 items-start">
           {/* Contact details */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             <h2 className="text-xl font-bold tracking-tight text-foreground">Contact details</h2>
             <div className="space-y-4">
               {CONTACT_DETAILS.map((c) => (
@@ -146,7 +146,7 @@ export default function ContactPage() {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={submit} className="glass rounded-3xl border border-white/10 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-xl space-y-5">
+              <form onSubmit={submit} className="glass rounded-3xl border border-white/10 bg-background/95 p-5 shadow-2xl backdrop-blur-xl space-y-4 sm:p-6">
                 <FormField label="Full name">
                   <input
                     required

@@ -439,14 +439,18 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
               </label>
             </div>
 
-            <div className="rounded-xl border border-amber-500/15 bg-black/20 p-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Security verification</p>
+            <div className="overflow-hidden rounded-2xl border border-amber-500/15 bg-black/20 p-3 sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Security verification</p>
+                <ShieldCheck className="size-4 shrink-0 text-amber-400/80" aria-hidden="true" />
+              </div>
               {turnstileSiteKey ? (
-                <div className="relative min-h-[65px]">
+                <div className="flex min-h-[70px] w-full items-center justify-center overflow-hidden rounded-xl bg-white/[0.02] py-1">
                   {captchaLoading && (
-                    <p className="absolute inset-0 flex items-center text-xs text-zinc-500" role="status">Loading security check…</p>
+                    <p className="pointer-events-none absolute z-0 text-xs text-zinc-500" role="status">Loading security check…</p>
                   )}
-                  <Turnstile
+                  <div className="relative z-10 flex min-h-[60px] w-full min-w-0 items-center justify-center [&>div]:mx-auto [&_iframe]:max-w-full">
+                    <Turnstile
                     siteKey={turnstileSiteKey}
                     options={{ theme: 'dark', size: 'flexible', appearance: 'always', execution: 'render', retry: 'auto', refreshExpired: 'auto' }}
                     onLoad={() => setCaptchaLoading(false)}
@@ -465,10 +469,14 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                       setCaptchaToken(null)
                       setError({ type: 'error', message: 'Security verification could not load. Check the Turnstile site key and allowed domain.' })
                     }}
-                  />
+                    />
+                  </div>
                 </div>
               ) : (
-                <p className="text-xs leading-relaxed text-rose-300">Security verification is temporarily unavailable. Configure NEXT_PUBLIC_TURNSTILE_SITE_KEY for this deployment.</p>
+                <div className="flex min-h-[70px] items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-3 py-3 text-xs leading-relaxed text-rose-200">
+                  <AlertCircle className="size-4 shrink-0 text-rose-300" aria-hidden="true" />
+                  <p>Security verification is unavailable for this deployment. Add the Turnstile site key to enable sign-in.</p>
+                </div>
               )}
             </div>
 
