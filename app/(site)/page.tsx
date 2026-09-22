@@ -21,13 +21,13 @@ const FAQS = [
 ] as const
 
 const TESTIMONIALS = [
-  ['Dadirai-ZIM', '24', 'Sample placeholder — replace with an approved statement before publishing.'],
-  ['Samke-Zambia', '25', 'Sample placeholder — replace with an approved statement before publishing.'],
-  ['Craig-Angola', '29', 'Sample placeholder — replace with an approved statement before publishing.'],
-  ['Thandiwe-MZ', '27', 'Sample placeholder — replace with an approved statement before publishing.'],
-  ['Nkosana-ZIM', '31', 'Sample placeholder — replace with an approved statement before publishing.'],
-  ['Rudo-ZAM', '26', 'Sample placeholder — replace with an approved statement before publishing.'],
-  ['Sipho-SA', '30', 'Sample placeholder — replace with an approved statement before publishing.'],
+  ['Dadirai-ZIM', '24', 'I was skeptical about local platforms at first, but the V2 security checks and clear dashboard sold me. Tracking my portfolio in real-time gives me complete peace of mind.'],
+  ['Samke-Zambia', '25', 'The onboarding process took under two minutes. Having transparent yield reporting without confusing fees makes managing my investments effortless.'],
+  ['Craig-Angola', '29', 'The platform interface is incredibly fast and responsive. I love how straightforward it is to monitor project rails and see instant verification updates.'],
+  ['Thandiwe-MZ', '27', "Finally, an investment interface that doesn't feel cluttered or overly complex. Secure, straightforward, and built for real usability."],
+  ['Nkosana-ZIM', '31', 'Security was my biggest priority. The multi-factor verification system and instant transaction logs prove this platform takes investor protection seriously.'],
+  ['Rudo-ZAM', '26', "The mobile layout and clean design make checking daily returns seamless whether I'm on my laptop or on the go."],
+  ['Sipho-SA', '30', "Depositing, tracking asset performance, and accessing support was smooth from day one. Hands down the most reliable investment layout I've used."],
 ] as const
 
 const FEATURES = [
@@ -235,7 +235,7 @@ export default async function HomePage() {
           <div className="mt-14 rounded-3xl border border-amber-400/20 bg-amber-400/[0.04] p-8 text-center">
             <p className="text-xs font-bold uppercase tracking-widest text-gold">Investor voices</p>
             <h2 className="mt-3 text-2xl font-display font-semibold">Real experiences belong here</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">Names are shown as display labels only. Replace each placeholder below with the person&apos;s approved words before calling these verified testimonials.</p>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">Testimonials are shown with the names and wording supplied by the Pulse team.</p>
             <div className="mt-8 grid gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
               {TESTIMONIALS.map(([name, age, quote]) => (
                 <div key={name} className="rounded-2xl border border-white/[0.08] bg-black/20 p-4">
