@@ -267,7 +267,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const isFormDisabled = loading || emailCooldown > 0
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#050505] overflow-hidden px-4 py-12 selection:bg-amber-500/30 selection:text-amber-200">
+    <div className="relative min-h-[100svh] w-full flex items-start justify-center bg-[#050505] overflow-hidden px-3 py-6 selection:bg-amber-500/30 selection:text-amber-200 sm:items-center sm:px-4 sm:py-12">
       {/* Immersive Background Atmosphere */}
       <div className="pointer-events-none absolute -top-48 -left-48 size-[500px] rounded-full bg-amber-500/[0.08] blur-[140px] animate-pulse" />
       <div className="pointer-events-none absolute -bottom-48 -right-48 size-[500px] rounded-full bg-emerald-500/[0.06] blur-[140px] animate-pulse" style={{ animationDuration: '4s' }} />
@@ -279,7 +279,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="relative rounded-[32px] border border-white/[0.08] bg-zinc-950/80 backdrop-blur-3xl p-8 sm:p-10 shadow-[0_25px_70px_rgba(0,0,0,0.9)] overflow-hidden group">
+        <div className="relative rounded-[24px] border border-white/[0.08] bg-zinc-950/80 p-5 shadow-[0_20px_55px_rgba(0,0,0,0.9)] backdrop-blur-3xl overflow-hidden group sm:rounded-[32px] sm:p-10">
           
           {/* Top Shimmer Border Line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_20px_rgba(245,158,11,0.6)]" />
@@ -311,15 +311,15 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex flex-col items-center text-center mb-8"
+            className="flex flex-col items-center text-center mb-5 sm:mb-8"
           >
-            <div className="relative mb-4">
+            <div className="relative mb-3 sm:mb-4">
               <div className="absolute -inset-3 rounded-2xl bg-amber-500/20 blur-xl animate-pulse" />
-              <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-400/20 to-zinc-900 border border-amber-500/40 text-amber-400 shadow-inner shadow-amber-500/30">
+              <div className="relative flex size-12 items-center justify-center rounded-xl sm:size-16 sm:rounded-2xl bg-gradient-to-b from-amber-400/20 to-zinc-900 border border-amber-500/40 text-amber-400 shadow-inner shadow-amber-500/30">
                 <Sparkles className="size-7" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
+            <h1 className="text-xl font-bold tracking-tight text-white font-sans sm:text-2xl">
               {isSignUp ? 'Initialize Syndicate Access' : 'Authenticate Terminal'}
             </h1>
             <p className="mt-1.5 text-xs text-zinc-400 tracking-wide">
@@ -351,7 +351,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                         onChange={(e) => setFullName(e.target.value)}
                         required
                         disabled={isFormDisabled}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 sm:px-4 sm:py-3 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
                         placeholder="e.g. Tendai Moyo"
                       />
                     </label>
@@ -416,7 +416,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                   required
                   disabled={isFormDisabled}
                   autoComplete="email"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 sm:px-4 sm:py-3 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
                   placeholder="name@institution.com"
                 />
               </label>
@@ -435,19 +435,19 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
                   disabled={isFormDisabled}
                   minLength={6}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 sm:px-4 sm:py-3 focus:border-amber-400/60 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-inner disabled:opacity-50"
                   placeholder="••••••••••••"
                 />
               </label>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-amber-500/15 bg-black/20 p-3 sm:p-4">
+            <div className="overflow-hidden rounded-2xl border border-amber-500/15 bg-black/20 p-2.5 sm:p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Security verification</p>
                 <ShieldCheck className="size-4 shrink-0 text-amber-400/80" aria-hidden="true" />
               </div>
               {turnstileSiteKey ? (
-                <div className="flex min-h-[70px] w-full items-center justify-center overflow-hidden rounded-xl bg-white/[0.02] py-1">
+                <div className="flex min-h-[58px] w-full items-center justify-center overflow-hidden rounded-xl bg-white/[0.02] py-0.5 sm:min-h-[70px] sm:py-1">
                   {captchaLoading && (
                     <p className="pointer-events-none absolute z-0 text-xs text-zinc-500" role="status">Loading security check…</p>
                   )}
@@ -483,7 +483,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             </div>
 
             {isSignUp && (
-              <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-zinc-400">
+              <label className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-2.5 text-[11px] leading-relaxed text-zinc-400 sm:gap-3 sm:p-3">
                 <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} disabled={isFormDisabled} className="mt-0.5 accent-amber-500" />
                 <span>I confirm that I have read and accept the <Link href="/legal/data-consent" className="text-amber-400 underline">Data Consent Notice</Link>, <Link href="/legal/terms" className="text-amber-400 underline">Terms of Use</Link>, and <Link href="/legal/risk-disclaimer" className="text-amber-400 underline">Risk Disclaimer</Link>.</span>
               </label>
