@@ -85,7 +85,7 @@ export async function POST(req: Request) {
       // Example: flag the associated user record if this was a KYC/verification email
       // so support/admin can see delivery failed and follow up.
       await supabase
-        .from("notifications")
+        .from("email_notifications")
         .insert({
           type: "email_delivery_failure",
           message: `Email to ${event.data.to?.[0]} failed (${event.type})`,
