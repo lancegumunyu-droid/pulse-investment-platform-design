@@ -92,6 +92,15 @@ export interface Project {
   // moment pulse-data.ts compiled again. Optional so projects without a
   // photo still render (dashboard.tsx already guards with `p.image &&`).
   image?: string
+  stage?: string
+  progress?: number
+  timeline?: string
+  impact?: string
+  milestones?: string[]
+  riskDetail?: string
+  riskProfile?: string
+  status?: 'Open' | 'Closed'
+  deadline?: string
 }
 
 export const PROJECTS: Project[] = [
@@ -105,6 +114,7 @@ export const PROJECTS: Project[] = [
     goal: 1_000_000,
     risk: 'Lower',
     summary: '85 MW solar installation with a 20-year power purchase agreement with the national utility.',
+    image: '/projects/kalahari-solar.png',
   },
   {
     id: 'copperbelt-royalty',
@@ -116,6 +126,7 @@ export const PROJECTS: Project[] = [
     goal: 750_000,
     risk: 'Higher',
     summary: 'Revenue royalty on an operating copper concession. Returns track commodity prices and output.',
+    image: '/projects/copperbelt-royalty.png',
   },
   {
     id: 'zambezi-agri',
@@ -127,6 +138,7 @@ export const PROJECTS: Project[] = [
     goal: 500_000,
     risk: 'Moderate',
     summary: 'Irrigated macadamia and citrus estate with offtake contracts to EU distributors.',
+    image: '/projects/zambezi-agri.png',
   },
   {
     id: 'maputo-logistics',
@@ -138,8 +150,39 @@ export const PROJECTS: Project[] = [
     goal: 900_000,
     risk: 'Moderate',
     summary: 'Warehousing and cold-chain facility serving the Maputo port corridor.',
+    image: '/projects/maputo-logistics.png',
   },
 ]
+
+export interface PulseProject {
+  id: string
+  title: string
+  location: string
+  category: ProjectSector
+  apy: string
+  minInvestment: number
+  description: string
+  image: string
+  badge: string
+  raisedAmount: number
+  targetRaise: number
+  metrics: { irr: string; duration: string; riskProfile: string }
+}
+
+export const PULSE_PROJECTS: PulseProject[] = PROJECTS.map((project) => ({
+  id: project.id,
+  title: project.name,
+  location: project.country,
+  category: project.sector,
+  apy: project.targetYield,
+  minInvestment: 75,
+  description: project.summary,
+  image: project.image ?? `/projects/${project.id}.png`,
+  badge: `${project.risk} risk`,
+  raisedAmount: project.funded,
+  targetRaise: project.goal,
+  metrics: { irr: project.targetYield, duration: '36 months', riskProfile: project.risk },
+}))
 
 export interface Signal {
   id: string
@@ -148,7 +191,7 @@ export interface Signal {
   window: string
   detail: string
   targetYield: string
-  urgency: 'New' | 'Closing soon' | 'Open'
+  urgency: 'New' | 'Closing soon' | 'Open' | 'Standard'
 }
 
 export const SIGNALS: Signal[] = [

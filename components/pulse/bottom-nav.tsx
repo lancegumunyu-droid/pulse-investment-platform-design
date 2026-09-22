@@ -25,12 +25,12 @@ export function BottomNav() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       aria-label="Syndicate Navigation"
-      className="fixed inset-x-0 bottom-0 z-40 w-full border-t border-amber-500/40 bg-zinc-950/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-20px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl"
+      className="fixed inset-x-0 bottom-0 z-40 w-full border-t border-amber-500/40 bg-zinc-950/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-20px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl supports-[backdrop-filter]:bg-zinc-950/80"
     >
       {/* Top Gold Shimmer Border Accent */}
       <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent pointer-events-none shadow-[0_0_20px_rgba(245,158,11,0.9)]" />
 
-      <div className="mx-auto flex max-w-lg items-stretch justify-between px-2 py-2.5 relative">
+      <div className="mx-auto flex max-w-2xl items-stretch justify-between gap-1 overflow-x-auto px-1 py-2.5 relative sm:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ITEMS.map(({ view: v, label, icon: Icon, badge }) => {
           const active = view === v
           return (
@@ -39,7 +39,7 @@ export function BottomNav() {
               whileTap={{ scale: 0.90 }}
               onClick={() => setView(v)}
               className={cn(
-                'pulse-tab relative flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl py-2 text-[10px] font-medium transition-colors select-none group',
+                'pulse-tab relative flex min-w-[4.25rem] flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-medium transition-colors select-none group sm:min-w-0',
                 active ? 'text-amber-300 font-bold' : 'text-zinc-400 hover:text-white'
               )}
               aria-current={active ? 'page' : undefined}

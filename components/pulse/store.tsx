@@ -398,22 +398,15 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       closeInvestment: (holdingId) => run(() => closeInvestment(holdingId)),
 
       notifications: async () => {
-        try {
-          // Notifications are not part of the live production schema yet.
-          // Keep the contract stable without issuing a guaranteed failing query.
-          return { ok: true, rows: [] as NotificationRow[] }
-        } catch (e) {
-          return { ok: false, error: (e as Error).message }
-        }
+        const supabase = createClient()
+        const { data, error } = await supabase.from('notifications').select('id, title, body, read, created_at').order('created_at', { ascending: false }).limit(30)
+        if (error) return { ok: false, error: error.message }
+        return { ok: true, rows: (data ?? []).map((row) => ({ id: row.id, title: row.title, body: row.body, read: row.read, createdAt: row.created_at })) }
       },
       markNotificationRead: async (id: string) => {
-        try {
-          const supabase = createClient()
-          void id
-          return { ok: true }
-        } catch (e) {
-          return { ok: false, error: (e as Error).message }
-        }
+        const supabase = createClient()
+        const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id)
+        return error ? { ok: false, error: error.message } : { ok: true }
       },
     }),
     [run],

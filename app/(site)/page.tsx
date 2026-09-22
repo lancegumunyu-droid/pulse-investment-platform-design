@@ -12,6 +12,24 @@ const STATS = [
   { label: 'Investors', value: '400+' },
 ]
 
+const FAQS = [
+  ['Is investing guaranteed?', 'No. Targets are not guarantees, and capital is at risk. Review each project, its reporting, and the risk disclaimer before investing.'],
+  ['Why is identity verification required?', 'Pulse uses verification before investing to protect users, reduce fraud, and support responsible platform operations.'],
+  ['How do I get help?', 'Use the Support widget inside your Pulse account to send a message and attach a screenshot. Support replies appear in your notification bell.'],
+  ['Can I use Pulse on my phone?', 'Yes. Pulse is responsive and can be added to your phone home screen from your browser using Add to Home Screen.'],
+  ['How are project updates shared?', 'Project performance and platform announcements are shared through the dashboard notification center and project reporting surfaces.'],
+] as const
+
+const TESTIMONIALS = [
+  ['Dadirai-ZIM', '24', 'I was skeptical about local platforms at first, but the V2 security checks and clear dashboard sold me. Tracking my portfolio in real-time gives me complete peace of mind.'],
+  ['Samke-Zambia', '25', 'The onboarding process took under two minutes. Having transparent yield reporting without confusing fees makes managing my investments effortless.'],
+  ['Craig-Angola', '29', 'The platform interface is incredibly fast and responsive. I love how straightforward it is to monitor project rails and see instant verification updates.'],
+  ['Thandiwe-MZ', '27', "Finally, an investment interface that doesn't feel cluttered or overly complex. Secure, straightforward, and built for real usability."],
+  ['Nkosana-ZIM', '31', 'Security was my biggest priority. The multi-factor verification system and instant transaction logs prove this platform takes investor protection seriously.'],
+  ['Rudo-ZAM', '26', "The mobile layout and clean design make checking daily returns seamless whether I'm on my laptop or on the go."],
+  ['Sipho-SA', '30', "Depositing, tracking asset performance, and accessing support was smooth from day one. Hands down the most reliable investment layout I've used."],
+] as const
+
 const FEATURES = [
   {
     icon: <Globe className="size-5" />,
@@ -196,6 +214,36 @@ export default async function HomePage() {
                 </div>
               </Link>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-white/[0.08]">
+        <div className="mx-auto max-w-6xl px-5 py-24">
+          <div className="mb-10 max-w-xl">
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gold">Questions, answered</p>
+            <h2 className="text-3xl font-display font-semibold tracking-tight md:text-4xl">A clearer way to get started</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {FAQS.map(([question, answer]) => (
+              <details key={question} className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5">
+                <summary className="cursor-pointer list-none pr-8 text-base font-semibold text-foreground marker:hidden">{question}</summary>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{answer}</p>
+              </details>
+            ))}
+          </div>
+          <div className="mt-14 rounded-3xl border border-amber-400/20 bg-amber-400/[0.04] p-8 text-center">
+            <p className="text-xs font-bold uppercase tracking-widest text-gold">Investor voices</p>
+            <h2 className="mt-3 text-2xl font-display font-semibold">Real experiences belong here</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">Testimonials are shown with the names and wording supplied by the Pulse team.</p>
+            <div className="mt-8 grid gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
+              {TESTIMONIALS.map(([name, age, quote]) => (
+                <div key={name} className="rounded-2xl border border-white/[0.08] bg-black/20 p-4">
+                  <p className="text-sm font-semibold text-foreground">{name} <span className="font-normal text-muted-foreground">({age})</span></p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{quote}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
