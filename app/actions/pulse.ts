@@ -77,18 +77,30 @@ export async function validateReferralCode(code: string): Promise<{ ok: boolean;
   // reported invalid and nobody could complete sign-up. Both keys are now
   // returned and kept in sync.
   const clean = code?.trim()
-  if (!clean) return { ok: false, valid: false, error: 'Code cannot be empty' }
+  const normalized = clean?.toUpperCase()
+  if (!normalized) return { ok: false, valid: false, error: 'Code cannot be empty' }
   try {
     const db = serviceClient()
 
-    const { data: byCode } = await db.from('profiles').select('id').eq('referral_code', clean).maybeSingle()
+    // Referral codes are user-facing and may have been created before the
+    // uppercase input rule was added. Use case-insensitive exact matching so
+    // valid links are not rejected because of casing differences.
+    const { data: byCode } = await db
+      .from('profiles')
+      .select('id')
+      .ilike('referral_code', normalized)
+      .maybeSingle()
     if (byCode) return { ok: true, valid: true }
 
-    const { data: byWallet } = await db.from('accounts').select('user_id').eq('wallet_id', clean).maybeSingle()
+    const { data: byWallet } = await db
+      .from('accounts')
+      .select('user_id')
+      .ilike('wallet_id', normalized)
+      .maybeSingle()
     if (byWallet) return { ok: true, valid: true }
 
     // The public join code used when someone arrives without a referrer.
-    if (clean.toUpperCase() === 'PULSE-PUBLIC') return { ok: true, valid: true }
+    if (normalized === 'PULSE-PUBLIC') return { ok: true, valid: true }
 
     return { ok: false, valid: false, error: 'Invalid or expired referral code' }
   } catch (e) {
