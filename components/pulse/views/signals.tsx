@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
+import Image from 'next/image'
 import { Radio, RotateCcw, Zap, Inbox, TrendingUp, Clock, ArrowRight, ShieldCheck } from 'lucide-react'
 import { usePulse } from '../store'
 import { PROJECTS as INITIAL_PROJECTS } from '@/lib/pulse-data'
@@ -73,7 +74,7 @@ function SignalCard({ signal, index, funding }: { signal: Signal; index: number;
       ref={glow.ref}
       onPointerMove={glow.onMove}
       onPointerLeave={glow.onLeave}
-      className="pulse-glass-card pulse-glow-track space-y-4 p-5"
+      className="group pulse-glass-card pulse-glow-track space-y-4 p-5 transition-transform duration-300 hover:-translate-y-1"
     >
       <div className="relative z-[3] flex items-center justify-between gap-3 border-b border-white/10 pb-3.5">
         <div className="flex items-center gap-2.5">
@@ -87,6 +88,19 @@ function SignalCard({ signal, index, funding }: { signal: Signal; index: number;
           <TrendingUp className="h-3 w-3" /> {signal.target_yield}
         </span>
       </div>
+
+      {project?.image && (
+        <div className="relative z-[3] h-36 overflow-hidden rounded-2xl border border-amber-500/20 bg-black/40">
+          <Image
+            src={project.image}
+            alt={`${project.name} project image`}
+            fill
+            sizes="(max-width: 640px) 100vw, 640px"
+            className="object-cover transition duration-700 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        </div>
+      )}
 
       <div className="relative z-[3] space-y-1.5">
         <h4 className="text-base font-bold leading-snug text-white">{signal.title}</h4>

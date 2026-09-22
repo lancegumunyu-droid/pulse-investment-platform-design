@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Folder, Gift, Lock, Pickaxe, Radio, Rocket, ShieldCheck, Sprout, Sun, Zap, Building2, Layers } from 'lucide-react'
 import { money, usePulse } from '../store'
 import { PROJECTS, nextTier, isProjectClosed, type Project } from '@/lib/pulse-data'
+import { ProjectRail } from '@/components/pulse/project-rail'
 
 function sectorIcon(sector?: string) {
   const s = (sector ?? '').toLowerCase()
@@ -331,6 +332,7 @@ export function DashboardView() {
         </div>
       </div>
 
+      <ProjectRail />
     </div>
   )
 }

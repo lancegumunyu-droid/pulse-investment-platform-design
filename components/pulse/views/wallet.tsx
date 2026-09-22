@@ -164,8 +164,8 @@ export function WalletView() {
     const res = await api.requestPulsePinReset()
     if (res.ok) {
       setPinMode('reset')
-      setResetToken(res.token)
-      toast({ title: 'PIN reset started', description: 'Create a new PIN within 10 minutes.', variant: 'info' })
+      setResetToken('session-reset')
+      toast({ title: 'PIN reset started', description: 'Create a new PIN now.', variant: 'info' })
     } else toast({ title: 'Could not start reset', description: res.error, variant: 'error' })
   }
 

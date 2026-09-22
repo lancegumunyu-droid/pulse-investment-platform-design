@@ -200,7 +200,7 @@ interface StoreContext {
     myReferrals: () => Promise<{ ok: true; rows: MyReferralRow[] } | { ok: false; error: string }>
     applyForCard: () => Promise<ActionResult>
     setPulsePin: (pin: string) => Promise<ActionResult>
-    requestPulsePinReset: () => Promise<{ ok: true; token: string } | { ok: false; error: string }>
+    requestPulsePinReset: () => Promise<{ ok: true } | { ok: false; error: string }>
     resetPulsePin: (token: string, pin: string) => Promise<ActionResult>
     addSavedWallet: (label: string, address: string) => Promise<ActionResult>
     removeSavedWallet: (id: string) => Promise<ActionResult>
@@ -390,7 +390,7 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       applyForCard: () => run(() => applyForCardAction()),
       setPulsePin: (pin) => run(() => setPulsePin(pin)),
       requestPulsePinReset: () => requestPulsePinReset(),
-      resetPulsePin: (token, pin) => run(() => resetPulsePin(token, pin)),
+      resetPulsePin: (_token, pin) => run(() => resetPulsePin(pin)),
       addSavedWallet: (label, address) => run(() => addSavedWalletAction(label, address)),
       removeSavedWallet: (id) => run(() => removeSavedWalletAction(id)),
       transfer: (recipientIdentifier, amount) => run(() => requestTransferAction(recipientIdentifier, amount)),

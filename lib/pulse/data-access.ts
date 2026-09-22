@@ -11,28 +11,44 @@ import { tierForAmount, type TierId, PROJECTS, type Project } from '@/lib/pulse-
 import type { Snapshot, SnapshotTxn } from './types'
 
 export async function getLiveProjects(): Promise<Project[]> {
-  try {
-    const db = serviceClient()
-    const { data: rows, error } = await db.from('holdings').select('project_id, amount')
+  const db = serviceClient()
+  const [{ data: projectRows, error: projectError }, { data: holdingRows, error: holdingError }] = await Promise.all([
+    db.from('projects').select('id, name, country, sector, target_yield, funded, goal, risk, summary, status, deadline'),
+    db.from('holdings').select('project_id, amount').eq('status', 'active'),
+  ])
 
-    if (error) {
-      console.warn('[Data Access] Failed to fetch live holdings for projects:', error.message)
-      return PROJECTS
-    }
-
-    const liveByProject = new Map<string, number>()
-    for (const r of rows ?? []) {
-      liveByProject.set(r.project_id, (liveByProject.get(r.project_id) ?? 0) + Number(r.amount))
-    }
-
-    return PROJECTS.map((p) => ({
-      ...p,
-      funded: Math.min(p.goal, p.funded + (liveByProject.get(p.id) ?? 0)),
-    }))
-  } catch (err) {
-    console.warn('[Data Access] getLiveProjects fallback to static list:', err)
+  if (projectError) {
+    console.warn('[Data Access] Canonical projects query failed:', projectError.message)
     return PROJECTS
   }
+
+  const liveByProject = new Map<string, number>()
+  if (!holdingError) {
+    for (const row of holdingRows ?? []) {
+      liveByProject.set(row.project_id, (liveByProject.get(row.project_id) ?? 0) + Number(row.amount))
+    }
+  }
+
+  return (projectRows ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    country: row.country,
+    sector: row.sector as Project['sector'],
+    targetYield: row.target_yield,
+    funded: Math.min(Number(row.goal), Number(row.funded) + (liveByProject.get(row.id) ?? 0)),
+    goal: Number(row.goal),
+    risk: row.risk as Project['risk'],
+    summary: row.summary,
+    status: row.status === 'Open' ? 'Open' : 'Closed',
+    deadline: row.deadline,
+    image: PROJECTS.find((project) => project.id === row.id)?.image,
+    stage: PROJECTS.find((project) => project.id === row.id)?.stage,
+    progress: PROJECTS.find((project) => project.id === row.id)?.progress,
+    timeline: PROJECTS.find((project) => project.id === row.id)?.timeline,
+    impact: PROJECTS.find((project) => project.id === row.id)?.impact,
+    milestones: PROJECTS.find((project) => project.id === row.id)?.milestones,
+    riskDetail: PROJECTS.find((project) => project.id === row.id)?.riskDetail,
+  }))
 }
 
 const TXN_TYPE_MAP: Record<string, SnapshotTxn['type']> = {
@@ -344,7 +360,7 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     }
   }
 
-  const [profile, acct, holdings, txns, pointsRows, referrals, badgeRows, cardApp, wallets, adminRow] = await Promise.all([
+  const [profile, acct, holdings, txns, pointsRows, referrals, badgeRows, cardApp, pulseCard, wallets, adminRow] = await Promise.all([
     safeQuery(db.from('profiles').select('*').eq('id', userId).maybeSingle()),
     ensureAccount(userId),
     safeQuery(db.from('holdings').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
@@ -355,6 +371,12 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     safeQuery(db.from('profiles').select('kyc_status').eq('referred_by', userId)),
     safeQuery(db.from('badges').select('badge_key, earned_at').eq('user_id', userId)),
     safeQuery(db.from('card_applications').select('status, card_ref').eq('user_id', userId).maybeSingle()),
+    safeQuery(
+      db.from('pulse_cards')
+        .select('card_number_last4, pin_hash, status')
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ),
     safeQuery(
       db.from('saved_wallets').select('id, label, address').eq('user_id', userId).order('created_at', { ascending: true }),
     ),
@@ -370,9 +392,26 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
     safeQuery(db.from('user_roles').select('role').eq('user_id', userId).eq('role', 'admin').maybeSingle()),
   ])
 
-  const email = ((profile as { email?: string })?.email || userEmail || '').toLowerCase()
+  const profileData = (profile ?? {}) as {
+    email?: string
+    kyc_status?: string
+    wallet_address?: string
+    referral_code?: string
+    full_name?: string
+    tier?: number
+    founder_number?: number
+    username?: string
+    admin_scope?: Snapshot['adminScope']
+  }
+  const cardData = (pulseCard ?? {}) as {
+    card_number_last4?: string | null
+    pin_hash?: string | null
+    status?: Snapshot['cardStatus'] | string | null
+  }
+  const applicationData = (cardApp ?? {}) as { status?: Snapshot['cardStatus']; card_ref?: string }
+  const email = (profileData.email || userEmail || '').toLowerCase()
   const isAdmin = !!adminRow
-  const rawKyc = ((profile as { kyc_status?: string })?.kyc_status ?? 'none') as Snapshot['kyc']
+  const rawKyc = (profileData.kyc_status ?? 'none') as Snapshot['kyc']
 
   // PERFORMANCE FIX — this used to run all three ledger recalculations on
   // EVERY single call to getSnapshot(), unconditionally, even though their
@@ -453,19 +492,20 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
       }
     }),
     kyc: rawKyc,
-    wallet: (profile as { wallet_address?: string })?.wallet_address ?? null,
+    wallet: profileData.wallet_address ?? null,
+    pulseId: (acct as AccountRow & { pulse_id?: string | null }).pulse_id ?? null,
     referralCode:
       (acct as AccountRow & { wallet_id?: string }).wallet_id ??
-      (profile as { referral_code?: string })?.referral_code ??
+      profileData.referral_code ??
       'PLS-XXXX',
-    fullName: (profile as { full_name?: string })?.full_name ?? null,
+    fullName: profileData.full_name ?? null,
     email: email || null,
-    tier: (profile as { tier?: number })?.tier ?? 1,
+    tier: tierForAmount(activeHoldings.reduce((sum, holding) => sum + holding.amount, 0)).id,
     isAdmin,
     points: ((pointsRows as Array<{ amount: number }>) ?? []).reduce((s, r) => s + Number(r.amount), 0),
-    founderNumber: (profile as { founder_number?: number })?.founder_number ?? null,
+    founderNumber: profileData.founder_number ?? null,
     walletId: (acct as AccountRow & { wallet_id?: string }).wallet_id ?? null,
-    username: (profile as { username?: string })?.username ?? null,
+    username: profileData.username ?? null,
     referralCount: ((referrals as unknown[]) ?? []).length,
     referralVerifiedCount: ((referrals as Array<{ kyc_status: string }>) ?? []).filter(
       (r) => r.kyc_status === 'verified',
@@ -474,9 +514,13 @@ export async function getSnapshot(userId: string, userEmail?: string): Promise<S
       key: b.badge_key,
       earnedAt: new Date(b.earned_at).getTime(),
     })),
-    adminScope: (profile as { admin_scope?: Snapshot['adminScope'] })?.admin_scope ?? null,
-    cardStatus: (cardApp as { status?: Snapshot['cardStatus'] })?.status ?? 'none',
-    cardRef: (cardApp as { card_ref?: string })?.card_ref ?? null,
+    adminScope: profileData.admin_scope ?? null,
+    cardStatus: pulseCard
+      ? (cardData.pin_hash ? 'active' : (cardData.status as Snapshot['cardStatus']) ?? 'pending_pin')
+      : (applicationData.status ?? 'none'),
+    cardRef: applicationData.card_ref ?? null,
+    cardLast4: cardData.card_number_last4 ?? null,
+    pinRequired: !!pulseCard && !cardData.pin_hash,
     savedWallets: ((wallets as Array<{ id: string; label: string; address: string }>) ?? []).map((w) => ({
       id: w.id,
       label: w.label,
