@@ -288,7 +288,7 @@ export function AdminView() {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex overflow-x-auto border-b border-white/10 pb-2 gap-2 scrollbar-none">
+      <div className="sticky top-2 z-20 -mx-1 flex overflow-x-auto border-b border-white/10 bg-black/85 px-1 pb-2 pt-2 gap-2 scrollbar-none backdrop-blur-xl sm:top-4">
         <Button
           variant={activeTab === 'overview' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('overview')}

@@ -68,9 +68,9 @@ function ViewSwitcher() {
 export function PulseApp({ initial }: PulseAppProps) {
   return (
     <PulseProvider initial={initial}>
-      <div className="min-h-dvh bg-black">
+      <div className="pulse-app min-h-dvh bg-black">
         <TopBar />
-        <main className="mx-auto max-w-4xl px-4 pb-32 pt-6 sm:pb-36">
+        <main className="mx-auto w-full max-w-4xl px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pt-6">
           <ViewSwitcher />
           <div className="mx-auto mt-3 w-full max-w-3xl border-t border-amber-500/15 pt-3">
             <RiskNote className="w-full rounded-xl bg-amber-400/[0.03] shadow-none" />
