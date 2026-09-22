@@ -47,6 +47,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
   const [emailCooldown, setEmailCooldown] = useState(0)
   const [consent, setConsent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaRenderKey, setCaptchaRenderKey] = useState(0)
 
   const inFlightRef = useRef(false)
 
@@ -440,15 +441,20 @@ function AuthFormInner({ mode }: { mode: 'login' | 'sign-up' }) {
             <div className="rounded-xl border border-amber-500/15 bg-black/20 p-3">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Security verification</p>
               <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_ID || '0x4AAAAAAE_cpZAIVq8Qy56a'}
+                key={captchaRenderKey}
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAE_cpZAIVq8Qy56a'}
                 options={{ theme: 'dark', size: 'flexible' }}
                 onSuccess={(token) => {
                   setCaptchaToken(token)
                   setError(null)
                 }}
-                onExpire={() => setCaptchaToken(null)}
+                onExpire={() => {
+                  setCaptchaToken(null)
+                  setCaptchaRenderKey((key) => key + 1)
+                }}
                 onError={() => {
                   setCaptchaToken(null)
+                  setCaptchaRenderKey((key) => key + 1)
                   setError({ type: 'error', message: 'Security verification failed. Please retry the widget.' })
                 }}
               />
