@@ -158,7 +158,7 @@ export function PWAInstaller() {
                   <div className="mt-1 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-zinc-300 font-sans">
                     <div className="flex items-center gap-2 font-medium text-white">
                       <Share className="size-4 text-amber-400" />
-                      <span>Tap Share in Safari menu</span>
+                      <span>Tap Share in Safari or Chrome</span>
                     </div>
                     <p>
                       Then scroll down and select <span className="font-semibold text-white">&quot;Add to Home Screen&quot;</span>.
