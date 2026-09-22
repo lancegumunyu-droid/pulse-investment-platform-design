@@ -92,6 +92,15 @@ export interface Project {
   // moment pulse-data.ts compiled again. Optional so projects without a
   // photo still render (dashboard.tsx already guards with `p.image &&`).
   image?: string
+  stage?: string
+  progress?: number
+  timeline?: string
+  impact?: string
+  milestones?: string[]
+  riskDetail?: string
+  riskProfile?: string
+  status?: 'Open' | 'Closed'
+  deadline?: string
 }
 
 export const PROJECTS: Project[] = [
@@ -141,6 +150,36 @@ export const PROJECTS: Project[] = [
   },
 ]
 
+export interface PulseProject {
+  id: string
+  title: string
+  location: string
+  category: ProjectSector
+  apy: string
+  minInvestment: number
+  description: string
+  image: string
+  badge: string
+  raisedAmount: number
+  targetRaise: number
+  metrics: { irr: string; duration: string; riskProfile: string }
+}
+
+export const PULSE_PROJECTS: PulseProject[] = PROJECTS.map((project) => ({
+  id: project.id,
+  title: project.name,
+  location: project.country,
+  category: project.sector,
+  apy: project.targetYield,
+  minInvestment: 75,
+  description: project.summary,
+  image: project.image ?? `/projects/${project.id}.png`,
+  badge: `${project.risk} risk`,
+  raisedAmount: project.funded,
+  targetRaise: project.goal,
+  metrics: { irr: project.targetYield, duration: '36 months', riskProfile: project.risk },
+}))
+
 export interface Signal {
   id: string
   projectId: string
@@ -148,7 +187,7 @@ export interface Signal {
   window: string
   detail: string
   targetYield: string
-  urgency: 'New' | 'Closing soon' | 'Open'
+  urgency: 'New' | 'Closing soon' | 'Open' | 'Standard'
 }
 
 export const SIGNALS: Signal[] = [
