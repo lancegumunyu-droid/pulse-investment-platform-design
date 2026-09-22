@@ -33,10 +33,20 @@ export default function ContactPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // Placeholder — wire to an email service (e.g. Resend) when ready.
-    await new Promise((r) => setTimeout(r, 800))
-    setSent(true)
-    setLoading(false)
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const result = (await response.json()) as { error?: string }
+      if (!response.ok) throw new Error(result.error || 'Unable to send your message.')
+      setSent(true)
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to send your message.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>

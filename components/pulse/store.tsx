@@ -115,7 +115,7 @@ function fromSnapshot(s: Snapshot | null | undefined): State {
     txns: data.txns ?? [],
     kyc: data.kyc ?? 'none',
     wallet: data.wallet ?? null,
-    referralCode: data.referralCode ?? 'PULSE-USER',
+    referralCode: data.referralCode ?? '',
     pulseId: data.pulseId ?? null,
     fullName: data.fullName ?? null,
     email: data.email ?? null,
