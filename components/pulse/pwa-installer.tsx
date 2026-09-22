@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download, Share, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ export function PWAInstaller() {
   const [isStandalone, setIsStandalone] = useState(false)
   const [isIos, setIsIos] = useState(false)
   const [showIosGuide, setShowIosGuide] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     setMounted(true)
@@ -106,7 +108,7 @@ export function PWAInstaller() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()))
   }
 
-  if (!mounted || isStandalone || (!installPrompt && !isIos)) {
+  if (!mounted || isStandalone || pathname === '/' || (!installPrompt && !isIos)) {
     return null
   }
 
@@ -118,9 +120,9 @@ export function PWAInstaller() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 15, scale: 0.95 }}
           transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          className="fixed bottom-20 right-4 z-50 max-w-sm sm:bottom-6 sm:right-6 font-sans"
+          className="fixed inset-x-3 top-3 z-50 font-sans sm:inset-x-auto sm:bottom-6 sm:left-auto sm:top-auto sm:right-6 sm:w-[min(24rem,calc(100vw-3rem))]"
         >
-          <div className="relative flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-zinc-950/95 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
+          <div className="relative flex max-h-[min(70vh,28rem)] flex-col gap-3 overflow-y-auto rounded-2xl border border-amber-500/30 bg-zinc-950/95 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-2xl sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-400/10 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
@@ -128,9 +130,10 @@ export function PWAInstaller() {
                 </span>
                 <div>
                   <h4 className="text-sm font-semibold text-white font-display">Install Pulse App</h4>
-                  <p className="mt-0.5 text-xs text-zinc-300 font-sans">
-                    Get real-time investment updates and fast access to SADC projects.
-                  </p>
+                    <p className="mt-0.5 max-w-[15rem] text-xs leading-5 text-zinc-300 font-sans sm:max-w-none">
+                      Get real-time investment updates and fast access to SADC projects.
+                    </p>
+
                 </div>
               </div>
               <button

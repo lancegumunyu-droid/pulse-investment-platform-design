@@ -340,7 +340,7 @@ export function ProfileView() {
       <motion.div variants={itemVariants}>
         <button
           onClick={signOut}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm font-semibold uppercase tracking-wide text-zinc-400 transition hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400"
+          className="mx-auto flex min-h-12 w-full max-w-xl items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-semibold uppercase tracking-wide text-zinc-400 transition hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
         >
           <LogOut className="h-4 w-4" /> Sign out
         </button>

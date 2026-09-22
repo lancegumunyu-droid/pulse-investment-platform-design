@@ -155,6 +155,18 @@ PULSE THEME v3 — Obsidian & Deep Space
   .font-technical { font-family: var(--font-sans); letter-spacing: -0.01em; }
   .font-display { font-family: var(--font-sans); font-weight: 700; letter-spacing: -0.025em; }
   .pulse-home { font-family: var(--font-sans); }
+  .campaign-motion { animation: campaign-drift 14s ease-in-out infinite alternate; will-change: transform; }
+  .tile-image { animation: tile-drift 12s ease-in-out infinite alternate; transition: opacity .4s ease, transform .7s ease; }
+  .glow-card:hover .tile-image, .glow-card:focus-within .tile-image { opacity: .38; transform: scale(1.08); }
+  .metric-tile { animation: metric-breathe 4.5s ease-in-out infinite; }
+  .metric-tile:nth-child(2) { animation-delay: -1.5s; }
+  .metric-tile:nth-child(3) { animation-delay: -3s; }
+  @keyframes tile-drift { from { transform: scale(1.03) translate3d(-1%, 0, 0); } to { transform: scale(1.12) translate3d(1%, -1%, 0); } }
+  @keyframes metric-breathe { 0%, 100% { border-color: rgba(255,255,255,.1); } 50% { border-color: rgba(245,158,11,.32); } }
+  .campaign-promo { animation: campaign-promo-glow 5s ease-in-out infinite; }
+  @keyframes campaign-promo-glow { 0%, 100% { box-shadow: 0 0 0 rgba(245,158,11,0); } 50% { box-shadow: 0 0 55px rgba(245,158,11,.18); } }
+  @keyframes campaign-drift { from { transform: scale(1.02) translate3d(-0.5%, 0, 0); } to { transform: scale(1.08) translate3d(0.5%, -1%, 0); } }
+  @media (prefers-reduced-motion: reduce) { .campaign-motion, .tile-image, .metric-tile { animation: none; } }
   .pulse-home h1, .pulse-home h2, .pulse-home h3, .pulse-home h4 { font-family: var(--font-sans); }
 
   .pulse-surface {
@@ -232,6 +244,12 @@ PULSE THEME v3 — Obsidian & Deep Space
   .pulse-view .rounded-3xl, .pulse-view .rounded-2xl { box-shadow: 0 25px 60px -25px #000, 0 0 30px rgba(245,158,11,.12); }
   .pulse-view .border-white\/10 { border-color: rgba(255,255,255,.2); }
   .pulse-app button:active { transform: scale(.96); }
+
+  @keyframes pulse-loader {
+    0% { transform: translateX(-120%); }
+    50% { transform: translateX(180%); }
+    100% { transform: translateX(360%); }
+  }
 
   @keyframes pulse-shimmer {
     0%, 100% { background-position: 0% 50%; }

@@ -8,6 +8,8 @@ import { TopBar } from './top-bar'
 import { BottomNav } from './bottom-nav'
 import { Modals } from './modals'
 import { Toaster } from './toaster'
+import { SoundControls } from './sound-controls'
+import { ActionLoader } from './action-loader'
 import { SupportWidget } from './support-widget'
 import { RiskNote } from './ui-bits'
 import { DashboardView } from './views/dashboard'
@@ -80,6 +82,8 @@ export function PulseApp({ initial }: PulseAppProps) {
         <BottomNav />
         <Modals />
         <SupportWidget />
+        <SoundControls />
+        <ActionLoader />
         <Toaster />
       </div>
     </PulseProvider>

@@ -153,6 +153,8 @@ export interface Toast {
   variant: 'success' | 'error' | 'info'
 }
 
+export type SoundEvent = 'success' | 'error' | 'count'
+
 type ActionResult = { ok: true; snapshot: Snapshot } | { ok: false; error: string }
 
 interface StoreContext {
@@ -166,6 +168,9 @@ interface StoreContext {
   toasts: Toast[]
   toast: (t: Omit<Toast, 'id'>) => void
   dismissToast: (id: string) => void
+  soundEnabled: boolean
+  setSoundEnabled: (enabled: boolean) => void
+  playSound: (event: SoundEvent) => void
   totalInvested: number
   currentTier: (typeof TIERS)[number]
   portfolioValue: number
@@ -228,9 +233,44 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
   const [localBusy, setLocalBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
+  const [soundEnabled, setSoundEnabledState] = useState(true)
+  const audioContextRef = useRef<AudioContext | null>(null)
 
   const inFlight = useRef(false)
   const mounted = useRef(true)
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('pulse-sound-enabled')
+    if (stored !== null) setSoundEnabledState(stored !== 'false')
+  }, [])
+
+  const setSoundEnabled = useCallback((enabled: boolean) => {
+    setSoundEnabledState(enabled)
+    window.localStorage.setItem('pulse-sound-enabled', String(enabled))
+  }, [])
+
+  const playSound = useCallback((event: SoundEvent) => {
+    if (!soundEnabled || typeof window === 'undefined') return
+    const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtor) return
+    const context = audioContextRef.current ?? new AudioCtor()
+    audioContextRef.current = context
+    void context.resume()
+    const now = context.currentTime
+    const notes = event === 'count' ? [880, 1047, 1319, 1568] : event === 'error' ? [220, 165] : [988, 1319, 1760]
+    notes.forEach((frequency, index) => {
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      oscillator.type = event === 'count' ? 'square' : 'sine'
+      oscillator.frequency.value = frequency
+      gain.gain.setValueAtTime(0.0001, now + index * 0.1)
+      gain.gain.exponentialRampToValueAtTime(event === 'count' ? 0.12 : 0.08, now + index * 0.1 + 0.015)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.1 + 0.16)
+      oscillator.connect(gain).connect(context.destination)
+      oscillator.start(now + index * 0.1)
+      oscillator.stop(now + index * 0.1 + 0.17)
+    })
+  }, [soundEnabled])
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
@@ -240,9 +280,10 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
     (t: Omit<Toast, 'id'>) => {
       const id = uid()
       setToasts((prev) => [...prev, { ...t, id }])
+      if (t.variant === 'error') playSound('error')
       setTimeout(() => dismissToast(id), 4200)
     },
-    [dismissToast],
+    [dismissToast, playSound],
   )
 
   const openModal = useCallback(
@@ -264,14 +305,16 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
       setLocalBusy(true)
       try {
         const res = await fn()
+        if (res.ok) playSound('count')
         return applyResult(res)
       } catch (e) {
+        playSound('error')
         return { ok: false, error: (e as Error).message }
       } finally {
         setLocalBusy(false)
       }
     },
-    [applyResult],
+    [applyResult, playSound],
   )
 
   /**
@@ -430,6 +473,9 @@ export function PulseProvider({ children, initial }: { children: ReactNode; init
     toasts,
     toast,
     dismissToast,
+    soundEnabled,
+    setSoundEnabled,
+    playSound,
     totalInvested,
     currentTier,
     portfolioValue,
