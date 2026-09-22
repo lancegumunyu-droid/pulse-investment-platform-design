@@ -3,13 +3,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Server-side Supabase client (service role — never expose this key client-side)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET!;
+const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 
 type ResendEventType =
   | "email.sent"
@@ -34,10 +28,17 @@ interface ResendWebhookPayload {
 }
 
 export async function POST(req: Request) {
-  if (!WEBHOOK_SECRET) {
-    console.error("RESEND_WEBHOOK_SECRET is not set");
+  if (!WEBHOOK_SECRET || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("Resend webhook configuration is incomplete");
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
+
+  // Create the privileged client only at request time so builds do not require
+  // production-only Supabase secrets during page-data collection.
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
 
   // 1. Verify the request is genuinely from Resend
   const payload = await req.text();
