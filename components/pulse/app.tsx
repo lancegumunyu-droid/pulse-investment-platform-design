@@ -8,6 +8,7 @@ import { TopBar } from './top-bar'
 import { BottomNav } from './bottom-nav'
 import { Modals } from './modals'
 import { Toaster } from './toaster'
+import { SupportWidget } from './support-widget'
 import { RiskNote } from './ui-bits'
 import { DashboardView } from './views/dashboard'
 import { InvestView } from './views/invest'
@@ -78,6 +79,7 @@ export function PulseApp({ initial }: PulseAppProps) {
         </main>
         <BottomNav />
         <Modals />
+        <SupportWidget />
         <Toaster />
       </div>
     </PulseProvider>
