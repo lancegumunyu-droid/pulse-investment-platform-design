@@ -82,27 +82,25 @@ export async function validateReferralCode(code: string): Promise<{ ok: boolean;
   try {
     const db = serviceClient()
 
-    // Referral codes are user-facing and may have been created before the
-    // uppercase input rule was added. Use case-insensitive exact matching so
-    // valid links are not rejected because of casing differences.
-    const { data: byCode } = await db
-      .from('profiles')
-      .select('id')
-      .ilike('referral_code', normalized)
-      .maybeSingle()
-    if (byCode) return { ok: true, valid: true }
-
-    const { data: byWallet } = await db
-      .from('accounts')
-      .select('user_id')
-      .ilike('wallet_id', normalized)
-      .maybeSingle()
-    if (byWallet) return { ok: true, valid: true }
-
     // The public join code used when someone arrives without a referrer.
+    // Exempt from the KYC check below since there is no referring user.
     if (normalized === 'PULSE-PUBLIC') return { ok: true, valid: true }
 
-    return { ok: false, valid: false, error: 'Invalid or expired referral code' }
+    // Referral codes must belong to a KYC-verified member. This matches
+    // profiles.kyc_status = 'verified' (the authoritative KYC flag) rather
+    // than kyc_submissions.status, which never contains 'verified' and would
+    // silently reject every code if used here.
+    const { data: isVerifiedReferral, error } = await db.rpc('validate_pulse_referral', {
+      ref_code: normalized,
+    })
+    if (error) return { ok: false, valid: false, error: error.message }
+    if (isVerifiedReferral) return { ok: true, valid: true }
+
+    return {
+      ok: false,
+      valid: false,
+      error: 'Invalid, expired, or not-yet-verified referral code',
+    }
   } catch (e) {
     return { ok: false, valid: false, error: (e as Error).message }
   }
