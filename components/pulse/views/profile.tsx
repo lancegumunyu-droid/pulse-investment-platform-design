@@ -50,8 +50,12 @@ export function ProfileView() {
   }
 
   const pulseId = state.pulseId
-  const referralLink = pulseId
-    ? `https://pulseinvest.uk/auth/sign-up?ref=${encodeURIComponent(pulseId)}`
+  // Referral links must carry the user's referral_code/wallet_id (8-char
+  // PULSE-XXXXXXXX), not pulseId (10-char PULSE-XXXXXXXXXX) — pulseId is the
+  // account display ID and is never checked by validateReferralCode, so
+  // every link built from it was silently invalid.
+  const referralLink = referralCode
+    ? `https://pulseinvest.uk/auth/sign-up?ref=${encodeURIComponent(referralCode)}`
     : ''
 
   const copyRef = () => {
@@ -348,4 +352,4 @@ export function ProfileView() {
 
     </motion.div>
   )
-}
+        }
